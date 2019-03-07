@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MDIMainWindow</class>
+ <widget class="QMainWindow" name="MDIMainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>894</width>
+    <height>691</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MVP1</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_2">
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QMdiArea" name="mdiArea"/>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>894</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuOpen">
+    <property name="title">
+     <string>Open</string>
+    </property>
+    <addaction name="actionTIFF"/>
+    <addaction name="actionFolder"/>
+    <addaction name="separator"/>
+   </widget>
+   <widget class="QMenu" name="menuPrepare">
+    <property name="title">
+     <string>Prepare</string>
+    </property>
+    <addaction name="actionStart_wizard"/>
+   </widget>
+   <widget class="QMenu" name="menuIsolate">
+    <property name="title">
+     <string>Isolate</string>
+    </property>
+    <addaction name="actionStart_wizard_2"/>
+   </widget>
+   <widget class="QMenu" name="menuAnalyze">
+    <property name="title">
+     <string>Analyze</string>
+    </property>
+    <addaction name="actionStart_wizard_3"/>
+   </widget>
+   <widget class="QMenu" name="menuExport">
+    <property name="title">
+     <string>Export</string>
+    </property>
+   </widget>
+   <addaction name="menuOpen"/>
+   <addaction name="menuPrepare"/>
+   <addaction name="menuIsolate"/>
+   <addaction name="menuAnalyze"/>
+   <addaction name="menuExport"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionTIFF">
+   <property name="text">
+    <string>TIFF</string>
+   </property>
+   <property name="toolTip">
+    <string>.tiff, .tif</string>
+   </property>
+  </action>
+  <action name="actionClose">
+   <property name="text">
+    <string>Close</string>
+   </property>
+  </action>
+  <action name="actionFolder">
+   <property name="text">
+    <string>Folder</string>
+   </property>
+  </action>
+  <action name="actionStart_wizard">
+   <property name="text">
+    <string>Start wizard</string>
+   </property>
+  </action>
+  <action name="actionStart_wizard_2">
+   <property name="text">
+    <string>Start wizard</string>
+   </property>
+  </action>
+  <action name="actionStart_wizard_3">
+   <property name="text">
+    <string>Start wizard</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
