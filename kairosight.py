@@ -38,24 +38,30 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
         print('Path chosen: ' + file)
         if file:
-            f = PurePath(file)
-            f_path = str(f.parent) + '\\'
-            f_name = f.stem
-            f_ext = f.suffix
+            self.statusBar().showMessage('Opening ' + file + '...')
+            f_purepath = PurePath(file)
+            f_path = str(f_purepath.parent) + '\\'
+            f_name = f_purepath.stem
+            f_ext = f_purepath.suffix
             f_display = f_path + ' ' + f_name + ' ' + f_ext
             print('file (path name ext): ' + f_display)
             if f_ext is '.tif' or '.tiff':
                 print('TIFF chosen')
                 # Create QMdiSubWindow with Ui_WidgetTiff
-                sub = DesignerSubWindowTiff(f_path=f_path, f_name=f_name, f_ext=f_ext)
-                print('DesignerSubWindowTiff "sub" created')
-                print('Set "sub" widget to "Ui_WidgetTiff"')
-                sub.setObjectName('WidgetTiff' + str(f))
-                sub.setWindowTitle('TIFF View: ' + f_display)
-                # Add and connect QMdiSubWindow to MDI
-                self.mdiArea.addSubWindow(sub)
-                print('"sub" added to MDI')
-                sub.show()
+                try:
+                    sub = DesignerSubWindowTiff(f_path=f_path, f_name=f_name, f_ext=f_ext)
+                    print('DesignerSubWindowTiff "sub" created')
+                    print('Set "sub" widget to "Ui_WidgetTiff"')
+                    sub.setObjectName(str(file))
+                    sub.setWindowTitle('TIFF View: ' + f_display)
+                    # Add and connect QMdiSubWindow to MDI
+                    self.mdiArea.addSubWindow(sub)
+                    print('"sub" added to MDI')
+                    sub.show()
+                    self.statusBar().showMessage('Opened ' + file)
+                except Exception as e:
+                    print(e)
+                    self.statusBar().showMessage(str(e) + ' , ' + file)
 
     def open_folder(self):
         """Open a SubWindow with a folder tree view in the main MDI area"""
@@ -86,6 +92,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for WidgetTiff subwindow for an MDI"""
+
     def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
         # initialization of the superclass
         super(DesignerSubWindowTiff, self).__init__(parent)
@@ -99,10 +106,12 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.video_ext = f_ext
         self.video_file, self.dt = tifopen.tifopen(self.video_path, self.video_name + self.video_ext)
         self.video_shape = self.video_file.shape
-        self.frames = self.video_file.shape[0]
+        if len(self.video_shape) < 3:
+            raise Exception('TIFF has less than 3 dimensions')
+        self.frames = self.video_shape[0]
         self.fps = 1 / self.dt
         print('video shape: ', self.video_shape)
-        print('Width x Height: ', self.video_file.shape[1], self.video_file.shape[2])
+        print('Width x Height: ', self.video_shape[1], self.video_shape[2])
         print('# of Frames: ', self.frames)
         print('FPS: ', self.fps)
         self.horizontalScrollBar.setMinimum(1)
@@ -117,7 +126,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.mpl.canvas.ax.clear()
 
         # show the image
-        self.mpl.canvas.ax.imshow(self.video_file[frame-1], cmap='gray')
+        self.mpl.canvas.ax.imshow(self.video_file[frame - 1], cmap='gray')
         print('imshow called')
         self.mpl.canvas.ax.axis('off')
         self.mpl.canvas.draw()
@@ -125,6 +134,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
 class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     def __init__(self, parent=None, root=None):
         # initialization of the superclass
         super(DesignerSubWindowFolder, self).__init__(parent)
@@ -155,6 +165,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowImageProcess(QWidget, Ui_WidgetImageProcess):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(DesignerSubWindowImageProcess, self).__init__(parent)
