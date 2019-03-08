@@ -14,12 +14,13 @@ raf@cardiacmap.com
 v1: 2019-02-26 
 """
 
-def tifopen(path, fname):      
+from imageio import volread
+import exifread
+import pandas as pd
 
-    from imageio import volread
-    import exifread
-    import pandas as pd
-    
+def tifopen(path, fname):
+
+
     file = open(path+fname, 'rb')
     tags = exifread.process_file(file) # Read EXIF data
     img = volread(path+fname) # Read image data, keep this second because it closes the file after reading

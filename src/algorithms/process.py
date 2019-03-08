@@ -17,7 +17,9 @@ import pandas as pd
 # probe = 0 for calcium
 # probe = 1 for voltage
 # The probe specification will alter the column labels in the data frame and change how the activation time is computed
-def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe):      
+
+
+def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe):
     if base_locs[0] < t0_locs[0]: # If there is a baseline point before the first transient, that's a problem
         base_locs = base_locs[1:] # Chop the first baseline point
         

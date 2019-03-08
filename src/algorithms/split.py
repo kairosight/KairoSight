@@ -10,8 +10,9 @@ raf@cardiacmap.com
 v1: 2019-02-28
 """
 
+
 def split(img, horz):
-    [num_frames, h , w] = img.shape   
-    left = img[:,:,0:int(w*horz)]
-    right = img[:,:,int(w*horz):]
+    [num_frames, h, w] = img.shape
+    left = img[:, :, 0:int(w * horz)]
+    right = img[:, :, int(w * horz):]
     return left, right

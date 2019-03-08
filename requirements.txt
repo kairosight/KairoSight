@@ -9,7 +9,7 @@ networkx==2.2
 numpy==1.16.2
 Pillow==5.4.1
 pyparsing==2.3.1
-PyQt5==5.12
+PyQt5==5.11.3
 PyQt5-sip==4.19.14
 pyqt5-tools==5.11.3.1.4
 python-dateutil==2.8.0

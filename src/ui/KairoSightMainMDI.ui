@@ -35,27 +35,27 @@
    </property>
    <widget class="QMenu" name="menuOpen">
     <property name="title">
-     <string>Open</string>
+     <string>1) Open</string>
     </property>
     <addaction name="actionTIFF"/>
     <addaction name="actionFolder"/>
     <addaction name="separator"/>
    </widget>
-   <widget class="QMenu" name="menuPrepare">
+   <widget class="QMenu" name="menuImageProcess">
     <property name="title">
-     <string>Prepare</string>
+     <string>2) Image Process</string>
     </property>
-    <addaction name="actionStart_wizard"/>
+    <addaction name="actionStart_ImageProcess"/>
    </widget>
-   <widget class="QMenu" name="menuIsolate">
+   <widget class="QMenu" name="menuIsolateSignals">
     <property name="title">
-     <string>Isolate</string>
+     <string>3) Isolate Signals</string>
     </property>
     <addaction name="actionStart_wizard_2"/>
    </widget>
    <widget class="QMenu" name="menuAnalyze">
     <property name="title">
-     <string>Analyze</string>
+     <string>4) Analyze</string>
     </property>
     <addaction name="actionStart_wizard_3"/>
    </widget>
@@ -65,8 +65,8 @@
     </property>
    </widget>
    <addaction name="menuOpen"/>
-   <addaction name="menuPrepare"/>
-   <addaction name="menuIsolate"/>
+   <addaction name="menuImageProcess"/>
+   <addaction name="menuIsolateSignals"/>
    <addaction name="menuAnalyze"/>
    <addaction name="menuExport"/>
   </widget>
@@ -89,7 +89,7 @@
     <string>Folder</string>
    </property>
   </action>
-  <action name="actionStart_wizard">
+  <action name="actionStart_ImageProcess">
    <property name="text">
     <string>Start wizard</string>
    </property>

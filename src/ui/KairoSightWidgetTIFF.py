@@ -6,7 +6,7 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 
 class Ui_WidgetTiff(object):
@@ -51,4 +51,4 @@ class Ui_WidgetTiff(object):
         WidgetTiff.setWindowTitle(_translate("WidgetTiff", "TIFF Viewer"))
 
 
-from mplwidget import MplWidget
+from ui.mplwidget import MplWidget

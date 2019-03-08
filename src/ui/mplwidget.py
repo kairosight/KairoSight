@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Adapted from examples in "Matplotlib for Python Developers", Sandro Tosi, Packt Publishing
 # https://www.packtpub.com/sites/default/files/sample_chapters/7900-matplotlib-for-python-developers-sample-chapter-6-embedding-matplotlib-in-qt-4.pdf
 
