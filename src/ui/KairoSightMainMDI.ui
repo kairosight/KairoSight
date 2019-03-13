@@ -51,7 +51,7 @@
     <property name="title">
      <string>3) Isolate Signals</string>
     </property>
-    <addaction name="actionStart_wizard_2"/>
+    <addaction name="actionStart_Isolate"/>
    </widget>
    <widget class="QMenu" name="menuAnalyze">
     <property name="title">
@@ -94,7 +94,7 @@
     <string>Start wizard</string>
    </property>
   </action>
-  <action name="actionStart_wizard_2">
+  <action name="actionStart_Isolate">
    <property name="text">
     <string>Start wizard</string>
    </property>

@@ -2,12 +2,11 @@
 
 # Form implementation generated from reading ui file 'KairoSightMainMDI.ui'
 #
-# Created by: PyQt5 UI code generator 5.12
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 
 class Ui_MDIMainWindow(object):
     def setupUi(self, MDIMainWindow):
@@ -49,15 +48,15 @@ class Ui_MDIMainWindow(object):
         self.actionFolder.setObjectName("actionFolder")
         self.actionStart_ImageProcess = QtWidgets.QAction(MDIMainWindow)
         self.actionStart_ImageProcess.setObjectName("actionStart_ImageProcess")
-        self.actionStart_wizard_2 = QtWidgets.QAction(MDIMainWindow)
-        self.actionStart_wizard_2.setObjectName("actionStart_wizard_2")
+        self.actionStart_Isolate = QtWidgets.QAction(MDIMainWindow)
+        self.actionStart_Isolate.setObjectName("actionStart_Isolate")
         self.actionStart_wizard_3 = QtWidgets.QAction(MDIMainWindow)
         self.actionStart_wizard_3.setObjectName("actionStart_wizard_3")
         self.menuOpen.addAction(self.actionTIFF)
         self.menuOpen.addAction(self.actionFolder)
         self.menuOpen.addSeparator()
         self.menuImageProcess.addAction(self.actionStart_ImageProcess)
-        self.menuIsolateSignals.addAction(self.actionStart_wizard_2)
+        self.menuIsolateSignals.addAction(self.actionStart_Isolate)
         self.menuAnalyze.addAction(self.actionStart_wizard_3)
         self.menubar.addAction(self.menuOpen.menuAction())
         self.menubar.addAction(self.menuImageProcess.menuAction())
@@ -81,7 +80,6 @@ class Ui_MDIMainWindow(object):
         self.actionClose.setText(_translate("MDIMainWindow", "Close"))
         self.actionFolder.setText(_translate("MDIMainWindow", "Folder"))
         self.actionStart_ImageProcess.setText(_translate("MDIMainWindow", "Start wizard"))
-        self.actionStart_wizard_2.setText(_translate("MDIMainWindow", "Start wizard"))
+        self.actionStart_Isolate.setText(_translate("MDIMainWindow", "Start wizard"))
         self.actionStart_wizard_3.setText(_translate("MDIMainWindow", "Start wizard"))
-
 
