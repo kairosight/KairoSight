@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>644</width>
-    <height>438</height>
+    <width>739</width>
+    <height>415</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -107,21 +107,7 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="durationMsLabel">
-            <property name="text">
-             <string>Duration (ms)</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="frameRateLabel">
-            <property name="text">
-             <string>Frame Rate (fps)</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
+          <item row="1" column="1">
            <widget class="QLineEdit" name="frameRateLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -152,7 +138,28 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="1" column="0">
+           <widget class="QLabel" name="frameRateLabel">
+            <property name="text">
+             <string>Frame Rate (fps)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="framePeriodMsLabel">
+            <property name="text">
+             <string>Frame Period (ms)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="durationMsLabel">
+            <property name="text">
+             <string>Duration (ms)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
            <widget class="QLineEdit" name="durationMsLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -171,7 +178,7 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1">
            <widget class="QLineEdit" name="resolutionLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -190,7 +197,29 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="framePeriodMsLineEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>90</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="placeholderText">
+             <string>Nan</string>
+            </property>
+            <property name="clearButtonEnabled">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
            <widget class="QLabel" name="resolutionLabel">
             <property name="text">
              <string>Resolution (cm/px)</string>

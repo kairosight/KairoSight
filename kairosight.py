@@ -7,7 +7,7 @@ from pathlib import PurePath
 from skimage import io
 from PyQt5 import QtCore
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel, QDialogButtonBox
 import pyqtgraph as pg
 from ui.KairoSightMainMDI import Ui_MDIMainWindow
 from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
@@ -41,9 +41,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
             # Use a QFileDialog to get filepath if none provided
             file, mask = QFileDialog.getOpenFileName(self, 'Open a .tif/.tiff stack')
 
-        print('Path chosen: ' + file)
         if file:
-            self.statusBar().showMessage('Opening ' + file + '...')
+            self.statusBar().showMessage('Opening ' + file + ' ...')
             f_purepath = PurePath(file)
             f_path = str(f_purepath.parent) + '\\'
             f_name = f_purepath.stem
@@ -56,7 +55,6 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
                 try:
                     sub = DesignerSubWindowTiff(f_path=f_path, f_name=f_name, f_ext=f_ext)
                     print('DesignerSubWindowTiff "sub" created')
-                    print('Set "sub" widget to "Ui_WidgetTiff"')
                     sub.setObjectName(str(file))
                     sub.setWindowTitle('TIFF View: ' + f_display)
                     # Add and connect QMdiSubWindow to MDI
@@ -67,6 +65,9 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
                 except Exception:
                     traceback.print_exc()
                     self.statusBar().showMessage('Failed to open, ' + file)
+        else:
+            print('path is None')
+            self.statusBar().showMessage('Open cancelled')
 
     def open_folder(self):
         """Open a SubWindow with a folder tree view in the main MDI area"""
@@ -85,26 +86,27 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
     def image_process(self):
         """Open the Image Process SubWindow"""
-        print("***List of all subWindows in MDI:")
         windows_object_names = []
+        # Create a list of all open TIFF subwindows
         for sub in self.mdiArea.subWindowList():
-            windows_object_names.append(sub.widget().objectName())
-            print(sub.widget().objectName())
-        sub = DesignerSubWindowImageProcess(w_list=windows_object_names)
-        self.mdiArea.addSubWindow(sub)
-        sub.show()
+            # print('**' + str(type(sub.widget())) + ', ' + sub.widget().objectName() + ' is a tiff? ')
+            if type(sub.widget()) is DesignerSubWindowTiff:
+                windows_object_names.append(sub.widget().objectName())
+        sub_process = DesignerSubWindowImageProcess(w_list=windows_object_names)
+        self.mdiArea.addSubWindow(sub_process)
+        sub_process.show()
 
     def isolate(self):
         """Open the Isolate SubWindow"""
-        print("***List of all subWindows in MDI:")
         windows_object_names = []
+        # Create a list of all open TIFF subwindows
         for sub in self.mdiArea.subWindowList():
-            # TODO check type for DesignerSubWindowTiff to filter out others
-            windows_object_names.append(sub.widget().objectName())
-            print(sub.widget().objectName())
-        sub = DesignerSubWindowIsolate(w_list=windows_object_names)
-        self.mdiArea.addSubWindow(sub)
-        sub.show()
+            # print('**' + str(type(sub.widget())) + ', ' + sub.widget().objectName() + ' is a tiff? ')
+            if type(sub.widget()) is DesignerSubWindowTiff:
+                windows_object_names.append(sub)
+        sub_iso = DesignerSubWindowIsolate(w_list=windows_object_names)
+        self.mdiArea.addSubWindow(sub_iso)
+        sub_iso.show()
 
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
@@ -115,6 +117,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         super(DesignerSubWindowTiff, self).__init__(parent)
         # Setup the GUI
         self.setupUi(self)
+        pg.setConfigOptions(background=pg.mkColor(0.1))
+        pg.setConfigOptions(foreground=pg.mkColor(0.3))
         # Preserve plot area's aspect ration so image always scales correctly
         self.graphicsView.p1.setAspectLocked(True)
         # Connect the scrollbar's value signal to trigger a video update
@@ -137,11 +141,13 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         for i in range(self.frames):
             self.video_data[i] = np.fliplr(self.video_data[i])
 
+        # TODO revise UI to show dt
         self.fps = 1000 / self.dt
         self.duration = self.fps * (self.frames + 1)
+        self.width, self.height = self.video_shape[2], self.video_shape[1]
         print('video shape: ', self.video_shape)
-        print('Width x Height: ', self.video_shape[2], self.video_shape[1])
-        self.SizeLabelEdit.setText(str(self.video_shape[2]) + ' X ' + str(self.video_shape[1]))
+        print('Width x Height: ', self.width, self.height)
+        self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height))
         print('# of Frames: ', self.frames)
         print('FPS: ', self.fps)
         print('Duration (ms): ', self.duration)
@@ -153,9 +159,10 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frames)
-        self.update_video(1)
-
+        # self.update_video(1)
         self.graphicsView.hist.setLevels(self.video_data.min(), self.video_data.max())
+        self.ROIs = []
+        print('WidgetTiff ready')
 
     def update_video(self, frame=0):
         """Updates the video frame drawn to the canvas"""
@@ -208,21 +215,92 @@ class DesignerSubWindowImageProcess(QWidget, Ui_WidgetImageProcess):
         self.listWidgetOpenTiffs.addItems(self.windowListNames)
         print('WidgetImageProcess ready')
 
+
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for WidgetFolderTree subwindow for an MDI"""
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(DesignerSubWindowIsolate, self).__init__(parent)
-        self.windowListNames = w_list
-        self.currentFileName = ''
-        self.currentFilePath = ''
+        self.windowList = w_list
+        self.windowDict = {}    # Dictionary with structure "window_name_short": "window"
+        self.windowListNamesShort = []  # List of shortened window names for display in combo box
+        name_limit = 50
+        for w in self.windowList:
+            w_name = w.widget().objectName()
+            w_name_short = '..' + w_name[-name_limit:] if len(w_name) > name_limit else w_name
+            # self.windowListNamesShort.append(w_name_short)
+            # Populate dictionary
+            self.windowDict[w_name_short] = w.widget()
+        self.currentROIs = []
+        self.currentWindow = None
+        self.currentPlot = None
+        self.roi_preview = None
         # setup the GUI
         self.setupUi(self)
         print('WidgetIsolate UI setup')
-        # self.comboBoxSource.addItems(self.windowListNames)
+        self.comboBoxSource.addItems(self.windowDict.keys())
+        self.comboBoxSource.highlighted['int'].connect(self.selectionMade)
+        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
+        self.checkBoxPreview.stateChanged.connect(self.previewChanged)
+        self.selectionMade(0)
         print('WidgetIsolate ready')
 
+    def selectionMade(self, i):
+        print('** selectrion made in a ', type(self))
+        print('*Current: ', self.comboBoxSource.currentText())
+        print('*Loading tiff dimensions and ROIs')
+        self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
+        self.currentPlot = self.currentWindow.graphicsView.p1
+        self.currentROIs = self.currentWindow.ROIs
+        print('*Window: ', str(self.currentWindow), 'ROIs: ', str(self.currentROIs))
+        print('*W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height),
+              'ROIs: ', str(self.currentROIs))
+
+    def loadDefaults(self):
+        default_r = 15
+        if self.currentWindow:
+            try:
+                # Populate fields with default values
+                self.originXLineEdit.setText(str(int(self.currentWindow.width / 2)))
+                self.originYLineEdit.setText(str(int(self.currentWindow.height / 2)))
+                self.radiusLineEdit.setValue(default_r)
+            except Exception:
+                traceback.print_exc()
+        else:
+            print('No tiff windows available')
+
+    def updateParameters(self, state):
+        x, y = str(int(state['pos'].x())), str(int(state['pos'].y()))
+        r = int(state['size'][0])
+        print("Updating region with: ", x, ' ', y, ' ', r)
+        # Populate fields with passed values
+        self.originXLineEdit.setText(x)
+        self.originYLineEdit.setText(y)
+        self.radiusLineEdit.setValue(r)
+
+    def previewChanged(self):
+        print('*Preview checkbox changed: ', self.checkBoxPreview.isChecked())
+        x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
+        r = self.radiusLineEdit.value()
+        try:
+            if not self.roi_preview:
+                self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
+                self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview.getState()))
+                self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview.getState()))
+
+            if self.checkBoxPreview.isChecked():
+                # print('Adding roi_preview')
+                # Draw region on current window's plot
+                self.currentPlot.addItem(self.roi_preview)
+                # self.currentROIs.append()
+            else:
+                # print('Removing roi_preview')
+                self.currentPlot.removeItem(self.roi_preview)
+                self.roi_preview = None
+
+        except Exception:
+            traceback.print_exc()
 
 # create the GUI application
 app = QApplication(sys.argv)

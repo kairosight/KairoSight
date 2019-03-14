@@ -13,18 +13,9 @@ class GraphicsWidget(QWidget):
     def __init__(self, parent=None):
         # initialization of Qt MainWindow widget
         super(GraphicsWidget, self).__init__(parent)
-        # # set the "canvas" to the RawImage widget
-        # self.rawImg = RawImageWidget(QWidget())
-        # # create a vertical box layout
-        # self.vbl = QVBoxLayout()
-        # # add widget to vertical box
-        # self.vbl.addWidget(self.rawImg)
-        # # set the layout to the vertical box
-        # self.setLayout(self.vbl)
 
         # Create a central Graphics Layout Widget
         self.widget = GraphicsLayoutWidget()
-        # self.setCentralWidget(self.win)
 
         # A plot area (ViewBox + axes) for displaying the image
         self.p1 = self.widget.addPlot()

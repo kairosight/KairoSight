@@ -98,14 +98,14 @@
        <item>
         <layout class="QFormLayout" name="formLayoutCenter">
          <item row="0" column="0">
-          <widget class="QLabel" name="centerXLabel">
+          <widget class="QLabel" name="originXLabel">
            <property name="text">
-            <string>Center, X (px)</string>
+            <string>Origin, X (px)</string>
            </property>
           </widget>
          </item>
          <item row="0" column="1">
-          <widget class="QLineEdit" name="centerXLineEdit">
+          <widget class="QLineEdit" name="originXLineEdit">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -124,14 +124,14 @@
           </widget>
          </item>
          <item row="1" column="0">
-          <widget class="QLabel" name="centerYPxLabel">
+          <widget class="QLabel" name="originYLabel">
            <property name="text">
-            <string>Center, Y (px)</string>
+            <string>Origin, Y (px)</string>
            </property>
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="QLineEdit" name="centerYPxLineEdit">
+          <widget class="QLineEdit" name="originYLineEdit">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
              <horstretch>0</horstretch>
