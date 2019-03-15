@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>644</width>
-    <height>438</height>
+    <width>750</width>
+    <height>428</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -66,8 +66,17 @@
    </item>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
      <item>
       <widget class="QGroupBox" name="groupBoxProperties">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="title">
         <string>Properties</string>
        </property>
@@ -89,21 +98,59 @@
           <item row="0" column="0">
            <widget class="QLabel" name="SizeLabel">
             <property name="text">
-             <string>Width x Height</string>
+             <string>Width x Height (px)</string>
             </property>
            </widget>
           </item>
           <item row="0" column="1">
            <widget class="QLabel" name="SizeLabelEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>90</width>
+              <height>20</height>
+             </size>
+            </property>
             <property name="text">
              <string>---- X ----</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="durationMsLabel">
             <property name="text">
              <string>Duration (ms)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="framePeriodMsLabel">
+            <property name="text">
+             <string>Frame Period (ms)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="framePeriodMsLineEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>150</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="placeholderText">
+             <string>----</string>
             </property>
            </widget>
           </item>
@@ -127,25 +174,25 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>90</width>
+              <width>150</width>
               <height>20</height>
              </size>
             </property>
             <property name="baseSize">
              <size>
-              <width>50</width>
-              <height>20</height>
+              <width>0</width>
+              <height>0</height>
              </size>
             </property>
             <property name="placeholderText">
-             <string>Nan</string>
+             <string>----</string>
             </property>
             <property name="clearButtonEnabled">
              <bool>false</bool>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="3" column="1">
            <widget class="QLineEdit" name="durationMsLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -155,16 +202,16 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>90</width>
+              <width>150</width>
               <height>20</height>
              </size>
             </property>
             <property name="placeholderText">
-             <string>Nan</string>
+             <string>----</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1">
            <widget class="QLineEdit" name="resolutionLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -174,16 +221,16 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>90</width>
+              <width>150</width>
               <height>20</height>
              </size>
             </property>
             <property name="placeholderText">
-             <string>Nan</string>
+             <string>----</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="resolutionLabel">
             <property name="text">
              <string>Resolution (cm/px)</string>
@@ -196,21 +243,98 @@
       </widget>
      </item>
      <item>
-      <widget class="QGroupBox" name="groupBox">
+      <widget class="QGroupBox" name="groupBoxPreps">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="title">
-        <string>Data Tree</string>
+        <string>Preps</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
-         <widget class="QColumnView" name="columnView">
+         <widget class="QTreeView" name="treeViewPreps">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+           <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="resizeGripsVisible">
-           <bool>false</bool>
+          <property name="minimumSize">
+           <size>
+            <width>280</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>80</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupBoxROIs">
+       <property name="title">
+        <string>ROIs</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QTreeView" name="treeViewROIs">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>280</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>80</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupBoxAnalysis">
+       <property name="title">
+        <string>Analysis</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <item>
+         <widget class="QTreeView" name="treeViewAnalysis">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>280</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>80</height>
+           </size>
           </property>
          </widget>
         </item>
