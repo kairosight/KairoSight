@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_WidgetIsolate(object):
     def setupUi(self, WidgetIsolate):
         WidgetIsolate.setObjectName("WidgetIsolate")
-        WidgetIsolate.resize(350, 393)
+        WidgetIsolate.resize(350, 337)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -201,14 +201,6 @@ class Ui_WidgetIsolate(object):
         self.horizontalLayout_4.addWidget(self.comboBoxUnits)
         self.verticalLayout_2.addLayout(self.horizontalLayout_4)
         self.verticalLayout.addWidget(self.groupBoxTime)
-        self.groupBoxCondition = QtWidgets.QGroupBox(WidgetIsolate)
-        self.groupBoxCondition.setObjectName("groupBoxCondition")
-        self.horizontalLayout_6 = QtWidgets.QHBoxLayout(self.groupBoxCondition)
-        self.horizontalLayout_6.setObjectName("horizontalLayout_6")
-        self.checkBox = QtWidgets.QCheckBox(self.groupBoxCondition)
-        self.checkBox.setObjectName("checkBox")
-        self.horizontalLayout_6.addWidget(self.checkBox)
-        self.verticalLayout.addWidget(self.groupBoxCondition)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.checkBoxPreview = QtWidgets.QCheckBox(WidgetIsolate)
@@ -256,8 +248,6 @@ class Ui_WidgetIsolate(object):
         self.comboBoxUnits.setItemText(0, _translate("WidgetIsolate", "frames"))
         self.comboBoxUnits.setItemText(1, _translate("WidgetIsolate", "ms"))
         self.comboBoxUnits.setItemText(2, _translate("WidgetIsolate", "s"))
-        self.groupBoxCondition.setTitle(_translate("WidgetIsolate", "Condition"))
-        self.checkBox.setText(_translate("WidgetIsolate", "Invert Signal"))
         self.checkBoxPreview.setText(_translate("WidgetIsolate", "Preview"))
 
 from pyqtgraph.widgets.GraphicsLayoutWidget import GraphicsLayoutWidget

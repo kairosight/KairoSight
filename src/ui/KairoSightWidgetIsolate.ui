@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>350</width>
-    <height>393</height>
+    <height>337</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -353,22 +353,6 @@
          </widget>
         </item>
        </layout>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBoxCondition">
-     <property name="title">
-      <string>Condition</string>
-     </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_6">
-      <item>
-       <widget class="QCheckBox" name="checkBox">
-        <property name="text">
-         <string>Invert Signal</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </widget>

@@ -57,7 +57,7 @@
     <property name="title">
      <string>4) Analyze</string>
     </property>
-    <addaction name="actionStart_wizard_3"/>
+    <addaction name="actionStart_Analyze"/>
    </widget>
    <widget class="QMenu" name="menuExport">
     <property name="title">
@@ -99,7 +99,7 @@
     <string>Start wizard</string>
    </property>
   </action>
-  <action name="actionStart_wizard_3">
+  <action name="actionStart_Analyze">
    <property name="text">
     <string>Start wizard</string>
    </property>
