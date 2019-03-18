@@ -238,8 +238,8 @@ class Ui_WidgetIsolate(object):
         _translate = QtCore.QCoreApplication.translate
         WidgetIsolate.setWindowTitle(_translate("WidgetIsolate", "Isolate"))
         self.labelSource.setText(_translate("WidgetIsolate", "Source:"))
-        self.labelPreps.setText(_translate("WidgetIsolate", "Preps:"))
-        self.labelROIs.setText(_translate("WidgetIsolate", "ROIs:"))
+        self.labelPreps.setText(_translate("WidgetIsolate", "Prep:"))
+        self.labelROIs.setText(_translate("WidgetIsolate", "ROI:"))
         self.comboBoxROIs.setItemText(0, _translate("WidgetIsolate", "*New*"))
         self.originXLabel.setText(_translate("WidgetIsolate", "Origin, X (px)"))
         self.originXLineEdit.setText(_translate("WidgetIsolate", "0"))

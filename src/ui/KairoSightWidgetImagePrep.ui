@@ -67,7 +67,7 @@
         </sizepolicy>
        </property>
        <property name="text">
-        <string>Preps:</string>
+        <string>Prep:</string>
        </property>
        <property name="textFormat">
         <enum>Qt::PlainText</enum>

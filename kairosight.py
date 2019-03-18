@@ -123,7 +123,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for WidgetTiff subwindow for an MDI"""
-    INDEX, TRANSFORM, BACKGROUND = range(3)
+    INDEX_P, TRANSFORM, BACKGROUND = range(3)
+    INDEX_R, TYPE, POSITION, SIZE, TIME = range(5)
 
     def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
         # Initialization of the superclass
@@ -171,12 +172,12 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.frameRateLineEdit.setEnabled(False)
             self.durationMsLineEdit.setText(str(self.duration))
             self.durationMsLineEdit.setEnabled(False)
-        self.ROIs = []
-        self.Preps = []
+        self.ROIs = []      # A list of pg.ROI objects
+        self.Preps = []     # A list of prep dictionaries
+        self.prep_default = {'Transform': 'NaN', 'Background': 'NaN'}
         # set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frames)
-        # self.update_video(1)
         self.graphicsView.hist.setLevels(self.video_data.min(), self.video_data.max())
         self.frame_current = 0
 
@@ -184,12 +185,20 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewPreps.setAlternatingRowColors(True)
         self.treeViewROIs.setAlternatingRowColors(True)
         self.treeViewAnalysis.setAlternatingRowColors(True)
-
+        # Preps model
         self.modelPrep = QStandardItemModel(0, 3)
-        self.modelPrep.setHeaderData(self.INDEX, Qt.Horizontal, "#")
+        self.modelPrep.setHeaderData(self.INDEX_P, Qt.Horizontal, "#")
         self.modelPrep.setHeaderData(self.TRANSFORM, Qt.Horizontal, "Transform")
         self.modelPrep.setHeaderData(self.BACKGROUND, Qt.Horizontal, "Background")
         self.treeViewPreps.setModel(self.modelPrep)
+        # ROI model
+        self.modelRoi = QStandardItemModel(0, 5)
+        self.modelRoi.setHeaderData(self.INDEX_R, Qt.Horizontal, "#")
+        self.modelRoi.setHeaderData(self.TYPE, Qt.Horizontal, "Type")
+        self.modelRoi.setHeaderData(self.POSITION, Qt.Horizontal, "Position (X,Y)")
+        self.modelRoi.setHeaderData(self.SIZE, Qt.Horizontal, "Size (px)")
+        self.modelRoi.setHeaderData(self.TIME, Qt.Horizontal, "Time (frames)")
+        self.treeViewROIs.setModel(self.modelRoi)
         # TODO add/format other models
         self.addPrep()
 
@@ -219,10 +228,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             print('** Preps are now: ', self.Preps)
         else:
             print('** No Prep to add!')
-            self.modelPrep.insertRow(0)
-            self.modelPrep.setData(self.modelPrep.index(0, self.INDEX), '0')
-            self.modelPrep.setData(self.modelPrep.index(0, self.TRANSFORM), 'NaN')
-            self.modelPrep.setData(self.modelPrep.index(0, self.BACKGROUND), 'NaN')
+            if self.Preps:
+                print('** This tiff has preps, not adding default')
+            else:
+                self.Preps.append(self.prep_default)
+                self.modelPrep.insertRow(0)
+                self.modelPrep.setData(self.modelPrep.index(0, self.INDEX_P), '0')
+                self.modelPrep.setData(self.modelPrep.index(0, self.TRANSFORM), 'NaN')
+                self.modelPrep.setData(self.modelPrep.index(0, self.BACKGROUND), 'NaN')
 
     def getRoiPreview(self, roi):
         data = self.video_data[self.frame_current]
@@ -230,14 +243,31 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
-    def addROI(self, roi=None):
+    def addROI(self, roi=None, time=None):
         if roi:
-            self.ROIs.append(roi)
-            # TODO add
-            print('** ROIs are now: ', self.ROIs)
+            print('** Adding passed ROI: ', roi)
+            roi.translatable = False
+            roi_state = roi.getState()
+            x, y = str(int(roi_state['pos'].x())), str(int(roi_state['pos'].y()))
+            position = x + ',' + y
+            r = int(roi_state['size'][0])
+            if not time:
+                time = '0-' + str(self.frames)
+            else:
+                time = str(time[0]) + '-' + str(time[0])
+            roi_new = pg.CircleROI([x, y], [r, r], pen=(2, 9), movable=False)
+            self.ROIs.append(roi_new)
+            self.graphicsView.p1.addItem(roi_new)
+            length = self.modelRoi.rowCount()
+            self.modelRoi.insertRow(length)
+            self.modelRoi.setData(self.modelRoi.index(length, self.INDEX_R), str(length))
+            self.modelRoi.setData(self.modelRoi.index(length, self.TYPE), 'Circle')
+            self.modelRoi.setData(self.modelRoi.index(length, self.POSITION), position)
+            self.modelRoi.setData(self.modelRoi.index(length, self.SIZE), r)
+            self.modelRoi.setData(self.modelRoi.index(length, self.TIME), time)
+            # print('** ROIs are now: ', self.ROIs)
         else:
             print('** No ROI to add!')
-
 
 
 class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
@@ -268,7 +298,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
     """Customization for WidgetFolderTree subwindow for an MDI"""
-
+    # TODO load open tiff windows+preps into Source combobox
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(DesignerSubWindowImagePrep, self).__init__(parent)
@@ -285,15 +315,56 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
             self.windowDict[w_name_short] = w.widget()
         self.currentWindow = None
         self.currentPlot = None
+        self.currentPreps = []
+        self.prep_preview = None
         # setup the GUI
         self.setupUi(self)
-        print('WidgetImagePrep UI setup')
+        print('WidgetImagePrep UI setup...')
+        self.comboBoxSource.addItems(self.windowDict.keys())
+        self.comboBoxSource.highlighted['int'].connect(self.selectionMadeSource)
+        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyPrep)
+        # self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
+        self.selectionMadeSource(0)
         # self.listWidgetOpenTiffs.addItems(self.windowListNames)
         print('WidgetImagePrep ready')
+
+    def selectionMadeSource(self, i):
+        print('** selectrion made in a ', type(self))
+        print('*Current: ', self.comboBoxSource.currentText())
+        self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
+        self.currentPlot = self.currentWindow.graphicsView.p1
+        self.currentPreps = self.currentWindow.Preps
+        for idx, prep in enumerate(self.currentPreps):
+            self.comboBoxPreps.addItem(str(idx))
+            print('Added Prep #', idx, ': ', prep)
+            # for key, value in prep.items():
+        print('*Window: ', str(self.currentWindow))
+        print('*W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
+        print('Preps: ', str(self.currentPreps))
+        self.loadDefaults()
+
+    def loadDefaults(self):
+        default_r = 15
+        if self.currentWindow:
+            try:
+                print('** Loading defaults for Image Prep')
+                # Populate fields with default values
+                # self.originXLineEdit.setText(str(int(self.currentWindow.width / 2)))
+                # self.originYLineEdit.setText(str(int(self.currentWindow.height / 2)))
+                # self.radiusLineEdit.setValue(default_r)
+            except Exception:
+                traceback.print_exc()
+        else:
+            print('No tiff windows available')
+
+    def applyPrep(self):
+        self.currentWindow.addPrep(self.prep_preview)
 
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+    # TODO get preps of current window
+    # TODO refresh ROI list after adding
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -306,11 +377,10 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             w_name_short = '..' + w_name[-name_limit:] if len(w_name) > name_limit else w_name
             # Populate dictionary
             self.windowDict[w_name_short] = w.widget()
-        self.currentROIs = []
-        # TODO get preps of current window
-        self.currentPreps = []
         self.currentWindow = None
         self.currentPlot = None
+        self.currentPreps = []
+        self.currentROIs = []
         self.roi_preview = None
         # setup the GUI
         self.setupUi(self)
@@ -324,25 +394,38 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.v_preview.addItem(self.img_preview)
         self.v_preview.disableAutoRange('xy')
         self.v_preview.autoRange()
-        print('WidgetIsolate UI setup')
+        print('WidgetIsolate UI setup...')
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.highlighted['int'].connect(self.selectionMadeSource)
+
+        self.originXLineEdit.textEdited.connect(self.checkBoxChangedPreview)
+        self.originYLineEdit.textEdited.connect(self.checkBoxChangedPreview)
+        self.radiusLineEdit.valueChanged.connect(self.checkBoxChangedPreview)
+
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyROI)
         self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
         self.selectionMadeSource(0)
         print('WidgetIsolate ready')
 
+    def closeEvent(self, event):
+        self.checkBoxPreview.setChecked(False)
+        event.accept()
+
     def selectionMadeSource(self, i):
-        print('** selectrion made in a ', type(self))
-        print('*Current: ', self.comboBoxSource.currentText())
-        print('*Loading tiff dimensions and ROIs')
+        print('** selection made in a ', type(self))
+        print('* Current: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentPlot = self.currentWindow.graphicsView.p1
+        self.currentPreps = self.currentWindow.Preps
+        for idx, prep in enumerate(self.currentPreps):
+            self.comboBoxPreps.addItem(str(idx))
+            print('Added Prep #', idx, ': ', prep)
         self.currentROIs = self.currentWindow.ROIs
-        print('*Window: ', str(self.currentWindow), 'ROIs: ', str(self.currentROIs))
-        print('*W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height),
-              'ROIs: ', str(self.currentROIs))
+        print('* Window: ', str(self.currentWindow))
+        print('* W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
+        print('* Preps: ', str(self.currentPreps))
+        print('* ROIs: ', str(self.currentROIs))
         self.loadDefaults()
 
     def loadDefaults(self):
@@ -369,42 +452,52 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def checkBoxChangedPreview(self):
         print('*Preview checkbox changed to: ', self.checkBoxPreview.isChecked())
-        # Get current ROI values
-        x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
-        r = self.radiusLineEdit.value()
-        try:
-
-            if self.checkBoxPreview.isChecked():
-                if not self.roi_preview:
-                    # Create preview ROI if it doesn't exist
-                    self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
-                    # Draw region on current tiff window's plot
-                    # print('Adding roi_preview')
-                    self.currentPlot.addItem(self.roi_preview)
-                    # self.currentROIs.append(self.roi_preview)
-                    self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview.getState()))
-                    self.roi_preview.sigRegionChanged.connect(self.updatePreview)
-                    self.updatePreview()
+        if self.checkBoxPreview.isChecked():
+            if not self.roi_preview:
+                # Get current ROI values
+                x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
+                r = self.radiusLineEdit.value()
+                # Create preview ROI if it doesn't exist
+                self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
+                # Draw region on current tiff window's plot
+                # print('Adding roi_preview')
+                self.currentPlot.addItem(self.roi_preview)
+                # self.currentROIs.append(self.roi_preview)
+                self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview.getState()))
+                self.roi_preview.sigRegionChanged.connect(self.updatePreview)
+                self.updatePreview()
             else:
-                # print('Removing roi_preview')
-                self.currentPlot.removeItem(self.roi_preview)
-                self.roi_preview = None
+                # ROI Preview exists, update the params
+                # Get current ROI values
+                x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
+                r = self.radiusLineEdit.value()
+                self.roi_preview.setPos((x, y))
+                self.roi_preview.setSize(r)
+        else:
+            # print('Removing roi_preview')
+            self.currentPlot.removeItem(self.roi_preview)
+            self.roi_preview = None
+
+    def updatePreview(self):
+        if self.roi_preview:
+            # Get current video frame data and preview ROI data
+            data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
+            data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
+
+            # self.roi_preview.setParentItem(img_preview)
+            # Draw preview data in isolate subwindow
+            self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
+            self.v_preview.autoRange()
+        else:
+            print('No ROI preview to update!')
+
+    def applyROI(self):
+        try:
+            self.currentWindow.addROI(self.roi_preview)
+            self.checkBoxPreview.setChecked(False)
         except Exception:
             traceback.print_exc()
 
-    def updatePreview(self):
-        # self.img_preview.update()
-        # Get current video frame data and preview ROI data
-        data = self.currentWindow.video_data[self.currentWindow.frame_current]
-        data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
-
-        # self.roi_preview.setParentItem(img_preview)
-        # Draw preview data in isolate subwindow
-        self.img_preview.setImage(data_preview, levels=(0, data.max()))
-        self.v_preview.autoRange()
-
-    def applyROI(self):
-        self.currentWindow.addROI(self.roi_preview)
 
 # create the GUI application
 app = QApplication(sys.argv)

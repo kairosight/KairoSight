@@ -132,7 +132,7 @@ class Ui_WidgetImagePrep(object):
         _translate = QtCore.QCoreApplication.translate
         WidgetImagePrep.setWindowTitle(_translate("WidgetImagePrep", "Image Prep"))
         self.labelSource.setText(_translate("WidgetImagePrep", "Source:"))
-        self.labelPreps.setText(_translate("WidgetImagePrep", "Preps:"))
+        self.labelPreps.setText(_translate("WidgetImagePrep", "Prep:"))
         self.comboBoxPreps.setItemText(0, _translate("WidgetImagePrep", "*New*"))
         self.groupBoxTransform.setTitle(_translate("WidgetImagePrep", "Transform"))
         self.checkBoxApplyTransform.setText(_translate("WidgetImagePrep", "Apply"))
