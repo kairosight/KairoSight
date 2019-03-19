@@ -232,6 +232,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.modelAnalysis.setHeaderData(self.PEAKS, Qt.Horizontal, "Peak Det.")
         self.modelAnalysis.setHeaderData(self.PROCESS, Qt.Horizontal, "Results")
         self.treeViewAnalysis.setModel(self.modelAnalysis)
+        # TODO Use double-click to view analysis results
 
         # Add default prep, with no transform or background removal
         self.addPrep(self.prep_default)
@@ -327,6 +328,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI_CALC), 'MEAN')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PEAKS), 'THR,LOT')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PROCESS), 'ALL')
+        else:
+            print('** No Prep to add!')
 
 
 class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
@@ -358,7 +361,6 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
     """Customization for WidgetFolderTree subwindow for an MDI"""
 
-    # TODO connect value entry with prep_preview
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(DesignerSubWindowImagePrep, self).__init__(parent)
@@ -423,9 +425,7 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for WidgetFolderTree subwindow for an MDI"""
-
-    # TODO load preps
-    # TODO load ROI params and enable editing
+    # TODO Add functionality to Discard button
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -458,9 +458,8 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         print('WidgetIsolate UI setup...')
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
+        # self.comboBoxPreps.currentIndexChanged['int'].connect(self.selectionMadePrep)
         self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
-        # self.comboBoxPreps.highlighted['int'].connect(self.selectionMadePrep)
-        # self.comboBoxRois.highlighted['int'].connect(self.selectionMadeROI)
 
         self.originXLineEdit.textEdited.connect(self.checkBoxChangedPreview)
         self.originYLineEdit.textEdited.connect(self.checkBoxChangedPreview)
@@ -486,7 +485,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current: ', self.comboBoxSource.currentText())
+        print('* Current source: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentPlot = self.currentWindow.graphicsView.p1
         self.currentPreps = self.currentWindow.Preps
@@ -509,18 +508,29 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         print('* ROIs: ', str(self.currentROIs))
         self.loadDefaults()
 
+    def selectionMadePrep(self, i):
+        """Slot for comboBoxPreps.currentIndexChanged"""
+        print('** selection made in a ', type(self))
+        print('* Current Prep: ', self.comboBoxPreps.currentText())
+        # for prep in self.currentWindow.Preps:
+
+        index_current = self.comboBoxPreps.currentIndex()
+        prep_current = self.currentWindow.Preps[index_current - 1]
+        print('* Prep: ', str(prep_current))
+        # prep_current.setPen(color='FF000A')
+        # self.updateParameters(prep_current)
+
     def selectionMadeROI(self, i):
         """Slot for comboBoxROIs.currentIndexChanged"""
-        # TODO change pen of a selected ROI to highlight
         print('** selection made in a ', type(self))
-        print('* Current: ', self.comboBoxROIs.currentText())
+        print('* Current ROI: ', self.comboBoxROIs.currentText())
         for roi in self.currentWindow.ROIs:
             roi.setPen(color='54FF00')
         index_current = self.comboBoxROIs.currentIndex()
         if index_current > 0:
             # An existing ROI has been selected
             roi_current = self.currentWindow.ROIs[index_current - 1]
-            print('* ROIs: ', str(roi_current))
+            print('* ROI: ', str(roi_current))
             roi_current.setPen(color='FF000A')
             self.updateParameters(roi_current)
         else:
@@ -599,30 +609,28 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def applyROI(self):
         """Adds an ROI to a TIFF or applies changes to an existing ROI"""
-        try:
-            if self.comboBoxROIs.currentIndex() is 0:
-                prepIndex = self.comboBoxPreps.currentIndex()
-                prepText = self.comboBoxPreps.currentText()
-                prepData = self.comboBoxPreps.currentData()
-                print("*Adding ROI with prepIndex " + str(prepIndex))
-                print("*Adding ROI with prepText " + prepText)
-                print("*Adding ROI with prepData " + str(prepData))
-                self.currentWindow.addROI(prepIndex, self.roi_preview)
-            else:
-                # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
-                roi_current = self.currentROIs[self.comboBoxROIs.currentIndex() - 1]
-                roi_current.setState(self.roi_preview.saveState())
-                roi_current.setPen(color='54FF00')
-            self.checkBoxPreview.setChecked(False)
-            self.selectionMadeSource(0)
-        except Exception:
-            traceback.print_exc()
+        if self.comboBoxROIs.currentIndex() is 0:
+            prepIndex = self.comboBoxPreps.currentIndex()
+            prepText = self.comboBoxPreps.currentText()
+            prepData = self.comboBoxPreps.currentData()
+            print("*Adding ROI with prepIndex " + str(prepIndex))
+            print("*Adding ROI with prepText " + prepText)
+            print("*Adding ROI with prepData " + str(prepData))
+            self.currentWindow.addROI(prepIndex, self.roi_preview)
+        else:
+            # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
+            roi_current = self.currentROIs[self.comboBoxROIs.currentIndex() - 1]
+            roi_current.setState(self.roi_preview.saveState())
+            roi_current.setPen(color='54FF00')
+        self.checkBoxPreview.setChecked(False)
+        self.selectionMadeSource(0)
 
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     """Customization for WidgetFolderTree subwindow for an MDI"""
 
     # TODO Plot data at each step of analysis
+    # TODO Add functionality to Discard button
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(DesignerSubWindowAnalyze, self).__init__(parent)
@@ -650,9 +658,9 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.tabProcess.setEnabled(False)
 
         self.comboBoxSource.addItems(self.windowDict.keys())
-        self.comboBoxSource.highlighted['int'].connect(self.selectionMadeSource)
-        # self.comboBoxPreps.highlighted['int'].connect(self.selectionMadePrep)
-        # self.comboBoxRois.highlighted['int'].connect(self.selectionMadeROI)
+        self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
+        self.comboBoxPreps.currentIndexChanged['int'].connect(self.selectionMadePrep)
+        self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
 
         self.buttonBoxCondition.button(QDialogButtonBox.Apply).clicked.connect(self.applyCondition)
         self.buttonBoxPeakDetect.button(QDialogButtonBox.Apply).clicked.connect(self.applyPeakDetect)
@@ -664,44 +672,83 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('WidgetAnalyze ready')
 
     def selectionMadeSource(self, i):
+        """Slot for comboBoxSource.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current: ', self.comboBoxSource.currentText())
+        print('* Current source: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentPlot = self.currentWindow.graphicsView.p1
         self.currentPreps = self.currentWindow.Preps
         self.comboBoxPreps.clear()
         for idx, prep in enumerate(self.currentPreps):
-            self.comboBoxPreps.addItem(str(idx))
+            self.comboBoxPreps.addItem(str(prep))
+            self.comboBoxPreps.setItemText(idx, '#' + str(idx))
             print('Listing Prep #', idx, ': ', prep)
 
         self.comboBoxROIs.clear()
         self.currentROIs = self.currentWindow.ROIs
-        for idx, prep in enumerate(self.currentROIs):
-            self.comboBoxROIs.addItem(str(idx))
+        for idx, roi in enumerate(self.currentROIs):
+            self.comboBoxROIs.addItem(str(idx) + ': ' + str(roi.saveState()))
             print('Listing ROI #', idx, ': ', prep)
+
         print('* Window: ', str(self.currentWindow))
         print('* W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
         print('* Preps: ', str(self.currentPreps))
         print('* ROIs: ', str(self.currentROIs))
         # self.loadDefaults()
 
+    def selectionMadePrep(self, i):
+        """Slot for comboBoxPreps.currentIndexChanged"""
+        try:
+            print('** selection made in a ', type(self))
+            print('* Current Prep: ', self.comboBoxPreps.currentText())
+            # for prep in self.currentWindow.Preps:
+
+            index_current = self.comboBoxPreps.currentIndex()
+            prep_current = self.currentWindow.Preps[index_current]
+            print('* Prep: ', str(prep_current))
+            # prep_current.setPen(color='FF000A')
+            # self.updateParameters(prep_current)
+
+        except Exception:
+            traceback.print_exc()
+
+    def selectionMadeROI(self, i):
+        """Slot for comboBoxROIs.currentIndexChanged"""
+        print('** selection made in a ', type(self))
+        print('* Current ROI: ', self.comboBoxROIs.currentText())
+        for roi in self.currentWindow.ROIs:
+            roi.setPen(color='54FF00')
+        index_current = self.comboBoxROIs.currentIndex()
+        # An existing ROI has been selected
+        roi_current = self.currentWindow.ROIs[index_current]
+        print('* ROI: ', str(roi_current))
+        roi_current.setPen(color='FF000A')
+        self.progressBar.setValue(20)
+
     def applyCondition(self):
+        # TODO Use parameters to plot conditioned ROI data
         if self.tabProcess.isEnabled():
             self.tabProcess.setEnabled(False)
         self.tabPeakDetect.setEnabled(True)
-        self.progressBar.setValue(20)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
+        self.progressBar.setValue(60)
 
     def applyPeakDetect(self):
+        # TODO Use parameters to add peaks to ROI data plot
         self.tabProcess.setEnabled(True)
-        self.progressBar.setValue(60)
+        self.progressBar.setValue(100)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabProcess)
 
     def applyAnalyze(self):
+        # TODO Pass an analysis dict to addAnalysis
         self.currentWindow.addAnalysis(self.currentWindow.analysis_default)
         # self.currentWindow.addAnalysis(self.analysis_preview)
-        self.progressBar.setValue(100)
         self.selectionMadeSource(0)
+        if self.tabProcess.isEnabled():
+            self.tabProcess.setEnabled(False)
+        if self.tabPeakDetect.isEnabled():
+            self.tabPeakDetect.setEnabled(False)
+        self.progressBar.setValue(20)
 
 
 # create the GUI application
