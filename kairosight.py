@@ -110,7 +110,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
         for sub in self.mdiArea.subWindowList():
             # print('**' + str(type(sub.widget())) + ', ' + sub.widget().objectName() + ' is a tiff? ')
             if type(sub.widget()) is DesignerSubWindowTiff:
-                tiff_windows.append(sub)
+                if sub.widget().Preps:
+                    tiff_windows.append(sub)
         if tiff_windows:
             sub_iso = DesignerSubWindowIsolate(w_list=tiff_windows)
             self.mdiArea.addSubWindow(sub_iso)
@@ -138,8 +139,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for WidgetTiff subwindow for an MDI"""
     INDEX_P, TRANSFORM, BACKGROUND = range(3)
-    PREP, INDEX_R, TYPE, POSITION, SIZE, TIME = range(6)
-    ROI, INDEX_A, TYPE, ROI_CALC, PEAKS, PROCESS = range(6)
+    INDEX_R, PREP, TYPE, POSITION, SIZE, TIME = range(6)
+    INDEX_A, ROI, TYPE, ROI_CALC, PEAKS, PROCESS = range(6)
 
     def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
         # Initialization of the superclass
@@ -187,17 +188,21 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.frameRateLineEdit.setEnabled(False)
             self.durationMsLineEdit.setText(str(self.duration))
             self.durationMsLineEdit.setEnabled(False)
-        self.Preps = []     # A list of prep dictionaries
-        self.prep_default = {'Transform': 'NaN', 'Background': 'NaN'}
-        self.ROIs = []      # A list of pg.ROI objects
-        self.Analysis = []      # A list of Analysis results dictionaries
+
+        # Setup Preps, ROIs, and Anlysis variables
+        self.Preps = []  # A list of prep dictionaries
+        self.prep_default = {'transform': 'NaN', 'background': 'NaN'}
+        self.ROIs = []  # A list of pg.ROI objects
+        self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': 'NaN', 'INDEX_A': 'NaN', 'TYPE': 'NaN',
                                  'ROI_CALC': 'NaN', 'PEAKS': 'NaN', 'PROCESS': 'NaN'}
-        # set scroll bar maximum to number of frames
+        # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frames)
-        self.graphicsView.hist.setLevels(self.video_data.min(), self.video_data.max())
         self.frame_current = 0
+        # Set histogram to image levels and use a manual range
+        self.graphicsView.hist.setLevels(self.video_data.min(), self.video_data.max())
+        self.graphicsView.hist.setHistogramRange(self.video_data.min(), self.video_data.max())
 
         # Setup data treeviews
         self.treeViewPreps.setAlternatingRowColors(True)
@@ -211,8 +216,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewPreps.setModel(self.modelPrep)
         # ROI model
         self.modelRoi = QStandardItemModel(0, 6)
-        self.modelRoi.setHeaderData(self.PREP, Qt.Horizontal, "Prep#")
         self.modelRoi.setHeaderData(self.INDEX_R, Qt.Horizontal, "#")
+        self.modelRoi.setHeaderData(self.PREP, Qt.Horizontal, "Prep#")
         self.modelRoi.setHeaderData(self.TYPE, Qt.Horizontal, "Type")
         self.modelRoi.setHeaderData(self.POSITION, Qt.Horizontal, "Position (X,Y)")
         self.modelRoi.setHeaderData(self.SIZE, Qt.Horizontal, "Size (px)")
@@ -220,16 +225,16 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewROIs.setModel(self.modelRoi)
         # Analysis model
         self.modelAnalysis = QStandardItemModel(0, 6)
-        self.modelAnalysis.setHeaderData(self.ROI, Qt.Horizontal, "ROI#")
         self.modelAnalysis.setHeaderData(self.INDEX_A, Qt.Horizontal, "#")
+        self.modelAnalysis.setHeaderData(self.ROI, Qt.Horizontal, "ROI#")
         self.modelAnalysis.setHeaderData(self.TYPE, Qt.Horizontal, "Type")
         self.modelAnalysis.setHeaderData(self.ROI_CALC, Qt.Horizontal, "ROI Calc.")
         self.modelAnalysis.setHeaderData(self.PEAKS, Qt.Horizontal, "Peak Det.")
         self.modelAnalysis.setHeaderData(self.PROCESS, Qt.Horizontal, "Results")
         self.treeViewAnalysis.setModel(self.modelAnalysis)
 
-        # Add default prep, no transform or background removal
-        self.addPrep()
+        # Add default prep, with no transform or background removal
+        self.addPrep(self.prep_default)
         print('WidgetTiff ready')
 
     def updateVideo(self, frame=0):
@@ -253,11 +258,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         if prep:
             print('** Adding passed prep: ', prep)
             self.Preps.append(prep)
+            transform = prep['transform']
+            background = prep['background']
+
             length = self.modelRoi.rowCount()
-            self.modelRoi.insertRow(length)
-            self.modelPrep.setData(self.modelPrep.index(length, self.INDEX_P), '0')
-            self.modelPrep.setData(self.modelPrep.index(length, self.TRANSFORM), 'NaN')
-            self.modelPrep.setData(self.modelPrep.index(length, self.BACKGROUND), 'NaN')
+            self.modelPrep.insertRow(length)
+            self.modelPrep.setData(self.modelPrep.index(length, self.INDEX_P), length)
+            self.modelPrep.setData(self.modelPrep.index(length, self.TRANSFORM), transform)
+            self.modelPrep.setData(self.modelPrep.index(length, self.BACKGROUND), background)
             print('** Preps are now: ', self.Preps)
         else:
             print('** No Prep to add!')
@@ -268,7 +276,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
-    def addROI(self, roi=None, time=None):
+    def addROI(self, prep=0, roi=None, time=None):
         if roi:
             print('** Adding passed ROI: ', roi)
             roi.translatable = False
@@ -281,11 +289,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             else:
                 time = str(time[0]) + '-' + str(time[0])
             roi_new = pg.CircleROI([x, y], [r, r], pen=(2, 9), movable=False)
-            self.ROIs.append(roi_new)
+            roi_new.setPen(color='54FF00')
             self.graphicsView.p1.addItem(roi_new)
+            self.ROIs.append(roi_new)
+            roi_new.removeHandle(0)
             length = self.modelRoi.rowCount()
             self.modelRoi.insertRow(length)
             self.modelRoi.setData(self.modelRoi.index(length, self.INDEX_R), str(length))
+            self.modelRoi.setData(self.modelRoi.index(length, self.PREP), str(prep))
             self.modelRoi.setData(self.modelRoi.index(length, self.TYPE), 'Circle')
             self.modelRoi.setData(self.modelRoi.index(length, self.POSITION), position)
             self.modelRoi.setData(self.modelRoi.index(length, self.SIZE), r)
@@ -310,8 +321,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             # self.graphicsView.p1.addItem(roi_new)
             length = self.modelAnalysis.rowCount()
             self.modelAnalysis.insertRow(length)
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI), 'ROI#')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.INDEX_A), str(length))
+            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI), 'ROI#')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.TYPE), 'Vm or Ca')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI_CALC), 'MEAN')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PEAKS), 'THR,LOT')
@@ -346,6 +357,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     # TODO connect value entry with prep_preview
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -354,7 +366,7 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
         self.windowList = w_list
         self.currentFileName = ''
         self.currentFilePath = ''
-        self.windowDict = {}    # Dictionary with structure "window_name_short": "window"
+        self.windowDict = {}  # Dictionary with structure "window_name_short": "window"
         name_limit = 50
         for w in self.windowList:
             w_name = w.widget().objectName()
@@ -411,6 +423,7 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     # TODO load preps
     # TODO load ROI params and enable editing
 
@@ -418,7 +431,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         # initialization of the superclass
         super(DesignerSubWindowIsolate, self).__init__(parent)
         self.windowList = w_list
-        self.windowDict = {}    # Dictionary with structure "window_name_short": "window"
+        self.windowDict = {}  # Dictionary with structure "window_name_short": "window"
         name_limit = 50
         for w in self.windowList:
             w_name = w.widget().objectName()
@@ -444,7 +457,8 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.v_preview.autoRange()
         print('WidgetIsolate UI setup...')
         self.comboBoxSource.addItems(self.windowDict.keys())
-        self.comboBoxSource.highlighted['int'].connect(self.selectionMadeSource)
+        self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
+        self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
         # self.comboBoxPreps.highlighted['int'].connect(self.selectionMadePrep)
         # self.comboBoxRois.highlighted['int'].connect(self.selectionMadeROI)
 
@@ -459,10 +473,18 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         print('WidgetIsolate ready')
 
     def closeEvent(self, event):
+        """Reimplementation of QWidget.closeEvent
+
+        Parameters
+        ----------
+        event : PySide2.QtGui.QCloseEvent
+            Event when Qt receives a window close request for a top-level widget from the window system
+        """
         self.checkBoxPreview.setChecked(False)
         event.accept()
 
     def selectionMadeSource(self, i):
+        """Slot for comboBoxSource.currentIndexChanged"""
         print('** selection made in a ', type(self))
         print('* Current: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
@@ -470,21 +492,43 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.currentPreps = self.currentWindow.Preps
         self.comboBoxPreps.clear()
         for idx, prep in enumerate(self.currentPreps):
-            self.comboBoxPreps.addItem(str(idx))
+            self.comboBoxPreps.addItem(str(prep))
+            self.comboBoxPreps.setItemText(idx, '#' + str(idx))
             print('Listing Prep #', idx, ': ', prep)
 
         self.comboBoxROIs.clear()
         self.currentROIs = self.currentWindow.ROIs
-        for idx, prep in enumerate(self.currentROIs):
-            self.comboBoxROIs.addItem(str(idx))
-            print('Listing ROI #', idx, ': ', prep)
+        self.comboBoxROIs.addItem('*New*')
+        for idx, roi in enumerate(self.currentROIs):
+            self.comboBoxROIs.addItem(str(idx) + ': ' + str(roi.saveState()))
+            print('Listing ROI #', idx, ': ', roi)
+
         print('* Window: ', str(self.currentWindow))
         print('* W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
         print('* Preps: ', str(self.currentPreps))
         print('* ROIs: ', str(self.currentROIs))
         self.loadDefaults()
 
+    def selectionMadeROI(self, i):
+        """Slot for comboBoxROIs.currentIndexChanged"""
+        # TODO change pen of a selected ROI to highlight
+        print('** selection made in a ', type(self))
+        print('* Current: ', self.comboBoxROIs.currentText())
+        for roi in self.currentWindow.ROIs:
+            roi.setPen(color='54FF00')
+        index_current = self.comboBoxROIs.currentIndex()
+        if index_current > 0:
+            # An existing ROI has been selected
+            roi_current = self.currentWindow.ROIs[index_current - 1]
+            print('* ROIs: ', str(roi_current))
+            roi_current.setPen(color='FF000A')
+            self.updateParameters(roi_current)
+        else:
+            # *NEW* has been selected
+            self.loadDefaults()
+
     def loadDefaults(self):
+        """Populate ROI parameter inputs with default values"""
         default_r = 15
         if self.currentWindow:
             try:
@@ -497,7 +541,9 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         else:
             print('No tiff windows available')
 
-    def updateParameters(self, roi_state):
+    def updateParameters(self, roi):
+        """Populate ROI parameter inputs with an existing ROI's parameters"""
+        roi_state = roi.getState()
         x, y = str(int(roi_state['pos'].x())), str(int(roi_state['pos'].y()))
         r = int(roi_state['size'][0])
         print("Updating region with: ", x, ' ', y, ' ', r)
@@ -507,6 +553,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.radiusLineEdit.setValue(r)
 
     def checkBoxChangedPreview(self):
+        """Create or destroy preview ROI based on the Preview checkbox"""
         # print('*Preview checkbox changed to: ', self.checkBoxPreview.isChecked())
         if self.checkBoxPreview.isChecked():
             if not self.roi_preview:
@@ -515,11 +562,12 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 r = self.radiusLineEdit.value()
                 # Create preview ROI if it doesn't exist
                 self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
+                self.roi_preview.setPen(color='FF8700')
                 # Draw region on current tiff window's plot
                 # print('Adding roi_preview')
                 self.currentPlot.addItem(self.roi_preview)
                 # self.currentROIs.append(self.roi_preview)
-                self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview.getState()))
+                self.roi_preview.sigRegionChangeFinished.connect(lambda: self.updateParameters(self.roi_preview))
                 self.roi_preview.sigRegionChanged.connect(self.updatePreview)
                 self.updatePreview()
             else:
@@ -536,6 +584,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             self.roi_preview = None
 
     def updatePreview(self):
+        """Updates ROI preview image in Isolate subwindow"""
         if self.roi_preview:
             # Get current video frame data and preview ROI data
             data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
@@ -549,8 +598,21 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             print('No ROI preview to update!')
 
     def applyROI(self):
+        """Adds an ROI to a TIFF or applies changes to an existing ROI"""
         try:
-            self.currentWindow.addROI(self.roi_preview)
+            if self.comboBoxROIs.currentIndex() is 0:
+                prepIndex = self.comboBoxPreps.currentIndex()
+                prepText = self.comboBoxPreps.currentText()
+                prepData = self.comboBoxPreps.currentData()
+                print("*Adding ROI with prepIndex " + str(prepIndex))
+                print("*Adding ROI with prepText " + prepText)
+                print("*Adding ROI with prepData " + str(prepData))
+                self.currentWindow.addROI(prepIndex, self.roi_preview)
+            else:
+                # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
+                roi_current = self.currentROIs[self.comboBoxROIs.currentIndex() - 1]
+                roi_current.setState(self.roi_preview.saveState())
+                roi_current.setPen(color='54FF00')
             self.checkBoxPreview.setChecked(False)
             self.selectionMadeSource(0)
         except Exception:
@@ -559,6 +621,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     # TODO Plot data at each step of analysis
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -567,7 +630,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.windowList = w_list
         self.currentFileName = ''
         self.currentFilePath = ''
-        self.windowDict = {}    # Dictionary with structure "window_name_short": "window"
+        self.windowDict = {}  # Dictionary with structure "window_name_short": "window"
         name_limit = 50
         for w in self.windowList:
             w_name = w.widget().objectName()
@@ -639,6 +702,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         # self.currentWindow.addAnalysis(self.analysis_preview)
         self.progressBar.setValue(100)
         self.selectionMadeSource(0)
+
 
 # create the GUI application
 app = QApplication(sys.argv)

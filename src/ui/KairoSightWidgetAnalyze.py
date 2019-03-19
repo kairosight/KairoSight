@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_WidgetAnalyze(object):
     def setupUi(self, WidgetAnalyze):
         WidgetAnalyze.setObjectName("WidgetAnalyze")
-        WidgetAnalyze.resize(315, 359)
+        WidgetAnalyze.resize(350, 359)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -109,6 +109,7 @@ class Ui_WidgetAnalyze(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.tabWidgetAnalysisSteps.sizePolicy().hasHeightForWidth())
         self.tabWidgetAnalysisSteps.setSizePolicy(sizePolicy)
+        self.tabWidgetAnalysisSteps.setMaximumSize(QtCore.QSize(350, 16777215))
         self.tabWidgetAnalysisSteps.setTabPosition(QtWidgets.QTabWidget.North)
         self.tabWidgetAnalysisSteps.setDocumentMode(False)
         self.tabWidgetAnalysisSteps.setTabBarAutoHide(False)
