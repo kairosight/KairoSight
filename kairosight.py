@@ -192,7 +192,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
         # Setup Preps, ROIs, and Anlysis variables
         self.Preps = []  # A list of prep dictionaries
-        self.prep_default = {'transform': 'NaN', 'background': 'NaN'}
+        self.prep_default = {'transform': '0', 'background': '0,0'}
         self.ROIs = []  # A list of pg.ROI objects
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': 'NaN', 'INDEX_A': 'NaN', 'TYPE': 'NaN',
@@ -206,6 +206,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.graphicsView.hist.setHistogramRange(self.video_data.min(), self.video_data.max())
 
         # Setup data treeviews
+        # Calling it a treeview, currently connected to table-like models
         self.treeViewPreps.setAlternatingRowColors(True)
         self.treeViewROIs.setAlternatingRowColors(True)
         self.treeViewAnalysis.setAlternatingRowColors(True)
@@ -236,7 +237,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # TODO Use double-click to view analysis results
 
         # Add default prep, with no transform or background removal
-        self.addPrep(self.prep_default)
+        self.addPrep(prep=self.prep_default)
         print('WidgetTiff ready')
 
     def updateVideo(self, frame=0):
@@ -262,18 +263,23 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
-    def addPrep(self, prep=None):
+    def addPrep(self, idx=None, prep=None):
         if prep:
-            print('** Adding passed prep: ', prep)
-            self.Preps.append(prep)
+            print('** Preps were: ', self.Preps)
             transform = prep['transform']
             background = prep['background']
-
-            length = self.modelPrep.rowCount()
-            self.modelPrep.insertRow(length)
-            self.modelPrep.setData(self.modelPrep.index(length, self.INDEX_P), length)
-            self.modelPrep.setData(self.modelPrep.index(length, self.TRANSFORM), transform)
-            self.modelPrep.setData(self.modelPrep.index(length, self.BACKGROUND), background)
+            if idx:
+                print('** Changing passed prep: ', prep)
+                self.Preps[idx] = prep.copy()
+            else:
+                print('** Adding passed prep: ', prep)
+                self.Preps.append(prep.copy())
+                length = self.modelPrep.rowCount()
+                idx = length
+                self.modelPrep.insertRow(length)
+            self.modelPrep.setData(self.modelPrep.index(idx, self.INDEX_P), idx)
+            self.modelPrep.setData(self.modelPrep.index(idx, self.TRANSFORM), transform)
+            self.modelPrep.setData(self.modelPrep.index(idx, self.BACKGROUND), background)
             print('** Preps are now: ', self.Preps)
         else:
             print('** No Prep to add!')
@@ -368,7 +374,6 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
     """Customization for WidgetFolderTree subwindow for an MDI"""
-    # TODO Add preps with entered parameters
     # TODO Add functionality to Discard button
 
     def __init__(self, parent=None, w_list=None):
@@ -396,11 +401,14 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
         self.comboBoxPreps.currentIndexChanged['int'].connect(self.selectionMadePrep)
 
-        self.rotateComboBox.setEnabled(False)
-        self.thresholdSpinBox.setEnabled(False)
-        self.minSizeSpinBox.setEnabled(False)
         self.checkBoxApplyTransform.stateChanged.connect(self.checkBoxChangedTransform)
+        self.rotateComboBox.currentIndexChanged['int'].connect(self.checkBoxChangedTransform)
+        self.rotateComboBox.setEnabled(False)
         self.checkBoxApplyRemoveBackground.stateChanged.connect(self.checkBoxChangedRemoveBackground)
+        self.thresholdSpinBox.valueChanged.connect(self.checkBoxChangedRemoveBackground)
+        self.thresholdSpinBox.setEnabled(False)
+        self.minSizeSpinBox.valueChanged.connect(self.checkBoxChangedRemoveBackground)
+        self.minSizeSpinBox.setEnabled(False)
 
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyPrep)
         self.buttonBox.button(QDialogButtonBox.Discard).clicked.connect(self.discardPrep)
@@ -410,13 +418,13 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
         print('WidgetImagePrep ready')
 
     def selectionMadeSource(self, i):
-        print('** selection made in a ', type(self))
+        """Slot for comboBoxSource.currentIndexChanged"""
+        print('** selection made in a ', i, ', ', type(self))
         print('*Current: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentPlot = self.currentWindow.graphicsView.p1
         self.currentPreps = self.currentWindow.Preps
 
-        self.currentPreps = self.currentWindow.Preps
         self.comboBoxPreps.clear()
         self.comboBoxPreps.addItem('*New*')
         for idx, prep in enumerate(self.currentPreps):
@@ -425,56 +433,123 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
 
         print('*Window: ', str(self.currentWindow))
         print('*W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
-        print('Preps: ', str(self.currentPreps))
-
+        print('*Preps: ', str(self.currentPreps))
 
     def selectionMadePrep(self, i):
         """Slot for comboBoxPreps.currentIndexChanged"""
-        try:
-            print('** selection made in a ', type(self))
-            print('* Current Prep: ', self.comboBoxPreps.currentText())
-            # for prep in self.currentWindow.Preps:
-
-            index_current = self.comboBoxPreps.currentIndex()
+        print('** selection made in a ', type(self))
+        print('* Current Prep: #', i, ': ', self.comboBoxPreps.currentText())
+        index_current = self.comboBoxPreps.currentIndex()
+        if index_current > 0:
+            # An existing Prep has been selected
             prep_current = self.currentWindow.Preps[index_current - 1]
-            print('* Prep: ', str(prep_current))
-            # prep_current.setPen(color='FF000A')
-            # self.updateParameters(prep_current)
-        except Exception:
-            traceback.print_exc()
-
+            print('* Prep #', index_current-1, ': ', str(prep_current))
+            self.updateParameters(prep_current)
+        else:
+            # *NEW* has been selected
+            self.loadDefaults()
 
     def loadDefaults(self):
         """Populate Prep parameter inputs with default values"""
-        self.rotateComboBox.setEnabled(False)
+        self.checkBoxApplyTransform.setChecked(False)
+        self.checkBoxApplyRemoveBackground.setChecked(False)
 
-        self.thresholdSpinBox.setEnabled(False)
-        self.minSizeSpinBox.setEnabled(False)
+        self.prep_preview = self.currentWindow.prep_default
+
+    def updateParameters(self, prep):
+        """Populate Prep parameter inputs with an existing Prep's parameters"""
+        try:
+            rotate = prep['transform']
+            background_thresh, background_min = prep['background'].split(',')
+            print("Updating prep params with: ", rotate, ' ', background_thresh, ',', background_min)
+            # Populate fields with passed values
+            if int(rotate) is 0:
+                self.checkBoxApplyTransform.setChecked(False)
+            else:
+                self.checkBoxApplyTransform.setChecked(True)
+                self.rotateComboBox.setCurrentIndex(self.rotateComboBox.findText(rotate))
+            if int(background_thresh) is 0 and int(background_min) is 0:
+                self.checkBoxApplyRemoveBackground.setChecked(False)
+            else:
+                self.checkBoxApplyRemoveBackground.setChecked(True)
+                self.thresholdSpinBox.setValue(int(background_thresh))
+                self.minSizeSpinBox.setValue(int(background_min))
+        except Exception:
+            traceback.print_exc()
 
     def checkBoxChangedTransform(self):
-        """Enable or disable Transform parameter entry"""
+        """Enable/disable and read Transform parameter entry"""
         # print('*Preview checkbox changed to: ', self.checkBoxPreview.isChecked())
         if self.checkBoxApplyTransform.isChecked():
-            self.rotateComboBox.setEnabled(True)
+            if not self.rotateComboBox.isEnabled():
+                # Enable
+                self.rotateComboBox.setEnabled(True)
+            # Get parameter
+            self.prep_preview['transform'] = self.rotateComboBox.currentText()
         else:
+            # Disable
+            self.prep_preview['transform'] = '0'
             self.rotateComboBox.setEnabled(False)
 
     def checkBoxChangedRemoveBackground(self):
-        """Enable or disable Remove Background parameter entry"""
+        """Enable/disable and read Remove Background parameter entry"""
         # print('*Preview checkbox changed to: ', self.checkBoxPreview.isChecked())
         if self.checkBoxApplyRemoveBackground.isChecked():
-            self.thresholdSpinBox.setEnabled(True)
-            self.minSizeSpinBox.setEnabled(True)
+            if not self.thresholdSpinBox.isEnabled():
+                # Enable
+                self.thresholdSpinBox.setEnabled(True)
+                self.minSizeSpinBox.setEnabled(True)
+            # Get parameters
+            background = str(self.thresholdSpinBox.value()) + ',' + \
+                         str(self.minSizeSpinBox.value())
+            self.prep_preview['background'] = background
         else:
+            # Disable
+            self.prep_preview['background'] = '0,0'
             self.thresholdSpinBox.setEnabled(False)
             self.minSizeSpinBox.setEnabled(False)
 
+    def updatePreview(self):
+        """Update Prep preview parameter"""
+        # if self.roi_preview:
+        #     # Get current video frame data and preview ROI data
+        #     data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
+        #     data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
+        #
+        #     # self.roi_preview.setParentItem(img_preview)
+        #     # Draw preview data in isolate subwindow
+        #     self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
+        #     self.v_preview.autoRange()
+        # else:
+        #     print('No ROI preview to update!')
+
     def applyPrep(self):
-        # self.prep_preview['transform'] =
-        # self.prep_preview['backgroud'] =
-        self.currentWindow.addPrep(self.prep_preview)
-        self.selectionMadeSource(0)
+        """Add a Prep to a TIFF or applies changes to an existing Prep"""
+        if self.comboBoxPreps.currentIndex() is 0:
+            if not self.prep_preview:
+                print('No Prep to add')
+                return
+            # Add the preview Prep to the current TIFF window
+            # self.prep_preview['transform'] =
+            # self.prep_preview['backgroud'] =
+            print('*** Applying *NEW* Prep')
+            self.currentWindow.addPrep(prep=self.prep_preview)
+        elif self.comboBoxPreps.currentIndex() is 1:
+            print('Cannot change default Prep')
+            return
+        else:
+            # Set state of the chosen Prep (current list index - 1, due to *NEW* at index 0)
+            print('Changing Prep ' + str(self.comboBoxPreps.currentIndex() - 1))
+            try:
+                self.currentWindow.addPrep(idx=self.comboBoxPreps.currentIndex() - 1, prep=self.prep_preview)
+            except Exception:
+                traceback.print_exc()
+            # self.currentPreps[self.comboBoxPreps.currentIndex() - 1] = self.prep_preview
         self.prep_preview = {'transform': 'NeW', 'background': 'NeW'}
+        self.selectionMadeSource(0)
+        self.checkBoxChangedTransform()
+        self.checkBoxChangedRemoveBackground()
+        self.loadDefaults()
 
     def discardPrep(self):
         if len(self.currentPreps) < 2:
@@ -524,7 +599,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
         self.originXLineEdit.textEdited.connect(self.checkBoxChangedPreview)
         self.originYLineEdit.textEdited.connect(self.checkBoxChangedPreview)
-        self.radiusLineEdit.valueChanged.connect(self.checkBoxChangedPreview)
+        self.radiusSpinBox.valueChanged.connect(self.checkBoxChangedPreview)
 
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyROI)
@@ -546,7 +621,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current source: ', self.comboBoxSource.currentText())
+        print('* Current source: ', i, ', ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentPlot = self.currentWindow.graphicsView.p1
         self.currentPreps = self.currentWindow.Preps
@@ -571,7 +646,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     def selectionMadePrep(self, i):
         """Slot for comboBoxPreps.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current Prep: ', self.comboBoxPreps.currentText())
+        print('* Current Prep: ', i, ', ', self.comboBoxPreps.currentText())
         # for prep in self.currentWindow.Preps:
 
         index_current = self.comboBoxPreps.currentIndex()
@@ -583,7 +658,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     def selectionMadeROI(self, i):
         """Slot for comboBoxROIs.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current ROI: ', self.comboBoxROIs.currentText())
+        print('* Current ROI: ', i, ', ', self.comboBoxROIs.currentText())
         for roi in self.currentWindow.ROIs:
             roi.setPen(color='54FF00')
         index_current = self.comboBoxROIs.currentIndex()
@@ -605,7 +680,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 # Populate fields with default values
                 self.originXLineEdit.setText(str(int(self.currentWindow.width / 2)))
                 self.originYLineEdit.setText(str(int(self.currentWindow.height / 2)))
-                self.radiusLineEdit.setValue(default_r)
+                self.radiusSpinBox.setValue(default_r)
             except Exception:
                 traceback.print_exc()
         else:
@@ -616,11 +691,11 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         roi_state = roi.getState()
         x, y = str(int(roi_state['pos'].x())), str(int(roi_state['pos'].y()))
         r = int(roi_state['size'][0])
-        print("Updating region with: ", x, ' ', y, ' ', r)
+        print("Updating roi params with: ", x, ' ', y, ' ', r)
         # Populate fields with passed values
         self.originXLineEdit.setText(x)
         self.originYLineEdit.setText(y)
-        self.radiusLineEdit.setValue(r)
+        self.radiusSpinBox.setValue(r)
 
     def checkBoxChangedPreview(self):
         """Create or destroy preview ROI based on the Preview checkbox"""
@@ -629,7 +704,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             if not self.roi_preview:
                 # Get current ROI values
                 x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
-                r = self.radiusLineEdit.value()
+                r = self.radiusSpinBox.value()
                 # Create preview ROI if it doesn't exist
                 self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
                 self.roi_preview.setPen(color='FF8700')
@@ -644,7 +719,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 # ROI Preview exists, update the params
                 # Get current ROI values
                 x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
-                r = self.radiusLineEdit.value()
+                r = self.radiusSpinBox.value()
                 self.roi_preview.setPos((x, y))
                 self.roi_preview.setSize(r)
         else:
@@ -654,7 +729,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             self.roi_preview = None
 
     def updatePreview(self):
-        """Updates ROI preview image in Isolate subwindow"""
+        """Update ROI preview image in Isolate subwindow"""
         if self.roi_preview:
             # Get current video frame data and preview ROI data
             data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
@@ -668,7 +743,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             print('No ROI preview to update!')
 
     def applyROI(self):
-        """Adds an ROI to a TIFF or applies changes to an existing ROI"""
+        """Add an ROI to a TIFF or applies changes to an existing ROI"""
         if self.comboBoxROIs.currentIndex() is 0:
             if not self.roi_preview:
                 print('No ROI to add')
@@ -683,6 +758,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             self.currentWindow.addROI(prepIndex, self.roi_preview)
         else:
             # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
+            print('Changing ROI' + str(self.comboBoxROIs.currentIndex() - 1))
             roi_current = self.currentROIs[self.comboBoxROIs.currentIndex() - 1]
             roi_current.setState(self.roi_preview.saveState())
             roi_current.setPen(color='54FF00')
@@ -753,7 +829,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.currentROIs = self.currentWindow.ROIs
         for idx, roi in enumerate(self.currentROIs):
             self.comboBoxROIs.addItem(str(idx) + ': ' + str(roi.saveState()))
-            print('Listing ROI #', idx, ': ', prep)
+            print('Listing ROI #', idx, ': ', roi)
 
         self.comboBoxAnalysis.clear()
         self.currentAnalysis = self.currentWindow.Analysis
