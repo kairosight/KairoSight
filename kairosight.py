@@ -17,8 +17,9 @@ from ui.KairoSightWidgetFolderTree import Ui_WidgetFolderTree
 from ui.KairoSightWidgetImagePrep import Ui_WidgetImagePrep
 from ui.KairoSightWidgetIsolate import Ui_WidgetIsolate
 from ui.KairoSightWidgetAnalyze import Ui_WidgetAnalyze
-from algorithms import tifopen
+from algorithms import tifopen, peak_detect
 # TODO review/remove/reformat print statements
+# TODO change MainWindow's subwindow creation methods to "Window..."
 
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     """Customization for Qt Designer created window"""
@@ -54,21 +55,22 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
             f_display = f_path + ' ' + f_name + ' ' + f_ext
             print('file (path name ext): ' + f_display)
             if f_ext is '.tif' or '.tiff':
-                print('TIFF chosen')
+                # print('TIFF chosen')
                 # Create QMdiSubWindow with Ui_WidgetTiff
                 try:
                     sub = DesignerSubWindowTiff(f_path=f_path, f_name=f_name, f_ext=f_ext)
-                    print('DesignerSubWindowTiff "sub" created')
+                    # print('DesignerSubWindowTiff "sub" created')
                     sub.setObjectName(str(file))
                     sub.setWindowTitle('TIFF View: ' + f_display)
                     # Add and connect QMdiSubWindow to MDI
                     self.mdiArea.addSubWindow(sub)
-                    print('"sub" added to MDI')
+                    # print('"sub" added to MDI')
                     sub.show()
                     self.statusBar().showMessage('Opened ' + file)
                 except Exception:
                     traceback.print_exc()
-                    self.statusBar().showMessage('Failed to open, ' + file)
+                    ex_type, ex_value, ex_traceback = sys.exc_info()
+                    self.statusBar().showMessage('Failed to open, ' + file + ' : ' + str(ex_type))
         else:
             print('path is None')
             self.statusBar().showMessage('Open cancelled')
@@ -159,7 +161,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.video_name = f_name
         self.video_ext = f_ext
         self.video_file, self.dt = tifopen.tifopen(self.video_path, self.video_name + self.video_ext)
-        print('tifopen finished')
+        # print('tifopen finished')
         # get video properties
         self.video_shape = self.video_file.shape
         if len(self.video_shape) < 3:
@@ -638,6 +640,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyROI)
         self.buttonBox.button(QDialogButtonBox.Discard).clicked.connect(self.discardROI)
         self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
+        self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
         self.selectionMadeSource(0)
 
         self.startSpinBox.setMaximum(self.currentWindow.frames)
@@ -714,6 +717,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def loadDefaults(self):
         """Populate ROI parameter inputs with default values"""
+        print('* Loading defaults')
         default_r = 15
         # Populate fields with default values
         self.originXLineEdit.setText(str(int(self.currentWindow.width / 2)))
@@ -773,6 +777,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             # Remove preview ROI
             self.currentPlot.removeItem(self.roi_preview)
             self.roi_preview = None
+            self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
 
     def updatePreview(self):
         """Update ROI preview image in Isolate subwindow"""
@@ -785,6 +790,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             # Draw preview data in isolate subwindow
             self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
             self.v_preview.autoRange()
+            self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(True)
         else:
             print('No ROI preview to update!')
 
@@ -847,10 +853,11 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             # Populate dictionary
             self.windowDict[w_name_short] = w.widget()
         self.currentWindow = None
-        self.currentPlot = None
+        self.currentVideoPlot = None
         self.currentPreps = []
         self.currentROIs = []
         self.currentAnalysis = []
+        self.currentTraces = []
         self.roi_current = None
         self.analysis_preview = None
 
@@ -885,7 +892,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('** selection made in a ', type(self))
         print('* Current source: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
-        self.currentPlot = self.currentWindow.graphicsView.p1
+        self.currentVideoPlot = self.currentWindow.graphicsView.p1
         self.currentPreps = self.currentWindow.Preps
         self.comboBoxPreps.clear()
         for idx, prep in enumerate(self.currentPreps):
@@ -958,6 +965,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         # TODO add functionality to Restore Defaults button
         print('*** loadDefaults!')
         self.analysis_preview = self.currentWindow.analysis_default
+        self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
 
     def applyCondition(self):
         """Apply Condition tab selections"""
@@ -983,6 +991,8 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 if 'Voltage' in self.analysis_preview['TYPE']:
                     roi_data_means_norm = 1 - roi_data_means_norm
                 self.plotPreview.plot(roi_data_means_norm, clear=True)
+                self.currentTraces.append(roi_data_means_norm)
+                print('* ROI mean calculated')
             else:
                 print('** ROI_CALC is ', self.analysis_preview['ROI_CALC'])
         except Exception:
@@ -997,11 +1007,15 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
         # TODO use parameters to add peaks to ROI data plot
-        peaks = self.thresholdDoubleSpinBox.text() + ',' + self.lockoutTimespinBox.text()
+        thresh = self.thresholdDoubleSpinBox.value()
+        lockout = self.lockoutTimespinBox.value()
+        peaks = str(thresh) + ',' + str(lockout)
         self.analysis_preview['PEAKS'] = peaks
         print('*** analysis_preview: ', self.analysis_preview)
         try:
-            print('* Detecting Peaks')
+            print('** PEAKS is ', self.analysis_preview['PEAKS'])
+            peak_results = peak_detect.peak_detect(f=self.currentTraces[0], thresh=thresh, LOT=lockout)
+            [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = peak_results
         except Exception:
             traceback.print_exc()
         self.tabProcess.setEnabled(True)

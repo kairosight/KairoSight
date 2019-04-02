@@ -178,7 +178,7 @@
       <enum>QTabWidget::North</enum>
      </property>
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <property name="documentMode">
       <bool>false</bool>
@@ -186,7 +186,7 @@
      <property name="tabBarAutoHide">
       <bool>false</bool>
      </property>
-     <widget class="QWidget" name="tab">
+     <widget class="QWidget" name="tabCondition">
       <attribute name="title">
        <string>Condition</string>
       </attribute>

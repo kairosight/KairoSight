@@ -32,7 +32,7 @@ def bg_remove(img, thresh, min_size, F0_locs):
     thresh : int
         Cutoff value, pixel values below this are removed
     min_size : int
-        The smallest allowable connected component size.
+        The smallest allowable connected component size
     F0_locs : ??
         ??
 
