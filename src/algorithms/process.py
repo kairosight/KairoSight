@@ -21,6 +21,36 @@ import pandas as pd
 
 
 def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe):
+    """Processes a series of transient signals across time
+
+    Parameters
+    ----------
+    f : ndarray
+        1-D signal array
+    dt : ?
+        ?
+    t0_locs : ?
+        ?
+    up_locs : ?
+        ?
+    peak_locs : ?
+        ?
+    base_locs : ?
+        ?
+    max_vel : ?
+        ?
+    per_base : ?
+        ?
+    F0 : ?
+        ?
+    probe : int
+        The fluorescent probe being analyzed. 0 for calcium, 1 for voltage
+
+    Returns
+    -------
+    results : pandas.DataFrame
+        ?
+    """
     if base_locs[0] < t0_locs[0]:  # If there is a baseline point before the first transient, that's a problem
         base_locs = base_locs[1:]  # Chop the first baseline point
 

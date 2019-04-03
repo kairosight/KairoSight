@@ -17,7 +17,9 @@ from ui.KairoSightWidgetFolderTree import Ui_WidgetFolderTree
 from ui.KairoSightWidgetImagePrep import Ui_WidgetImagePrep
 from ui.KairoSightWidgetIsolate import Ui_WidgetIsolate
 from ui.KairoSightWidgetAnalyze import Ui_WidgetAnalyze
-from algorithms import tifopen, peak_detect
+from algorithms import tifopen, peak_detect, process
+
+
 # TODO review/remove/reformat print statements
 # TODO change MainWindow's subwindow creation methods to "Window..."
 
@@ -406,6 +408,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
     def __init__(self, parent=None, w_list=None):
@@ -476,7 +479,7 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
         if index_current > 0:
             # An existing Prep has been selected
             prep_current = self.currentWindow.Preps[index_current - 1]
-            print('* Prep #', index_current-1, ': ', str(prep_current))
+            print('* Prep #', index_current - 1, ': ', str(prep_current))
             self.updateParameters(prep_current)
         else:
             # *NEW* has been selected
@@ -589,6 +592,7 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     # TODO Populate currentROIs based on selected Prep
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
     # TODO change to "Isolate ROIs"
@@ -707,7 +711,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             # An existing ROI has been selected
             # self.checkBoxPreview.setChecked(False)
             roi_current = self.currentWindow.ROIs[index_current - 1]
-            print('* ROI #', index_current-1, ': ', str(roi_current))
+            print('* ROI #', index_current - 1, ': ', str(roi_current))
             roi_current.setPen(color='FF000A')
             # self.roi_preview = roi_current
             self.updateParameters(roi_current)
@@ -805,7 +809,8 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             prepData = self.comboBoxPreps.currentData()
             if not self.checkBoxTimeAll.isChecked():
                 frames = self.startSpinBox.text() + '-' + self.endSpinBox.text()
-            else: frames = None
+            else:
+                frames = None
             if self.comboBoxROIs.currentIndex() is 0:
                 # Add the preview ROI to the current TIFF window
                 print('*** Applying *NEW* ROI ')
@@ -838,6 +843,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     """Customization for WidgetFolderTree subwindow for an MDI"""
+
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(DesignerSubWindowAnalyze, self).__init__(parent)
@@ -857,14 +863,16 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.currentPreps = []
         self.currentROIs = []
         self.currentAnalysis = []
-        self.currentTraces = []
         self.roi_current = None
         self.analysis_preview = None
+        self.condition_results = None
+        self.peak_results = None
+        self.process_results = None
 
         # setup the GUI
         print('WidgetAnalyze UI setup...')
         self.setupUi(self)
-        self.plotPreview = self.widgetPreview.addPlot()
+        self.plot_preview = self.widgetPreview.addPlot()
         self.tabPeakDetect.setEnabled(False)
         self.tabProcess.setEnabled(False)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
@@ -970,6 +978,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def applyCondition(self):
         """Apply Condition tab selections"""
         # TODO use ROI's frame info
+        # TODO add filtering
         print('** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
         self.analysis_preview['TYPE'] = self.signalTypeComboBox.currentText()
@@ -986,12 +995,12 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 roi_data_means_norm = np.copy(roi_data_means)
                 min = roi_data_means_norm.min()
                 max = roi_data_means_norm.max()
-                roi_data_means_norm = (roi_data_means_norm - min)/(max - min)
+                roi_data_means_norm = (roi_data_means_norm - min) / (max - min)
                 # roi_data_means_norm *= 1.0 / roi_data_means_norm.max()
                 if 'Voltage' in self.analysis_preview['TYPE']:
                     roi_data_means_norm = 1 - roi_data_means_norm
-                self.plotPreview.plot(roi_data_means_norm, clear=True)
-                self.currentTraces.append(roi_data_means_norm)
+                self.plot_preview.plot(roi_data_means_norm, clear=True)
+                self.condition_results = roi_data_means_norm
                 print('* ROI mean calculated')
             else:
                 print('** ROI_CALC is ', self.analysis_preview['ROI_CALC'])
@@ -1000,31 +1009,64 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
         if self.tabProcess.isEnabled():
             self.tabProcess.setEnabled(False)
+            self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         self.tabPeakDetect.setEnabled(True)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
         self.progressBar.setValue(60)
 
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
-        # TODO use parameters to add peaks to ROI data plot
+        # TODO plot all locs to troubleshoot "Detection Error" in process(): t0, up, peak, base
         thresh = self.thresholdDoubleSpinBox.value()
         lockout = self.lockoutTimespinBox.value()
-        peaks = str(thresh) + ',' + str(lockout)
-        self.analysis_preview['PEAKS'] = peaks
+        param_peaks = str(thresh) + ',' + str(lockout)
+        self.analysis_preview['PEAKS'] = param_peaks
         print('*** analysis_preview: ', self.analysis_preview)
         try:
             print('** PEAKS is ', self.analysis_preview['PEAKS'])
-            peak_results = peak_detect.peak_detect(f=self.currentTraces[0], thresh=thresh, LOT=lockout)
-            [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = peak_results
+            self.peak_results = peak_detect.peak_detect(f=self.condition_results, thresh=thresh, LOT=lockout)
+            [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
+            # Mark upstroke
+            for slope in up_locs:
+                vLine = pg.InfiniteLine(pos=slope, angle=90, movable=False, pen=[100, 255, 100, 80])
+                self.plot_preview.addItem(vLine)
+                # Mark the return to baseline
+                for baseline in base_locs:
+                    if baseline > slope:
+                        vLine = pg.InfiniteLine(pos=baseline, angle=90, movable=False, pen=[100, 255, 100, 80])
+                        self.plot_preview.addItem(vLine)
+                        break
+            # Mark peaks
+            peaks = np.full(len(peak_locs), 0.98)
+            self.plot_preview.plot(peak_locs, peaks, pen=None,
+                                   symbol='t1', symbolPen=None, symbolSize=5, symbolBrush=(100, 255, 100, 200))
+            self.plot_preview.setLabel('left', "Norm. Fluorescence")
+            self.plot_preview.setLabel('bottom', "Time", units='frames')
         except Exception:
             traceback.print_exc()
+
         self.tabProcess.setEnabled(True)
+        self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         self.progressBar.setValue(80)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabProcess)
 
     def applyProcess(self):
         """Apply Process tab selections"""
         # TODO use parameters to generate results
+        [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
+        self.analysis_preview['PROCESS'] = 'all'
+        try:
+            print('** PROCESS is ', self.analysis_preview['PROCESS'])
+            per_base = 80
+            F0 = np.nanmean((self.condition_results[1:t0_locs[0]]))
+            if 'Voltage' in self.analysis_preview['TYPE']:
+                probe = 1
+            else:
+                probe = 0
+            process_results = process.process(self.condition_results, self.currentWindow.dt,
+                                              t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
+        except Exception:
+            traceback.print_exc()
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
         self.progressBar.setValue(100)
 
@@ -1037,6 +1079,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.selectionMadeSource(0)
         if self.tabProcess.isEnabled():
             self.tabProcess.setEnabled(False)
+            self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         if self.tabPeakDetect.isEnabled():
             self.tabPeakDetect.setEnabled(False)
         self.progressBar.setValue(20)
