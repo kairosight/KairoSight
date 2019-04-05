@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 from pathlib import PurePath
 
-from skimage import io
+import scipy.signal as sig
 from PyQt5 import QtCore
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QStandardItemModel
@@ -142,10 +142,11 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for WidgetTiff subwindow for an MDI"""
+    # TODO in analysis data, combine Condition values (like PEAKS)
     # TODO build a better data tree for Preps, ROIs, and Analysis
     INDEX_P, TRANSFORM, BACKGROUND = range(3)
     INDEX_R, PREP, TYPE, POSITION, SIZE, FRAMES = range(6)
-    INDEX_A, ROI, TYPE, ROI_CALC, PEAKS, PROCESS = range(6)
+    INDEX_A, ROI, TYPE, ROI_CALC, FILTER, PEAKS, PROCESS = range(7)
 
     def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
         # Initialization of the superclass
@@ -176,6 +177,10 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         for i in range(self.frames):
             self.video_data[i] = np.fliplr(self.video_data[i])
 
+        # Use a dummy dt (aka Frame Period) if none detected
+        if np.isnan(self.dt):
+            self.dt = 5
+
         self.fps = 1000 / self.dt
         self.duration = self.fps * (self.frames + 1)
         self.width, self.height = self.video_shape[2], self.video_shape[1]
@@ -185,14 +190,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('Frame Period (ms):   ', self.dt)
         print('FPS:                 ', self.fps)
         print('Duration (ms):       ', self.duration)
-        self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height))
-        if not np.isnan(self.dt):
-            self.framePeriodMsLineEdit.setText(str(self.dt))
-            self.framePeriodMsLineEdit.setEnabled(False)
-            self.frameRateLineEdit.setText(str(self.fps))
-            self.frameRateLineEdit.setEnabled(False)
-            self.durationMsLineEdit.setText(str(self.duration))
-            self.durationMsLineEdit.setEnabled(False)
+        self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height) + ' (X ' + str(self.frames) + ')')
+
+        self.framePeriodMsLineEdit.setText(str(self.dt))
+        self.framePeriodMsLineEdit.setEnabled(False)
+        self.frameRateLineEdit.setText(str(self.fps))
+        self.frameRateLineEdit.setEnabled(False)
+        self.durationMsLineEdit.setText(str(self.duration))
+        self.durationMsLineEdit.setEnabled(False)
 
         # Setup Preps, ROIs, and Anlysis variables
         self.Preps = []  # A list of prep dictionaries
@@ -200,7 +205,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.ROIs = []  # A list of pg.ROI objects
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': 'NaN', 'INDEX_A': 'NaN', 'TYPE': 'NaN',
-                                 'ROI_CALC': 'NaN', 'PEAKS': 'NaN', 'PROCESS': 'NaN'}
+                                 'ROI_CALC': 'NaN', 'FILTER': 'NaN', 'PEAKS': 'NaN', 'PROCESS': 'NaN'}
         # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frames)
@@ -230,11 +235,12 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.modelRoi.setHeaderData(self.FRAMES, Qt.Horizontal, "Frames")
         self.treeViewROIs.setModel(self.modelRoi)
         # Analysis model
-        self.modelAnalysis = QStandardItemModel(0, 6)
+        self.modelAnalysis = QStandardItemModel(0, 7)
         self.modelAnalysis.setHeaderData(self.INDEX_A, Qt.Horizontal, "#")
         self.modelAnalysis.setHeaderData(self.ROI, Qt.Horizontal, "ROI#")
         self.modelAnalysis.setHeaderData(self.TYPE, Qt.Horizontal, "Type")
         self.modelAnalysis.setHeaderData(self.ROI_CALC, Qt.Horizontal, "ROI Calc.")
+        self.modelAnalysis.setHeaderData(self.FILTER, Qt.Horizontal, "Filter")
         self.modelAnalysis.setHeaderData(self.PEAKS, Qt.Horizontal, "Peak Det.")
         self.modelAnalysis.setHeaderData(self.PROCESS, Qt.Horizontal, "Results")
         self.treeViewAnalysis.setModel(self.modelAnalysis)
@@ -374,6 +380,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI), 'ROI#')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.TYPE), 'Vm or Ca')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI_CALC), 'MEAN')
+            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.FILTER), 'FILTER')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PEAKS), 'THR,LOT')
             self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PROCESS), 'ALL')
         else:
@@ -873,6 +880,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('WidgetAnalyze UI setup...')
         self.setupUi(self)
         self.plot_preview = self.widgetPreview.addPlot()
+        self.filterCheckBox.stateChanged.connect(self.filterCheckBoxChanged)
         self.tabPeakDetect.setEnabled(False)
         self.tabProcess.setEnabled(False)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
@@ -975,35 +983,59 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.analysis_preview = self.currentWindow.analysis_default
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
 
+    def filterCheckBoxChanged(self):
+        """Toggle use of a low pass filter for the current conditioning"""
+        if self.filterCheckBox.isChecked():
+            try:
+                self.filterFreqSpinBox.setEnabled(True)
+            except Exception:
+                traceback.print_exc()
+            print('*** Filter checked')
+        else:
+            self.filterFreqSpinBox.setEnabled(False)
+            print('*** Filter unchecked')
+
     def applyCondition(self):
         """Apply Condition tab selections"""
         # TODO use ROI's frame info
-        # TODO add filtering
         print('** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
         self.analysis_preview['TYPE'] = self.signalTypeComboBox.currentText()
         self.analysis_preview['ROI_CALC'] = self.roiCalculationComboBox.currentText()
+        if self.filterCheckBox.isChecked():
+            self.analysis_preview['FILTER'] = str(self.filterFreqSpinBox.value())
+        else:
+            self.analysis_preview['FILTER'] = 'Nan'
         print('*** analysis_preview: ', self.analysis_preview)
         # Calculate conditioned ROI data across all frames
         try:
             if 'Mean' in self.analysis_preview['ROI_CALC']:
                 print('* Calculating ROI mean')
                 roi_data = self.currentWindow.getRoiStack(self.roi_current)
-                roi_data_means = np.zeros(self.currentWindow.frames)
+                roi_data_mean = np.zeros(self.currentWindow.frames)
                 for idx, frame in enumerate(roi_data):
-                    roi_data_means[idx] = np.nanmean(frame)
-                roi_data_means_norm = np.copy(roi_data_means)
-                min = roi_data_means_norm.min()
-                max = roi_data_means_norm.max()
-                roi_data_means_norm = (roi_data_means_norm - min) / (max - min)
-                # roi_data_means_norm *= 1.0 / roi_data_means_norm.max()
+                    roi_data_mean[idx] = np.nanmean(frame)
+                roi_data_mean_norm = np.copy(roi_data_mean)
+                min = roi_data_mean_norm.min()
+                max = roi_data_mean_norm.max()
+                roi_data_mean_norm = (roi_data_mean_norm - min) / (max - min)
                 if 'Voltage' in self.analysis_preview['TYPE']:
-                    roi_data_means_norm = 1 - roi_data_means_norm
-                self.plot_preview.plot(roi_data_means_norm, clear=True)
-                self.condition_results = roi_data_means_norm
+                    roi_data_mean_norm = 1 - roi_data_mean_norm
                 print('* ROI mean calculated')
+                if self.filterCheckBox.isChecked():
+                    print('* Filtering ROI mean ')
+                    fs = 1 / (self.currentWindow.dt / 1000)
+                    Wn = (self.filterFreqSpinBox.value() / (fs / 2))
+                    [b, a] = sig.butter(5, Wn)
+                    roi_data_mean_norm_filt = sig.filtfilt(b, a, roi_data_mean_norm)
+                    print('* ROI mean filtered')
+                    self.condition_results = roi_data_mean_norm_filt
+                else:
+                    self.condition_results = roi_data_mean_norm
             else:
                 print('** ROI_CALC is ', self.analysis_preview['ROI_CALC'])
+            # Plot conditioned signal
+            self.plot_preview.plot(self.condition_results, clear=True)
         except Exception:
             traceback.print_exc()
 
@@ -1016,9 +1048,14 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
-        # TODO plot all locs to troubleshoot "Detection Error" in process(): t0, up, peak, base
+        # TODO "Detection Error" in process(), too many base_locs caused by low lockout.
+        # Detection Error @ trans#  0  our of  7
+        # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
+        # TODO set y axis to frames, not kframes
+        print('** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
+              ' Lockout Time:', self.lockoutTimeSpinBox.value())
         thresh = self.thresholdDoubleSpinBox.value()
-        lockout = self.lockoutTimespinBox.value()
+        lockout = self.lockoutTimeSpinBox.value()
         param_peaks = str(thresh) + ',' + str(lockout)
         self.analysis_preview['PEAKS'] = param_peaks
         print('*** analysis_preview: ', self.analysis_preview)
@@ -1026,20 +1063,31 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             print('** PEAKS is ', self.analysis_preview['PEAKS'])
             self.peak_results = peak_detect.peak_detect(f=self.condition_results, thresh=thresh, LOT=lockout)
             [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
-            # Mark upstroke
-            for slope in up_locs:
-                vLine = pg.InfiniteLine(pos=slope, angle=90, movable=False, pen=[100, 255, 100, 80])
-                self.plot_preview.addItem(vLine)
-                # Mark the return to baseline
-                for baseline in base_locs:
-                    if baseline > slope:
-                        vLine = pg.InfiniteLine(pos=baseline, angle=90, movable=False, pen=[100, 255, 100, 80])
-                        self.plot_preview.addItem(vLine)
-                        break
-            # Mark peaks
-            peaks = np.full(len(peak_locs), 0.98)
-            self.plot_preview.plot(peak_locs, peaks, pen=None,
-                                   symbol='t1', symbolPen=None, symbolSize=5, symbolBrush=(100, 255, 100, 200))
+
+            # Redraw conditioned signal
+            self.plot_preview.plot(self.condition_results, clear=True)
+            # Mark t0_locs, yellow
+            self.plot_preview.plot(t0_locs, self.condition_results[t0_locs], pen=None,
+                                   symbol='t1', symbolPen=None, symbolSize=10, symbolBrush=(250, 194, 5, 200))
+            # Mark up_locs, orange
+            self.plot_preview.plot(up_locs, self.condition_results[up_locs], pen=None,
+                                   symbol='t1', symbolPen=None, symbolSize=10, symbolBrush=(217, 83, 25, 200))
+            # Mark peaks, red
+            self.plot_preview.plot(peak_locs, self.condition_results[peak_locs], pen=None,
+                                   symbol='t1', symbolPen=None, symbolSize=10, symbolBrush=(255, 5, 5, 200))
+            # Mark base_locs, grey
+            self.plot_preview.plot(base_locs, self.condition_results[base_locs], pen=None,
+                                   symbol='t1', symbolPen=None, symbolSize=10, symbolBrush=(100, 100, 100, 200))
+            # # Mark upstroke
+            # for slope in up_locs:
+            #     vLine = pg.InfiniteLine(pos=slope, angle=90, movable=False, pen=[100, 255, 100, 80])
+            #     self.plot_preview.addItem(vLine)
+            #     # Mark the return to baseline
+            #     for baseline in base_locs:
+            #         if baseline > slope:
+            #             vLine = pg.InfiniteLine(pos=baseline, angle=90, movable=False, pen=[100, 255, 100, 80])
+            #             self.plot_preview.addItem(vLine)
+            #             break
             self.plot_preview.setLabel('left', "Norm. Fluorescence")
             self.plot_preview.setLabel('bottom', "Time", units='frames')
         except Exception:
@@ -1063,8 +1111,8 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 probe = 1
             else:
                 probe = 0
-            process_results = process.process(self.condition_results, self.currentWindow.dt,
-                                              t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
+            self.process_results = process.process(self.condition_results, self.currentWindow.dt,
+                                                   t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
         except Exception:
             traceback.print_exc()
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
