@@ -3,6 +3,7 @@
 import sys
 import traceback
 import numpy as np
+import pandas as pd
 from pathlib import PurePath
 
 import scipy.signal as sig
@@ -24,8 +25,7 @@ from algorithms import tifopen, peak_detect, process
 # TODO change MainWindow's subwindow creation methods to "Window..."
 
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
-    """Customization for Qt Designer created window"""
-
+    """Customization for Ui_MDIMainWindow, and MDI main window"""
     def __init__(self, parent=None):
         # initialization of the superclass
         super(DesignerMainWindow, self).__init__(parent)
@@ -141,12 +141,13 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
-    """Customization for WidgetTiff subwindow for an MDI"""
-    # TODO in analysis data, combine Condition values (like PEAKS)
+    """Customization for Ui_WidgetTiff subwindow for an MDI"""
+    # TODO remove Preps from UI
+    # TODO add Export to csv (study, file, roi, ...)
     # TODO build a better data tree for Preps, ROIs, and Analysis
     INDEX_P, TRANSFORM, BACKGROUND = range(3)
     INDEX_R, PREP, TYPE, POSITION, SIZE, FRAMES = range(6)
-    INDEX_A, ROI, TYPE, ROI_CALC, FILTER, PEAKS, PROCESS = range(7)
+    INDEX_A, ROI, TYPE, ROI_CALC, FILTER, PEAKS = range(6)
 
     def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
         # Initialization of the superclass
@@ -178,8 +179,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.video_data[i] = np.fliplr(self.video_data[i])
 
         # Use a dummy dt (aka Frame Period) if none detected
+        # From MetaMorph: for exposure time 1.219 ms, dt = 1.238 ms
         if np.isnan(self.dt):
-            self.dt = 5
+            self.dt = 1.238
 
         self.fps = 1000 / self.dt
         self.duration = self.fps * (self.frames + 1)
@@ -204,8 +206,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.prep_default = {'transform': '0', 'background': '0,0'}
         self.ROIs = []  # A list of pg.ROI objects
         self.Analysis = []  # A list of Analysis results dictionaries
-        self.analysis_default = {'ROI': 'NaN', 'INDEX_A': 'NaN', 'TYPE': 'NaN',
-                                 'ROI_CALC': 'NaN', 'FILTER': 'NaN', 'PEAKS': 'NaN', 'PROCESS': 'NaN'}
+        self.analysis_default = {'ROI': '0', 'INDEX_A': np.nan, 'TYPE': 'Voltage',
+                                 'ROI_CALC': 'Mean', 'FILTER': '60', 'PEAKS': '0.72,172'}
         # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frames)
@@ -235,14 +237,13 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.modelRoi.setHeaderData(self.FRAMES, Qt.Horizontal, "Frames")
         self.treeViewROIs.setModel(self.modelRoi)
         # Analysis model
-        self.modelAnalysis = QStandardItemModel(0, 7)
+        self.modelAnalysis = QStandardItemModel(0, 6)
         self.modelAnalysis.setHeaderData(self.INDEX_A, Qt.Horizontal, "#")
         self.modelAnalysis.setHeaderData(self.ROI, Qt.Horizontal, "ROI#")
         self.modelAnalysis.setHeaderData(self.TYPE, Qt.Horizontal, "Type")
         self.modelAnalysis.setHeaderData(self.ROI_CALC, Qt.Horizontal, "ROI Calc.")
         self.modelAnalysis.setHeaderData(self.FILTER, Qt.Horizontal, "Filter")
         self.modelAnalysis.setHeaderData(self.PEAKS, Qt.Horizontal, "Peak Det.")
-        self.modelAnalysis.setHeaderData(self.PROCESS, Qt.Horizontal, "Results")
         self.treeViewAnalysis.setModel(self.modelAnalysis)
         # TODO use double-click to view analysis results
 
@@ -288,7 +289,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             transform = prep['transform']
             background = prep['background']
             if idx:
-                print('** Changing passed prep: ', prep)
+                prep_current = self.Preps[idx]
+                print('** Changing existing Analysis from: ', prep_current)
+                print('**                              to: ', prep)
                 self.Preps[idx] = prep.copy()
             else:
                 print('** Adding passed prep: ', prep)
@@ -323,8 +326,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             r = int(roi_state['size'][0])
 
             if idx is not None:
-                print('** Changing passed ROI: ', roi)
                 roi_current = self.ROIs[idx]
+                print('** Changing existing Analysis from: ', roi_current)
+                print('**                              to: ', roi)
                 roi_current.setState(roi_state)
                 roi_current.setPen(color='54FF00')
             else:
@@ -360,35 +364,47 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         else:
             print('** No ROI to remove!')
 
-    def addAnalysis(self, analysis=None):
+    def addAnalysis(self, idx=None, analysis=None):
         if analysis:
-            print('** Adding passed Analysis: ', analysis)
-            # roi_state = roi.getState()
-            # x, y = str(int(roi_state['pos'].x())), str(int(roi_state['pos'].y()))
-            # position = x + ',' + y
-            # r = int(roi_state['size'][0])
-            # if not time:
-            #     time = '0-' + str(self.frames)
-            # else:
-            #     time = str(time[0]) + '-' + str(time[0])
-            # roi_new = pg.CircleROI([x, y], [r, r], pen=(2, 9), movable=False)
-            # self.Analysis.append(analysis)
-            # self.graphicsView.p1.addItem(roi_new)
-            length = self.modelAnalysis.rowCount()
-            self.modelAnalysis.insertRow(length)
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.INDEX_A), str(length))
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI), 'ROI#')
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.TYPE), 'Vm or Ca')
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.ROI_CALC), 'MEAN')
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.FILTER), 'FILTER')
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PEAKS), 'THR,LOT')
-            self.modelAnalysis.setData(self.modelAnalysis.index(length, self.PROCESS), 'ALL')
+            print('*** addAnalysis: idx:', idx, ' analysis:', analysis)
+            roi = analysis['ROI']
+            type = analysis['TYPE']
+            roi_calc = analysis['ROI_CALC']
+            filter = analysis['FILTER']
+            peaks = analysis['PEAKS']
+            if idx is not None:
+                analysis_current = self.Analysis[idx]
+                print('** Changing existing Analysis from: ', analysis_current)
+                print('**                              to: ', analysis)
+                self.Analysis[idx] = analysis.copy()
+            else:
+                print('** Adding passed Analysis: ', analysis)
+                self.Analysis.append(analysis.copy())
+                length = self.modelAnalysis.rowCount()
+                idx = length
+                self.modelAnalysis.insertRow(idx)
+
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.INDEX_A), str(idx))
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI), roi)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.TYPE), type)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI_CALC), roi_calc)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FILTER), filter)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.PEAKS), peaks)
         else:
-            print('** No Prep to add!')
+            print('** No Analysis to add!')
+
+    def removeAnalysis(self, idx=None, analysis=None):
+        if analysis:
+            print('** Removing passed Analysis: ', analysis)
+            analysis_new = [j for i, j in enumerate(self.Analysis) if i not in [idx]]
+            self.Analysis = analysis_new
+            self.modelAnalysis.removeRow(idx)
+        else:
+            print('** No Analysis to remove!')
 
 
 class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
-    """Customization for WidgetFolderTree subwindow for an MDI"""
+    """Customization for Ui_WidgetFolderTree subwindow for an MDI"""
 
     def __init__(self, parent=None, root=None):
         # initialization of the superclass
@@ -414,7 +430,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 
 class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
-    """Customization for WidgetFolderTree subwindow for an MDI"""
+    """Customization for Ui_WidgetImagePrep subwindow for an MDI"""
 
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
@@ -598,7 +614,7 @@ class DesignerSubWindowImagePrep(QWidget, Ui_WidgetImagePrep):
 
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
-    """Customization for WidgetFolderTree subwindow for an MDI"""
+    """Customization for Ui_WidgetIsolate subwindow for an MDI"""
 
     # TODO Populate currentROIs based on selected Prep
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
@@ -668,6 +684,8 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         event : PySide2.QtGui.QCloseEvent
             Event when Qt receives a window close request for a top-level widget from the window system
         """
+        for roi in self.currentWindow.ROIs:
+            roi.setPen(color='54FF00')
         self.checkBoxPreview.setChecked(False)
         event.accept()
 
@@ -834,6 +852,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def discardROI(self):
         """Remove an existing ROI from a TIFF"""
+        print('*** Discarding ROI')
         if self.comboBoxROIs.currentIndex() is 0:
             print('Cannot discard *NEW* ROI!')
         else:
@@ -843,13 +862,13 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             else:
                 idx_roi = self.comboBoxROIs.currentIndex() - 1
                 roi_current = self.currentROIs[idx_roi]
-                self.currentWindow.removeROI(idx=self.comboBoxROIs.currentIndex() - 1, roi=roi_current)
+                self.currentWindow.removeROI(idx=idx_roi, roi=roi_current)
             self.checkBoxPreview.setChecked(False)
             self.selectionMadeSource(0)
 
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
-    """Customization for WidgetFolderTree subwindow for an MDI"""
+    """Customization for Ui_WidgetAnalyze subwindow for an MDI"""
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -895,6 +914,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.buttonBoxPeakDetect.button(QDialogButtonBox.Apply).clicked.connect(self.applyPeakDetect)
         self.buttonBoxProcess.button(QDialogButtonBox.Apply).clicked.connect(self.applyProcess)
 
+        self.buttonBoxAnalyze.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).clicked.connect(self.applyAnalysis)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Discard).clicked.connect(self.discardAnalysis)
         # self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
@@ -902,6 +922,18 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.selectionMadeSource(0)
         # self.listWidgetOpenTiffs.addItems(self.windowListNames)
         print('WidgetAnalyze ready')
+
+    def closeEvent(self, event):
+        """Reimplementation of QWidget.closeEvent
+
+        Parameters
+        ----------
+        event : PySide2.QtGui.QCloseEvent
+            Event when Qt receives a window close request for a top-level widget from the window system
+        """
+        for roi in self.currentWindow.ROIs:
+            roi.setPen(color='54FF00')
+        event.accept()
 
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
@@ -938,8 +970,8 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def selectionMadePrep(self, i):
         """Slot for comboBoxPreps.currentIndexChanged"""
         try:
-            print('** selection made in a ', type(self))
-            print('* Current Prep: ', self.comboBoxPreps.currentText())
+            print('*** selection made in a ', type(self))
+            print('** Current Prep: ', self.comboBoxPreps.currentText())
             # for prep in self.currentWindow.Preps:
 
             index_current = self.comboBoxPreps.currentIndex()
@@ -952,8 +984,8 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def selectionMadeROI(self, i):
         """Slot for comboBoxROIs.currentIndexChanged"""
-        print('** selection made in a ', type(self))
-        print('* Current ROI: ', self.comboBoxROIs.currentText())
+        print('*** selection made in a ', type(self))
+        print('** Current ROI: ', self.comboBoxROIs.currentText())
         for roi in self.currentWindow.ROIs:
             roi.setPen(color='54FF00')
         index_current = self.comboBoxROIs.currentIndex()
@@ -965,13 +997,14 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def selectionMadeAnalysis(self, i):
         """Slot for comboBoxAnalysis.currentIndexChanged"""
-        print('** selection made in a ', type(self))
-        print('* Current Analysis: ', self.comboBoxAnalysis.currentText())
+        print('*** selection made in a ', type(self))
+        print('** Current Analysis: ', self.comboBoxAnalysis.currentText())
         index_current = self.comboBoxAnalysis.currentIndex()
         if index_current > 0:
             # An existing Analysis has been selected
-            self.analysis_preview = self.currentWindow.Analysis[index_current]
-            print('* Analysis: ', str(self.analysis_preview))
+            self.analysis_preview = self.currentWindow.Analysis[index_current - 1]
+            print('* Analysis #', index_current - 1, ': ', str(self.analysis_preview))
+            self.updateParameters(self.analysis_preview)
         else:
             # *NEW* has been selected
             self.loadDefaults()
@@ -979,17 +1012,49 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def loadDefaults(self):
         """Populate Analysis parameter inputs with default values"""
         # TODO add functionality to Restore Defaults button
-        print('*** loadDefaults!')
-        self.analysis_preview = self.currentWindow.analysis_default
+        print('** loadDefaults!')
+        self.analysis_preview = self.currentWindow.analysis_default.copy()
+        self.updateParameters(self.currentWindow.analysis_default)
+        if self.tabProcess.isEnabled():
+            self.tabProcess.setEnabled(False)
+            self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
+        if self.tabPeakDetect.isEnabled():
+            self.tabPeakDetect.setEnabled(False)
+        self.plot_preview.clear()
+        self.progressBar.setValue(20)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
+
+    def updateParameters(self, analysis):
+        """Populate Analysis parameter inputs with an existing Analysis's parameters"""
+        print('** Updating Analysis parameters')
+        roi = analysis['ROI']
+        type = analysis['TYPE']
+        roi_calc = analysis['ROI_CALC']
+        filter = analysis['FILTER']
+        peaks_thresh, peaks_lockout = analysis['PEAKS'].split(',')
+        print("* using Analysis parameters: ", roi, ' ', type, ' ', roi_calc, ' ', filter, ' ',
+              peaks_thresh, ',', peaks_lockout, ' ', process)
+
+        # Populate fields with passed values
+        try:
+            self.signalTypeComboBox.setCurrentText(str(type))
+            self.roiCalculationComboBox.setCurrentText(roi_calc)
+            if pd.isna(filter):
+                self.filterCheckBox.setChecked(False)
+            else:
+                self.filterCheckBox.setChecked(True)
+                self.filterFreqSpinBox.setValue(int(filter))
+            self.thresholdDoubleSpinBox.setValue(float(peaks_thresh))
+            self.lockoutTimeSpinBox.setValue(int(peaks_lockout))
+            # self.allResultsCheckBoxVm.setChecked(process == 'ALL')
+            # self.allResultsCheckBoxCa.setChecked(process == 'ALL')
+        except Exception:
+            traceback.print_exc()
 
     def filterCheckBoxChanged(self):
         """Toggle use of a low pass filter for the current conditioning"""
         if self.filterCheckBox.isChecked():
-            try:
-                self.filterFreqSpinBox.setEnabled(True)
-            except Exception:
-                traceback.print_exc()
+            self.filterFreqSpinBox.setEnabled(True)
             print('*** Filter checked')
         else:
             self.filterFreqSpinBox.setEnabled(False)
@@ -998,17 +1063,23 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def applyCondition(self):
         """Apply Condition tab selections"""
         # TODO use ROI's frame info
-        print('** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
+        print('*** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
-        self.analysis_preview['TYPE'] = self.signalTypeComboBox.currentText()
-        self.analysis_preview['ROI_CALC'] = self.roiCalculationComboBox.currentText()
-        if self.filterCheckBox.isChecked():
-            self.analysis_preview['FILTER'] = str(self.filterFreqSpinBox.value())
-        else:
-            self.analysis_preview['FILTER'] = 'Nan'
-        print('*** analysis_preview: ', self.analysis_preview)
+        self.progressBar.setValue(20)
+        try:
+            self.analysis_preview['ROI'] = str(self.comboBoxROIs.currentIndex())
+            self.analysis_preview['TYPE'] = self.signalTypeComboBox.currentText()
+            self.analysis_preview['ROI_CALC'] = self.roiCalculationComboBox.currentText()
+            if self.filterCheckBox.isChecked():
+                self.analysis_preview['FILTER'] = str(self.filterFreqSpinBox.value())
+            else:
+                self.analysis_preview['FILTER'] = np.nan
+        except Exception:
+            traceback.print_exc()
+        print('** analysis_preview: ', self.analysis_preview)
         # Calculate conditioned ROI data across all frames
         try:
+            print('** ROI_CALC is ', self.analysis_preview['ROI_CALC'])
             if 'Mean' in self.analysis_preview['ROI_CALC']:
                 print('* Calculating ROI mean')
                 roi_data = self.currentWindow.getRoiStack(self.roi_current)
@@ -1020,6 +1091,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 max = roi_data_mean_norm.max()
                 roi_data_mean_norm = (roi_data_mean_norm - min) / (max - min)
                 if 'Voltage' in self.analysis_preview['TYPE']:
+                    # TODO Signal type should determine Process tab's results options
                     roi_data_mean_norm = 1 - roi_data_mean_norm
                 print('* ROI mean calculated')
                 if self.filterCheckBox.isChecked():
@@ -1033,7 +1105,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 else:
                     self.condition_results = roi_data_mean_norm
             else:
-                print('** ROI_CALC is ', self.analysis_preview['ROI_CALC'])
+                print('* UNKNOWN ROI_CALC! : ', self.analysis_preview['ROI_CALC'])
             # Plot conditioned signal
             self.plot_preview.plot(self.condition_results, clear=True)
         except Exception:
@@ -1045,20 +1117,21 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.tabPeakDetect.setEnabled(True)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
         self.progressBar.setValue(60)
+        print('*** Finished Applying Condition')
 
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
-        # TODO "Detection Error" in process(), too many base_locs caused by low lockout.
         # Detection Error @ trans#  0  our of  7
         # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
         # TODO set y axis to frames, not kframes
-        print('** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
+        print('*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())
+        self.progressBar.setValue(60)
         thresh = self.thresholdDoubleSpinBox.value()
         lockout = self.lockoutTimeSpinBox.value()
         param_peaks = str(thresh) + ',' + str(lockout)
         self.analysis_preview['PEAKS'] = param_peaks
-        print('*** analysis_preview: ', self.analysis_preview)
+        print('** analysis_preview: ', self.analysis_preview)
         try:
             print('** PEAKS is ', self.analysis_preview['PEAKS'])
             self.peak_results = peak_detect.peak_detect(f=self.condition_results, thresh=thresh, LOT=lockout)
@@ -1078,6 +1151,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             # Mark base_locs, grey
             self.plot_preview.plot(base_locs, self.condition_results[base_locs], pen=None,
                                    symbol='t1', symbolPen=None, symbolSize=10, symbolBrush=(100, 100, 100, 200))
+            print('* Peak results (signal, t0_locs, up_locs, peaks, base_locs) plotted')
             # # Mark upstroke
             # for slope in up_locs:
             #     vLine = pg.InfiniteLine(pos=slope, angle=90, movable=False, pen=[100, 255, 100, 80])
@@ -1097,14 +1171,16 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         self.progressBar.setValue(80)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabProcess)
+        print('*** Finished Applying Peak Detect')
 
     def applyProcess(self):
         """Apply Process tab selections"""
-        # TODO use parameters to generate results
+        print('*** Applying Process, All Results')
+        self.progressBar.setValue(80)
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
-        self.analysis_preview['PROCESS'] = 'all'
+        print('** analysis_preview: ', self.analysis_preview)
         try:
-            print('** PROCESS is ', self.analysis_preview['PROCESS'])
+            print('** PROCESS is gone, I am the captain now')
             per_base = 80
             F0 = np.nanmean((self.condition_results[1:t0_locs[0]]))
             if 'Voltage' in self.analysis_preview['TYPE']:
@@ -1113,29 +1189,83 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 probe = 0
             self.process_results = process.process(self.condition_results, self.currentWindow.dt,
                                                    t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
+            print('* Results table populated')
+            table_model = self.PandasModel(self.process_results)
+            self.processTableView.setModel(table_model)
+            print('* Process results calculated')
         except Exception:
             traceback.print_exc()
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
         self.progressBar.setValue(100)
+        print('*** Finished Applying Process')
 
     def applyAnalysis(self):
-        """Add a Analysis to a TIFF or applies changes to an existing Analysis"""
-        # TODO pass an analysis dict with results to addAnalysis
-        print('*** Applying *NEW* Analysis')
-        # self.currentWindow.addAnalysis(self.currentWindow.analysis_default)
-        # self.currentWindow.addAnalysis(self.analysis_preview)
-        self.selectionMadeSource(0)
-        if self.tabProcess.isEnabled():
-            self.tabProcess.setEnabled(False)
-            self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
-        if self.tabPeakDetect.isEnabled():
-            self.tabPeakDetect.setEnabled(False)
-        self.progressBar.setValue(20)
+        """Add an Analysis to a TIFF or applies changes to an existing Analysis"""
+        if not self.analysis_preview:
+            print('No analysis_preview to add or edit with')
+            return
+        else:
+            if self.comboBoxAnalysis.currentIndex() is 0:
+                print('*** Applying *NEW* Analysis')
+                # self.currentWindow.addAnalysis(self.currentWindow.analysis_default)
+                self.currentWindow.addAnalysis(analysis=self.analysis_preview)
+            else:
+                # Set state of the chosen Analysis (current list index - 1, due to *NEW* at index 0)
+                idx_analysis = self.comboBoxAnalysis.currentIndex() - 1
+                print('*** Changing Analysis #' + str(idx_analysis))
+                self.currentWindow.addAnalysis(idx=idx_analysis, analysis=self.analysis_preview)
+
+            if self.tabProcess.isEnabled():
+                self.tabProcess.setEnabled(False)
+                self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
+            if self.tabPeakDetect.isEnabled():
+                self.tabPeakDetect.setEnabled(False)
+            self.progressBar.setValue(20)
+            self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
+            self.selectionMadeSource(0)
 
     def discardAnalysis(self):
         """Remove an existing Analysis from a TIFF"""
         # TODO Add functionality to Discard button
         print('*** Discarding Analysis')
+        if self.comboBoxAnalysis.currentIndex() is 0:
+            print('Cannot discard *NEW* Analysis!')
+        else:
+            if len(self.currentAnalysis) < 1:
+                print('No Analysis to discard!')
+                return
+            else:
+                idx_analysis = self.comboBoxAnalysis.currentIndex() - 1
+                analysis_current = self.currentAnalysis[idx_analysis]
+                self.currentWindow.removeAnalysis(idx=idx_analysis, roi=analysis_current)
+            self.checkBoxPreview.setChecked(False)
+            self.selectionMadeSource(0)
+
+    class PandasModel(QtCore.QAbstractTableModel):
+        """
+        Class to populate a table view with a pandas dataframe
+        """
+
+        def __init__(self, data, parent=None):
+            QtCore.QAbstractTableModel.__init__(self, parent)
+            self._data = data
+
+        def rowCount(self, parent=None):
+            return self._data.shape[0]
+
+        def columnCount(self, parent=None):
+            return self._data.shape[1]
+
+        def data(self, index, role=QtCore.Qt.DisplayRole):
+            if index.isValid():
+                if role == QtCore.Qt.DisplayRole:
+                    return str(self._data.iloc[index.row(), index.column()])
+            return None
+
+        def headerData(self, col, orientation, role):
+            if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+                return self._data.columns[col]
+            return None
 
 
 # create the GUI application

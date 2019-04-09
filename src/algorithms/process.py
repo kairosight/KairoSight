@@ -66,7 +66,7 @@ def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0
     for trans in range(0, num_transients):  # Don't skip any transients
 
         if t0_locs[trans] < up_locs[trans] < peak_locs[trans] < base_locs[trans]:
-            print('Detection Good @ trans# ', trans, ' our of ', num_transients)
+            print('Detection Good @ trans# ', trans + 1, ' out of ', num_transients)
             t0 = t0_locs[trans]
             up = up_locs[trans]
             peak = peak_locs[trans]
@@ -83,7 +83,6 @@ def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0
         ret90 = np.nonzero(decay < 0.1)[0][0]  # return to 90% for CaD90/APD90 and triangulation
 
         # Finding point on the upstroke portion up to peak
-        # TODO solve "IndexError: index 0 is out of bounds for axis 0 with size 0" during 3rd transient
         upstroke = (f[t0:peak] - f[t0]) / (f[peak] - f[t0])  # Normalize the upstroke portion from 0 to 1
         up90 = np.nonzero(upstroke > 0.9)[0][0]  # return the first point that breaks 90% upstroke
 

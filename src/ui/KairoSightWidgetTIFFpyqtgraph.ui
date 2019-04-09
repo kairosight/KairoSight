@@ -293,6 +293,9 @@
             <height>16777215</height>
            </size>
           </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
           <property name="indentation">
            <number>5</number>
           </property>
@@ -336,6 +339,9 @@
             <height>16777215</height>
            </size>
           </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
           <property name="indentation">
            <number>5</number>
           </property>
@@ -378,6 +384,9 @@
             <width>280</width>
             <height>16777215</height>
            </size>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
           </property>
           <property name="indentation">
            <number>5</number>
