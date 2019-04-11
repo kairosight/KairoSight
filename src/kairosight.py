@@ -39,6 +39,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
         self.actionStart_ImagePrep.triggered.connect(self.image_prep)
         self.actionStart_Isolate.triggered.connect(self.isolate)
         self.actionStart_Analyze.triggered.connect(self.analyze)
+        self.actionExport_csv.triggered.connect(self.exportCSV)
+        self.actionExport_CopyPaste.triggered.connect(self.exportCopyPaste)
 
     def open_tiff(self, file=None):
         """Open a SubWindow with a TIFF stack in the main MDI area"""
@@ -138,6 +140,14 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
             sub_analyze.show()
         else:
             self.statusBar().showMessage('No processed videos with ROIs to analyze!')
+            
+    def exportCSV(self):
+        """Open a dialog to export a .csv of Analysis results"""
+        print('*** Opening export to .csv')
+
+    def exportCopyPaste(self):
+        """Open a table view of Analysis results"""
+        print('*** Opening export for copy + paste')
 
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
