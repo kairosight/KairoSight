@@ -47,21 +47,15 @@
     <addaction name="actionFolder"/>
     <addaction name="separator"/>
    </widget>
-   <widget class="QMenu" name="menuImagePrerp">
+   <widget class="QMenu" name="menuIsolate">
     <property name="title">
-     <string>2) Image Prep</string>
-    </property>
-    <addaction name="actionStart_ImagePrep"/>
-   </widget>
-   <widget class="QMenu" name="menuIsolateSignals">
-    <property name="title">
-     <string>3) Isolate Signals</string>
+     <string>2) Isolate Signals</string>
     </property>
     <addaction name="actionStart_Isolate"/>
    </widget>
    <widget class="QMenu" name="menuAnalyze">
     <property name="title">
-     <string>4) Analyze</string>
+     <string>3) Analyze</string>
     </property>
     <addaction name="actionStart_Analyze"/>
    </widget>
@@ -73,8 +67,7 @@
     <addaction name="actionExport_CopyPaste"/>
    </widget>
    <addaction name="menuOpen"/>
-   <addaction name="menuImagePrerp"/>
-   <addaction name="menuIsolateSignals"/>
+   <addaction name="menuIsolate"/>
    <addaction name="menuAnalyze"/>
    <addaction name="menuExport"/>
   </widget>
