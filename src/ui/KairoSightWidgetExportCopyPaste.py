@@ -57,6 +57,7 @@ class Ui_WidgetExportCopyPaste(object):
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.radioButtonAllResults = QtWidgets.QRadioButton(WidgetExportCopyPaste)
         self.radioButtonAllResults.setChecked(True)
+        self.radioButtonAllResults.setAutoExclusive(False)
         self.radioButtonAllResults.setObjectName("radioButtonAllResults")
         self.verticalLayout_3.addWidget(self.radioButtonAllResults)
         self.checkBoxAPDs = QtWidgets.QCheckBox(WidgetExportCopyPaste)

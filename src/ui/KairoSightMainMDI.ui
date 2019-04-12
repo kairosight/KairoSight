@@ -49,7 +49,7 @@
    </widget>
    <widget class="QMenu" name="menuIsolate">
     <property name="title">
-     <string>2) Isolate Signals</string>
+     <string>2) Isolate</string>
     </property>
     <addaction name="actionStart_Isolate"/>
    </widget>

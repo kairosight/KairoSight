@@ -26,6 +26,7 @@ from algorithms import tifopen, peak_detect, process
 
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     """Customization for Ui_MDIMainWindow, and MDI main window"""
+
     def __init__(self, parent=None):
         # initialization of the superclass
         super(DesignerMainWindow, self).__init__(parent)
@@ -123,7 +124,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
             sub_analyze.show()
         else:
             self.statusBar().showMessage('No processed videos with ROIs to analyze!')
-            
+
     def exportCSV(self):
         """Open a dialog to export a .csv of Analysis results"""
         print('*** Opening export to .csv')
@@ -415,6 +416,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
+
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
     # TODO change to "Isolate ROIs"
 
@@ -436,6 +438,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.currentPlot = None
         self.currentROIs = []
         self.roi_preview = None
+        self.condition_results = None
         # setup the GUI
         print('WidgetIsolate UI setup...')
         self.setupUi(self)
@@ -448,6 +451,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.v_preview.addItem(self.img_preview)
         self.v_preview.disableAutoRange('xy')
         self.v_preview.autoRange()
+        self.plot_preview = self.widgetPreviewPlot.addPlot()
 
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
@@ -570,6 +574,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 self.currentPlot.addItem(self.roi_preview)
                 self.roi_preview.sigRegionChangeFinished.connect(lambda: self.updateParameters(self.roi_preview))
                 self.roi_preview.sigRegionChanged.connect(self.updatePreview)
+                self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
                 self.updatePreview()
             else:
                 # ROI Preview exists, update the params
@@ -596,6 +601,38 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
             self.v_preview.autoRange()
             self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(True)
+        else:
+            print('No ROI preview to update!')
+
+    def updatePreviewPlot(self):
+        """Update ROI preview image and plot in Isolate subwindow"""
+        if self.roi_preview:
+            # Get current video frame data and preview ROI data
+            data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
+            data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
+
+            # self.roi_preview.setParentItem(img_preview)
+            # Draw preview data in isolate subwindow
+            self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
+            self.v_preview.autoRange()
+            self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(True)
+
+            # Calculate conditioned ROI data across all frames
+            print('* Calculating ROI mean')
+            roi_data = self.currentWindow.getRoiStack(self.roi_preview)
+            roi_data_mean = np.zeros(self.currentWindow.frames)
+            for idx, frame in enumerate(roi_data):
+                roi_data_mean[idx] = np.nanmean(frame)
+            roi_data_mean_norm = np.copy(roi_data_mean)
+            norm_MIN = roi_data_mean_norm.min()
+            norm_MAX = roi_data_mean_norm.max()
+            roi_data_mean_norm = (roi_data_mean_norm - norm_MIN) / (norm_MAX - norm_MIN)
+            # if 'Voltage' in self.analysis_preview['TYPE']:
+            # roi_data_mean_norm = 1 - roi_data_mean_norm
+            print('* ROI mean calculated')
+            self.condition_results = roi_data_mean_norm
+            # Plot conditioned signal
+            self.plot_preview.plot(self.condition_results, clear=True)
         else:
             print('No ROI preview to update!')
 
@@ -723,8 +760,9 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.currentAnalysis = self.currentWindow.Analysis
         self.comboBoxAnalysis.addItem('*New*')
         for idx, analysis in enumerate(self.currentAnalysis):
-            self.comboBoxAnalysis.addItem(str(idx) + ': ' + str(analysis))
-            print('Listing Analysis #', idx, ': ', analysis)
+            analysis_display = '#' + str(idx) + ': ' + analysis['TYPE']
+            self.comboBoxAnalysis.addItem(str(idx) + ': ' + analysis_display)
+            print('Listing Analysis #', idx, ': ', analysis_display)
 
         print('* Window: ', str(self.currentWindow))
         print('* W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
@@ -935,13 +973,13 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             probe = 0
         try:
             self.process_results = process.process(self.condition_results, self.currentWindow.dt,
-                                               t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
+                                                   t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
         except Exception:
             traceback.print_exc()
             # ex_type, ex_value, ex_traceback = sys.exc_info()
             # self.parentWidget().parentWidget().statusBar().showMessage('Failed to open, ' + str(ex_type))
 
-        self.analysis_preview['RESULTS'] = self.process_results.copy()
+        self.analysis_preview['RESULTS'] = self.process_results
         print('* Process results calculated')
 
         table_model = PandasModel(self.process_results)
@@ -1022,8 +1060,8 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
         self.comboBoxAnalysis.currentIndexChanged['int'].connect(self.selectionMadeAnalysis)
-        self.radioButtonIndividual.hitButton.connect(self.loadResults())
-        self.radioButtonMean.hitButton.connect(self.loadResults())
+        self.radioButtonIndividual.toggled.connect(self.loadResults)
+        self.radioButtonMean.toggled.connect(self.loadResults)
         self.selectionMadeSource(0)
         print('WidgetCopyPaste ready')
 
@@ -1051,6 +1089,8 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         index_current = self.comboBoxAnalysis.currentIndex()
         self.currentAnalysis = self.currentWindow.Analysis[index_current]
         self.currentResults = self.currentAnalysis['RESULTS']
+        self.radioButtonIndividual.setChecked(True)
+        self.finalResults = self.currentResults
         self.loadResults()
 
     def loadResults(self):
@@ -1058,8 +1098,12 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         # TODO copy and filter the dataframe to ony show APDs
         print('** loadResults!')
         if self.radioButtonMean.isChecked():
-            self.finalResults = self.currentResults.mean()
+            print('* Using Mean results')
+            # self.finalResults = self.currentResults.mean()
+            self.finalResults = pd.DataFrame(columns=self.currentResults.columns)
+            self.finalResults.loc[0] = self.currentResults.mean(axis=0)
         else:
+            print('* Using Individual results')
             self.finalResults = self.currentResults
 
         table_model = PandasModel(self.finalResults)
@@ -1071,6 +1115,7 @@ class PandasModel(QtCore.QAbstractTableModel):
     """
     Class to populate a table view with a pandas dataframe
     """
+
     def __init__(self, data, parent=None):
         QtCore.QAbstractTableModel.__init__(self, parent)
         self._data = data
