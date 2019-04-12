@@ -84,7 +84,7 @@
      <item>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
-        <widget class="QRadioButton" name="radioButton">
+        <widget class="QRadioButton" name="radioButtonIndividual">
          <property name="text">
           <string>Individual</string>
          </property>
@@ -94,7 +94,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QRadioButton" name="radioButton_2">
+        <widget class="QRadioButton" name="radioButtonMean">
          <property name="text">
           <string>Mean</string>
          </property>
@@ -124,6 +124,9 @@
         <widget class="QRadioButton" name="radioButtonAllResults">
          <property name="text">
           <string>All Results</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
          </property>
         </widget>
        </item>

@@ -383,7 +383,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
             self.modelRoi.setData(self.modelRoi.index(idx, self.INDEX_R), idx)
             self.modelRoi.setData(self.modelRoi.index(idx, self.PREP), idx_prep)
-            self.modelRoi.setData(self.modelRoi.index(idx, self.TYPE), 'Circle')
+            self.modelRoi.setData(self.modelRoi.index(idx, self.TYPE_R), 'Circle')
             self.modelRoi.setData(self.modelRoi.index(idx, self.POSITION), position)
             self.modelRoi.setData(self.modelRoi.index(idx, self.SIZE), r)
             self.modelRoi.setData(self.modelRoi.index(idx, self.FRAMES), frames)
@@ -423,7 +423,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.INDEX_A), str(idx))
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI), roi)
-            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.TYPE), analysis_type)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.TYPE_A), analysis_type)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI_CALC), roi_calc)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FILTER), analysis_filter)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.PEAKS), peaks)
@@ -863,7 +863,6 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             print('No roi_preview to add or edit with')
             return
         else:
-            idx_prep = self.comboBoxPreps.currentIndex()
             if not self.checkBoxTimeAll.isChecked():
                 frames = self.startSpinBox.text() + '-' + self.endSpinBox.text()
             else:
@@ -871,13 +870,13 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             if self.comboBoxROIs.currentIndex() is 0:
                 # Add the preview ROI to the current TIFF window
                 print('*** Applying *NEW* ROI ')
-                self.currentWindow.addROI(idx_prep=idx_prep, roi=self.roi_preview, frames=frames)
+                self.currentWindow.addROI(roi=self.roi_preview, frames=frames)
             else:
                 # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
                 idx_roi = self.comboBoxROIs.currentIndex() - 1
                 print('*** Changing ROI #' + str(idx_roi))
                 roi_current = self.currentROIs[idx_roi]
-                self.currentWindow.addROI(idx_prep=idx_prep, idx=idx_roi, roi=self.roi_preview, frames=frames)
+                self.currentWindow.addROI(idx=idx_roi, roi=self.roi_preview, frames=frames)
                 roi_current.setPen(color='54FF00')
             self.checkBoxPreview.setChecked(False)
             self.selectionMadeSource(0)
@@ -918,7 +917,6 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.windowDict[w_name_short] = w.widget()
         self.currentWindow = None
         self.currentVideoPlot = None
-        self.currentPreps = []
         self.currentROIs = []
         self.currentAnalysis = []
         self.roi_current = None
@@ -938,7 +936,6 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
-        self.comboBoxPreps.currentIndexChanged['int'].connect(self.selectionMadePrep)
         self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
         self.comboBoxAnalysis.currentIndexChanged['int'].connect(self.selectionMadeAnalysis)
 
@@ -973,11 +970,6 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('* Current source: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentVideoPlot = self.currentWindow.graphicsView.p1
-        self.currentPreps = self.currentWindow.Preps
-        self.comboBoxPreps.clear()
-        for idx, prep in enumerate(self.currentPreps):
-            self.comboBoxPreps.addItem(str(idx) + ': ' + str(prep))
-            print('Listing Prep #', idx, ': ', prep)
 
         self.comboBoxROIs.clear()
         self.currentROIs = self.currentWindow.ROIs
@@ -994,22 +986,9 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
         print('* Window: ', str(self.currentWindow))
         print('* W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
-        print('* Preps: ', str(self.currentPreps))
         print('* ROIs: ', str(self.currentROIs))
         print('* Analysis: ', str(self.currentAnalysis))
         # self.loadDefaults()
-
-    def selectionMadePrep(self, i):
-        """Slot for comboBoxPreps.currentIndexChanged"""
-        print('*** selection #', i, ' made in a ', type(self))
-        print('** Current Prep: ', self.comboBoxPreps.currentText())
-        # for prep in self.currentWindow.Preps:
-
-        index_current = self.comboBoxPreps.currentIndex()
-        prep_current = self.currentWindow.Preps[index_current]
-        print('* Prep: ', str(prep_current))
-        # prep_current.setPen(color='FF000A')
-        # self.updateParameters(prep_current)
 
     def selectionMadeROI(self, i):
         """Slot for comboBoxROIs.currentIndexChanged"""
@@ -1286,6 +1265,7 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.currentWindow = None
         self.currentAnalysis = None
         self.currentResults = None
+        self.finalResults = None
         # setup the GUI
         print('WidgetCopyPaste UI setup...')
         self.setupUi(self)
@@ -1325,7 +1305,10 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         """Populate Results table with the current Analysis' results"""
         # TODO copy and filter the dataframe to ony show APDs
         print('** loadResults!')
-        table_model = PandasModel(self.currentResults)
+        if self.radioButtonMean.isChecked():
+            self.finalResults = self.currentResults.mean()
+
+        table_model = PandasModel(self.finalResults)
         self.tableViewResults.setModel(table_model)
         print('* Results table populated')
 
