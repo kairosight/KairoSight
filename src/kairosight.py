@@ -10,7 +10,8 @@ import scipy.signal as sig
 from PyQt5 import QtCore
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QStandardItemModel
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel, QDialogButtonBox
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel, QDialogButtonBox, \
+    QTableWidgetItem
 import pyqtgraph as pg
 from ui.KairoSightMainMDI import Ui_MDIMainWindow
 from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
@@ -22,10 +23,11 @@ from algorithms import tifopen, peak_detect, process
 
 
 # TODO review/remove/reformat print statements
-# TODO change MainWindow's subwindow creation methods to "Window..."
 
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     """Customization for Ui_MDIMainWindow, and MDI main window"""
+    # TODO add Export to csv (study, file, roi, ...)
+    # TODO change MainWindow's subwindow creation methods to "Window..."
 
     def __init__(self, parent=None):
         # initialization of the superclass
@@ -163,7 +165,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for Ui_WidgetTiff subwindow for an MDI"""
-    # TODO add Export to csv (study, file, roi, ...)
+    # TODO split and overlay videos (Voltage + Calcium) and use autoregistration
     # TODO build a better data tree for ROIs and Analysis
     INDEX_R, TYPE_R, POSITION, SIZE, FRAMES = range(5)
     INDEX_A, ROI, TYPE_A, ROI_CALC, FILTER, PEAKS = range(6)
@@ -416,9 +418,8 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
-
+    # TODO Detect isolation of split/autoregistered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
-    # TODO change to "Isolate ROIs"
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -576,6 +577,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 self.roi_preview.sigRegionChanged.connect(self.updatePreview)
                 self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
                 self.updatePreview()
+                self.updatePreviewPlot()
             else:
                 # ROI Preview exists, update the params
                 # Get current ROI values
@@ -679,6 +681,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     """Customization for Ui_WidgetAnalyze subwindow for an MDI"""
+    # TODO clean up Apply and OK UI flow
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -1054,14 +1057,24 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.currentAnalysis = None
         self.currentResults = None
         self.finalResults = None
+        self.clip = QApplication.clipboard()
         # setup the GUI
         print('WidgetCopyPaste UI setup...')
         self.setupUi(self)
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
         self.comboBoxAnalysis.currentIndexChanged['int'].connect(self.selectionMadeAnalysis)
+
         self.radioButtonIndividual.toggled.connect(self.loadResults)
+        self.radioButtonIndividual.setChecked(True)
         self.radioButtonMean.toggled.connect(self.loadResults)
+
+        self.radioButtonAllResults.toggled.connect(self.loadResults)
+        self.radioButtonAllResults.setChecked(True)
+        self.checkBoxAPDs.stateChanged.connect(self.loadResults)
+        self.checkBoxPeriods.stateChanged.connect(self.loadResults)
+
+        self.pushButtonCopy.clicked.connect(self.copyResults)
         self.selectionMadeSource(0)
         print('WidgetCopyPaste ready')
 
@@ -1091,24 +1104,83 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.currentResults = self.currentAnalysis['RESULTS']
         self.radioButtonIndividual.setChecked(True)
         self.finalResults = self.currentResults
-        self.loadResults()
+        # self.loadResults()
+
+    def updateParameters(self):
+        """Populate Results parameter inputs with an existing Analysis's parameters"""
+        print('** Updating Results parameters')
+        try:
+            if self.checkBoxAPDs.isChecked() and self.checkBoxPeriods.isChecked():
+                self.radioButtonAllResults.setChecked(True)
+            else:
+                if self.radioButtonAllResults.isChecked():
+                    self.checkBoxAPDs.setChecked(False)
+                    self.checkBoxPeriods.setChecked(False)
+            self.loadResults()
+        except Exception:
+            traceback.print_exc()
 
     def loadResults(self):
         """Populate Results table with the current Analysis' results"""
         # TODO copy and filter the dataframe to ony show APDs
-        print('** loadResults!')
-        if self.radioButtonMean.isChecked():
-            print('* Using Mean results')
-            # self.finalResults = self.currentResults.mean()
-            self.finalResults = pd.DataFrame(columns=self.currentResults.columns)
-            self.finalResults.loc[0] = self.currentResults.mean(axis=0)
+        print('*** loadResults!')
+        if not self.currentResults:
+            print('*** No results yet!')
         else:
-            print('* Using Individual results')
-            self.finalResults = self.currentResults
+            print('** Found results')
+            # try:
+            #     if self.radioButtonMean.isChecked():
+            #         print('* Using Mean results')
+            #         self.finalResults = pd.DataFrame(columns=self.currentResults.columns)
+            #         self.finalResults.loc[0] = self.currentResults.mean(axis=0)
+            #     else:
+            #         print('* Using Individual results')
+            #         self.finalResults = self.currentResults
+            #
+            #     if self.checkBoxAPDs.isChecked():
+            #         print('* Using APDs')
+            #         self.finalResults = self.finalResults.iloc[:, 5:8]
+            #     elif self.checkBoxPeriods.isChecked():
+            #         print('* Using periods')
+            #
+            #     self.tableWidgetResults.setColumnCount(len(self.finalResults.columns))
+            #     self.tableWidgetResults.setRowCount(len(self.finalResults.index))
+            #
+            #     for i in range(len(self.finalResults.index)):
+            #         for j in range(len(self.finalResults.columns)):
+            #             self.tableWidgetResults.setItem(i, j, QTableWidgetItem(str(self.finalResults.iat[i, j])))
+            #     print('* Results table populated by dataframe')
+            #     self.tableWidgetResults.resizeColumnsToContents()
+            #     self.tableWidgetResults.resizeRowsToContents()
+            #     self.tableWidgetResults.setHorizontalHeaderLabels(self.finalResults.columns)
+            # except Exception:
+            #     traceback.print_exc()
 
-        table_model = PandasModel(self.finalResults)
-        self.tableViewResults.setModel(table_model)
-        print('* Results table populated')
+            print('** Results loaded!')
+
+    def copyResults(self):
+        print('*** copyResults!')
+        try:
+            print('** copy...')
+            selected = self.tableWidgetResults.selectedRanges()
+            # s = '\t' + "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
+            #                       range(selected[0].leftColumn(), selected[0].rightColumn())])
+            s = "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
+                           range(selected[0].leftColumn(), selected[0].rightColumn())])
+            s = s + '\n'
+            for r in range(selected[0].topRow(), selected[0].bottomRow()):
+                # s += self.tableWidgetResults.verticalHeaderItem(r).text() + '\t'
+                # s += str(self.tableWidgetResults.verticalHeaderItem(r).text()) + '\t'
+                for c in range(selected[0].leftColumn(), selected[0].rightColumn()):
+                    try:
+                        print('** try: s += str(self.table.item(r, c).text()) + "\t"')
+                        s += str(self.tableWidgetResults.item(r, c).text()) + "\t"
+                    except AttributeError:
+                        s += "\t"
+                s = s[:-1] + "\n"  # eliminate last '\t'
+            self.clip.setText(s)
+        except Exception:
+            traceback.print_exc()
 
 
 class PandasModel(QtCore.QAbstractTableModel):
