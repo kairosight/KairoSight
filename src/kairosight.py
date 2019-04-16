@@ -130,6 +130,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     def exportCSV(self):
         """Open a dialog to export a .csv of Analysis results"""
         print('*** Opening export to .csv')
+        # df.to_csv('myDataFrame.csv')
         tiff_windows = []
         # Create a list of all open TIFF subwindows
         for sub in self.mdiArea.subWindowList():
@@ -153,8 +154,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
         for sub in self.mdiArea.subWindowList():
             # print('**' + str(type(sub.widget())) + ', ' + sub.widget().objectName() + ' is a tiff? ')
             if type(sub.widget()) is DesignerSubWindowTiff:
-                if sub.widget().ROIs:
-                    tiff_windows.append(sub)
+                # if sub.widget().ROIs:
+                tiff_windows.append(sub)
         if tiff_windows:
             sub_exportCopyPaste = DesignerSubWindowExportCopyPaste(w_list=tiff_windows)
             self.mdiArea.addSubWindow(sub_exportCopyPaste)
@@ -380,14 +381,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
     def removeAnalysis(self, idx=None, analysis=None):
         if analysis:
-            print('** Removing passed Analysis: ', analysis)
+            print('* Removing passed Analysis: ', analysis)
             analysis_new = [j for i, j in enumerate(self.Analysis) if i not in [idx]]
             self.Analysis = analysis_new
             self.modelAnalysis.removeRow(idx)
             for idx in range(6):
                 self.treeViewAnalysis.resizeColumnToContents(idx)
         else:
-            print('** No Analysis to remove!')
+            print('* No Analysis to remove!')
 
 
 class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
@@ -418,6 +419,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
+    # TODO Fix preview redundancies (updating image and plot multiple times per ROI change)
     # TODO Detect isolation of split/autoregistered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
@@ -457,10 +459,6 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
         self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
-
-        self.originXLineEdit.textEdited.connect(self.checkBoxChangedPreview)
-        self.originYLineEdit.textEdited.connect(self.checkBoxChangedPreview)
-        self.radiusSpinBox.valueChanged.connect(self.checkBoxChangedPreview)
 
         self.checkBoxTimeAll.stateChanged.connect(self.checkBoxChangedTimeAll)
 
@@ -550,19 +548,21 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def checkBoxChangedTimeAll(self):
         """Toggle use of all frames of a video for the current ROI"""
+        print('** checkBoxChangedTimeAll')
         if self.checkBoxTimeAll.isChecked():
             self.startSpinBox.setValue(1)
             self.startSpinBox.setEnabled(False)
             self.endSpinBox.setValue(self.currentWindow.frames)
             self.endSpinBox.setEnabled(False)
-            print('*** UseAll checked')
+            print('* UseAll checked')
         else:
             self.startSpinBox.setEnabled(True)
             self.endSpinBox.setEnabled(True)
-            print('*** UseAll unchecked')
+            print('* UseAll unchecked')
 
     def checkBoxChangedPreview(self):
         """Create/destroy preview ROI and read parameter entries"""
+        print('** checkBoxChangedPreview')
         if self.checkBoxPreview.isChecked():
             if not self.roi_preview:
                 # Get current ROI values
@@ -573,26 +573,42 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 self.roi_preview.setPen(color='FF8700')
                 # Draw region on current tiff window's plot
                 self.currentPlot.addItem(self.roi_preview)
-                self.roi_preview.sigRegionChangeFinished.connect(lambda: self.updateParameters(self.roi_preview))
-                self.roi_preview.sigRegionChanged.connect(self.updatePreview)
-                self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
-                self.updatePreview()
-                self.updatePreviewPlot()
-            else:
-                # ROI Preview exists, update the params
-                # Get current ROI values
-                x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
-                r = self.radiusSpinBox.value()
-                self.roi_preview.setPos((x, y))
-                self.roi_preview.setSize(r)
+                self.roi_preview.sigRegionChanged.connect(self.updatePreviewImage)
+                self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview))
+                # self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
+
+                self.originXLineEdit.textEdited.connect(self.updatePreviewROI)
+                self.originYLineEdit.textEdited.connect(self.updatePreviewROI)
+                self.radiusSpinBox.valueChanged.connect(self.updatePreviewROI)
+                self.updatePreviewROI()
+                # self.updatePreviewPlot()
+                print('** Created preview ROI')
         else:
             # Remove preview ROI
             self.currentPlot.removeItem(self.roi_preview)
             self.roi_preview = None
             self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
+            print('** Removed preview ROI')
 
-    def updatePreview(self):
+    def updatePreviewROI(self):
+        """Update ROI preview in Isolate subwindow"""
+        print('** updatePreviewROI')
+        if self.roi_preview:
+            # ROI Preview exists, update the params
+            # Get current ROI values
+            x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
+            r = self.radiusSpinBox.value()
+            self.roi_preview.setPos((x, y))
+            self.roi_preview.setSize(r)
+
+            self.updatePreviewImage()
+            print('** Set ROI preview')
+        else:
+            print('** No ROI preview to update, clearing!')
+
+    def updatePreviewImage(self):
         """Update ROI preview image in Isolate subwindow"""
+        print('** updatePreviewImage')
         if self.roi_preview:
             # Get current video frame data and preview ROI data
             data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
@@ -603,22 +619,15 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
             self.v_preview.autoRange()
             self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(True)
+            print('** Set ROI preview image')
         else:
-            print('No ROI preview to update!')
+            self.v_preview.clear()
+            print('** No ROI preview image to update, clearing!')
 
     def updatePreviewPlot(self):
-        """Update ROI preview image and plot in Isolate subwindow"""
+        """Update ROI preview plot in Isolate subwindow"""
+        print('** updatePreviewPlot')
         if self.roi_preview:
-            # Get current video frame data and preview ROI data
-            data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
-            data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
-
-            # self.roi_preview.setParentItem(img_preview)
-            # Draw preview data in isolate subwindow
-            self.img_preview.setImage(data_preview, levels=(0, data_frame.max()))
-            self.v_preview.autoRange()
-            self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(True)
-
             # Calculate conditioned ROI data across all frames
             print('* Calculating ROI mean')
             roi_data = self.currentWindow.getRoiStack(self.roi_preview)
@@ -635,13 +644,15 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             self.condition_results = roi_data_mean_norm
             # Plot conditioned signal
             self.plot_preview.plot(self.condition_results, clear=True)
+            print('** Set ROI preview plot')
         else:
-            print('No ROI preview to update!')
+            self.plot_preview.clear()
+            print('** No ROI preview plot to update, clearing!')
 
     def applyROI(self):
         """Add an ROI to a TIFF or applies changes to an existing ROI"""
         if not self.roi_preview:
-            print('No roi_preview to add or edit with')
+            print('*** No roi_preview to add or edit with')
             return
         else:
             if not self.checkBoxTimeAll.isChecked():
@@ -666,17 +677,19 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         """Remove an existing ROI from a TIFF"""
         print('*** Discarding ROI')
         if self.comboBoxROIs.currentIndex() is 0:
-            print('Cannot discard *NEW* ROI!')
+            print('*** Cannot discard *NEW* ROI!')
         else:
             if len(self.currentROIs) < 1:
-                print('No ROIs to discard!')
-                return
+                print('*** No ROIs to discard!')
             else:
+                print('** Removing ROI: ', self.comboBoxROIs.currentText())
                 idx_roi = self.comboBoxROIs.currentIndex() - 1
                 roi_current = self.currentROIs[idx_roi]
+
                 self.currentWindow.removeROI(idx=idx_roi, roi=roi_current)
-            self.checkBoxPreview.setChecked(False)
-            self.selectionMadeSource(0)
+
+                self.checkBoxPreview.setChecked(False)
+                self.selectionMadeSource(0)
 
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
@@ -802,7 +815,6 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def loadDefaults(self):
         """Populate Analysis parameter inputs with default values"""
-        # TODO add functionality to Restore Defaults button
         print('** loadDefaults!')
         self.analysis_preview = self.currentWindow.analysis_default.copy()
         self.updateParameters(self.currentWindow.analysis_default)
@@ -948,8 +960,8 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         #             self.plot_preview.addItem(vLine)
         #             break
         self.plot_preview.setLabel('left', "Norm. Fluorescence")
-        self.plot_preview.setLabel('bottom', "Time", units='frames')
-        self.plot_preview.getAxis('bottom').enableAutoSIPrefix(enable=False)
+        # self.plot_preview.setLabel('bottom', "Time", units='frames')
+        # self.plot_preview.getAxis('bottom').enableAutoSIPrefix(enable=False)
 
         self.tabProcess.setEnabled(True)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
@@ -995,18 +1007,18 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def applyAnalysis(self):
         """Add an Analysis to a TIFF or applies changes to an existing Analysis"""
+        print('*** Applying Analysis')
         if not self.analysis_preview:
-            print('No analysis_preview to add or edit with')
-            return
+            print('** No analysis_preview to add or edit with')
         else:
             if self.comboBoxAnalysis.currentIndex() is 0:
-                print('*** Applying *NEW* Analysis')
+                print('** Applying *NEW* Analysis')
                 # self.currentWindow.addAnalysis(self.currentWindow.analysis_default)
                 self.currentWindow.addAnalysis(analysis=self.analysis_preview)
             else:
                 # Set state of the chosen Analysis (current list index - 1, due to *NEW* at index 0)
                 idx_analysis = self.comboBoxAnalysis.currentIndex() - 1
-                print('*** Changing Analysis #' + str(idx_analysis))
+                print('** Changing Analysis #' + str(idx_analysis))
                 self.currentWindow.addAnalysis(idx=idx_analysis, analysis=self.analysis_preview)
 
             if self.tabProcess.isEnabled():
@@ -1017,23 +1029,32 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.progressBar.setValue(20)
             self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
             self.selectionMadeSource(0)
+        print('*** Apply Analysis done')
 
     def discardAnalysis(self):
         """Remove an existing Analysis from a TIFF"""
-        # TODO Add functionality to Discard button
         print('*** Discarding Analysis')
         if self.comboBoxAnalysis.currentIndex() is 0:
-            print('Cannot discard *NEW* Analysis!')
+            print('** Cannot discard *NEW* Analysis!')
         else:
             if len(self.currentAnalysis) < 1:
-                print('No Analysis to discard!')
-                return
+                print('** No Analysis to discard!')
             else:
+                print('** Removing Analysis: ', self.comboBoxAnalysis.currentText())
                 idx_analysis = self.comboBoxAnalysis.currentIndex() - 1
                 analysis_current = self.currentAnalysis[idx_analysis]
-                self.currentWindow.removeAnalysis(idx=idx_analysis, roi=analysis_current)
-            self.checkBoxPreview.setChecked(False)
-            self.selectionMadeSource(0)
+
+                self.currentWindow.removeAnalysis(idx=idx_analysis, analysis=analysis_current)
+
+                if self.tabProcess.isEnabled():
+                    self.tabProcess.setEnabled(False)
+                    self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
+                if self.tabPeakDetect.isEnabled():
+                    self.tabPeakDetect.setEnabled(False)
+                self.progressBar.setValue(20)
+                self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
+                self.selectionMadeSource(0)
+        print('*** Discard Analysis done')
 
 
 class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
@@ -1068,10 +1089,13 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.radioButtonIndividual.toggled.connect(self.loadResults)
         self.radioButtonIndividual.setChecked(True)
         self.radioButtonMean.toggled.connect(self.loadResults)
+        self.checkBoxSD.toggled.connect(self.loadResults)
 
-        self.radioButtonAllResults.toggled.connect(self.loadResults)
-        self.radioButtonAllResults.setChecked(True)
+        self.checkBoxProperties.setChecked(False)
+        self.checkBoxProperties.stateChanged.connect(self.loadResults)
+        self.checkBoxAPDs.setChecked(True)
         self.checkBoxAPDs.stateChanged.connect(self.loadResults)
+        self.checkBoxPeriods.setChecked(True)
         self.checkBoxPeriods.stateChanged.connect(self.loadResults)
 
         self.pushButtonCopy.clicked.connect(self.copyResults)
@@ -1104,57 +1128,89 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.currentResults = self.currentAnalysis['RESULTS']
         self.radioButtonIndividual.setChecked(True)
         self.finalResults = self.currentResults
-        # self.loadResults()
+        self.loadResults()
 
     def updateParameters(self):
-        """Populate Results parameter inputs with an existing Analysis's parameters"""
+        """Update Results parameters"""
         print('** Updating Results parameters')
-        try:
-            if self.checkBoxAPDs.isChecked() and self.checkBoxPeriods.isChecked():
-                self.radioButtonAllResults.setChecked(True)
-            else:
-                if self.radioButtonAllResults.isChecked():
-                    self.checkBoxAPDs.setChecked(False)
-                    self.checkBoxPeriods.setChecked(False)
-            self.loadResults()
-        except Exception:
-            traceback.print_exc()
+        # try:
+        #     if self.checkBoxAPDs.isChecked():
+        #
+        #     elif self.checkBoxPeriods.isChecked():
+        #     else:
+        #         if self.radioButtonAllResults.isChecked():
+        #             self.checkBoxAPDs.setChecked(False)
+        #             self.checkBoxPeriods.setChecked(False)
+        #     self.loadResults()
+        # except Exception:
+        #     traceback.print_exc()
 
     def loadResults(self):
         """Populate Results table with the current Analysis' results"""
         # TODO copy and filter the dataframe to ony show APDs
         print('*** loadResults!')
-        if not self.currentResults:
+        print('** currentResults:' + str(self.currentResults))
+        if self.currentResults is None:
             print('*** No results yet!')
         else:
             print('** Found results')
-            # try:
-            #     if self.radioButtonMean.isChecked():
-            #         print('* Using Mean results')
-            #         self.finalResults = pd.DataFrame(columns=self.currentResults.columns)
-            #         self.finalResults.loc[0] = self.currentResults.mean(axis=0)
-            #     else:
-            #         print('* Using Individual results')
-            #         self.finalResults = self.currentResults
-            #
-            #     if self.checkBoxAPDs.isChecked():
-            #         print('* Using APDs')
-            #         self.finalResults = self.finalResults.iloc[:, 5:8]
-            #     elif self.checkBoxPeriods.isChecked():
-            #         print('* Using periods')
-            #
-            #     self.tableWidgetResults.setColumnCount(len(self.finalResults.columns))
-            #     self.tableWidgetResults.setRowCount(len(self.finalResults.index))
-            #
-            #     for i in range(len(self.finalResults.index)):
-            #         for j in range(len(self.finalResults.columns)):
-            #             self.tableWidgetResults.setItem(i, j, QTableWidgetItem(str(self.finalResults.iat[i, j])))
-            #     print('* Results table populated by dataframe')
-            #     self.tableWidgetResults.resizeColumnsToContents()
-            #     self.tableWidgetResults.resizeRowsToContents()
-            #     self.tableWidgetResults.setHorizontalHeaderLabels(self.finalResults.columns)
-            # except Exception:
-            #     traceback.print_exc()
+            try:
+                tempResults = pd.DataFrame()
+                # tempResults = pd.DataFrame(columns=self.currentResults.columns)
+                tempResultsAPD = pd.DataFrame()
+                tempResultsPer = pd.DataFrame()
+                if self.radioButtonMean.isChecked():
+                    print('* Using Mean results')
+                    mean = self.currentResults.mean(axis=0)
+                    mean_SD = pd.Series()
+                    mean_combo = pd.Series()
+                    self.checkBoxSD.setEnabled(True)
+                    if self.checkBoxSD.isChecked():
+                        print('* Using SD results')
+                        mean_SD = self.currentResults.std(axis=0)
+                        mean_SD_index = [s + '_SD' for s in mean_SD.index]
+                        mean_SD.reindex(mean_SD_index)
+                        # Interleave lists of means and SDs
+                        mean_combo_list = [np.nan] * (2 * len(mean))
+                        mean_combo_list[::2] = mean
+                        mean_combo_list[1::2] = mean_SD
+                        mean_combo = pd.Series(mean_combo_list)
+                        # mean_combo = pd.Series([val for pair in zip(mean, mean_SD) for val in pair])
+                    else:
+                        mean_combo = mean
+                    # tempResults.loc[0] = mean_combo
+                    tempResults = mean_combo.to_frame().transpose()
+                else:
+                    print('* Using Individual results')
+                    self.checkBoxSD.setEnabled(False)
+                    tempResults = self.currentResults
+
+                if self.checkBoxProperties.isChecked():
+                    print('* Using Properties')
+                    # TODO create row/rows with subject, file_name, roi, analysis
+                    # tempResultsProps = tempResults.iloc[:, 4:]
+                if self.checkBoxAPDs.isChecked():
+                    print('* Using APDs')
+                    tempResultsAPD = tempResults.iloc[:, 4:7]
+                if self.checkBoxPeriods.isChecked():
+                    print('* Using periods')
+                    tempResultsPer = tempResults.iloc[:, :4]
+                else:
+                    print('* No results columns chosen!')
+                tempResults = pd.concat([tempResultsPer, tempResultsAPD], axis=1)
+                self.finalResults = tempResults
+                self.tableWidgetResults.setColumnCount(len(self.finalResults.columns))
+                self.tableWidgetResults.setRowCount(len(self.finalResults.index))
+
+                for i in range(len(self.finalResults.index)):
+                    for j in range(len(self.finalResults.columns)):
+                        self.tableWidgetResults.setItem(i, j, QTableWidgetItem(str(self.finalResults.iat[i, j])))
+                print('* Results table populated by dataframe')
+                self.tableWidgetResults.resizeColumnsToContents()
+                self.tableWidgetResults.resizeRowsToContents()
+                self.tableWidgetResults.setHorizontalHeaderLabels(self.finalResults.columns)
+            except Exception:
+                traceback.print_exc()
 
             print('** Results loaded!')
 
