@@ -109,13 +109,18 @@ def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0
         results.TauFall[trans] = 1 / (popt[1])
         results.Sys[trans] = f[peak]
 
+        # Limit all results to 5 significant digits, due to dt limit
+        for i in range(len(results.index)):
+            for j in range(len(results.columns)):
+                results.iat[i, j] = "{0:.5g}".format(results.iat[i, j])
+
         if trans == 0:
             results.Dias[trans] = F0
         else:
             results.Dias[trans] = f[base]
 
         if trans < num_transients - 1:
-            results.CL[trans] = (peak_locs[trans + 1] - peak) * dt
+            results.CL[trans] = (up_locs[trans + 1] - up) * dt
         else:
             results.CL[trans] = np.nan  # last transient, cannot calculate CL anymore
 

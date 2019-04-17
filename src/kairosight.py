@@ -203,6 +203,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # Use a dummy dt (aka Frame Period) if none detected
         # From MetaMorph: for exposure time 1.219 ms, dt = 1.238 ms
         if np.isnan(self.dt):
+            self.framePeriodMsLabel.setText('!Frame Period (ms)')
             self.dt = 1.238
 
         self.fps = 1000 / self.dt
@@ -1157,24 +1158,47 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
             try:
                 tempResults = pd.DataFrame()
                 # tempResults = pd.DataFrame(columns=self.currentResults.columns)
+                tempResultsProps = pd.DataFrame()
                 tempResultsAPD = pd.DataFrame()
                 tempResultsPer = pd.DataFrame()
+
+                # Filter based on desired values
+                if self.checkBoxProperties.isChecked():
+                    print('* Using Properties')
+                    # TODO create row/rows with subject, file_name, roi, analysis
+                    tempResultsProps = self.currentResults.iloc[:, :3]
+                if self.checkBoxAPDs.isChecked():
+                    print('* Using APDs')
+                    tempResultsAPD = self.currentResults.iloc[:, 4:8]
+                if self.checkBoxPeriods.isChecked():
+                    print('* Using periods')
+                    tempResultsPer = self.currentResults.iloc[:, 9:]
+                else:
+                    print('* No results columns chosen!')
+
+                tempResults = pd.concat([tempResultsProps, tempResultsPer, tempResultsAPD], axis=1)
+
+                # Calculate means and SDs, if needed
                 if self.radioButtonMean.isChecked():
                     print('* Using Mean results')
-                    mean = self.currentResults.mean(axis=0)
+                    mean = tempResults.mean(axis=0)
                     mean_SD = pd.Series()
                     mean_combo = pd.Series()
                     self.checkBoxSD.setEnabled(True)
                     if self.checkBoxSD.isChecked():
                         print('* Using SD results')
-                        mean_SD = self.currentResults.std(axis=0)
+                        mean_SD = tempResults.std(axis=0)
                         mean_SD_index = [s + '_SD' for s in mean_SD.index]
-                        mean_SD.reindex(mean_SD_index)
+                        # mean_SD.index = mean_SD_index
                         # Interleave lists of means and SDs
                         mean_combo_list = [np.nan] * (2 * len(mean))
+                        mean_combo_index = [np.nan] * (2 * len(mean))
                         mean_combo_list[::2] = mean
+                        mean_combo_index[::2] = mean_SD.index
                         mean_combo_list[1::2] = mean_SD
+                        mean_combo_index[1::2] = mean_SD_index
                         mean_combo = pd.Series(mean_combo_list)
+                        mean_combo.index = mean_combo_index
                         # mean_combo = pd.Series([val for pair in zip(mean, mean_SD) for val in pair])
                     else:
                         mean_combo = mean
@@ -1183,28 +1207,15 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
                 else:
                     print('* Using Individual results')
                     self.checkBoxSD.setEnabled(False)
-                    tempResults = self.currentResults
-
-                if self.checkBoxProperties.isChecked():
-                    print('* Using Properties')
-                    # TODO create row/rows with subject, file_name, roi, analysis
-                    # tempResultsProps = tempResults.iloc[:, 4:]
-                if self.checkBoxAPDs.isChecked():
-                    print('* Using APDs')
-                    tempResultsAPD = tempResults.iloc[:, 4:7]
-                if self.checkBoxPeriods.isChecked():
-                    print('* Using periods')
-                    tempResultsPer = tempResults.iloc[:, :4]
-                else:
-                    print('* No results columns chosen!')
-                tempResults = pd.concat([tempResultsPer, tempResultsAPD], axis=1)
+                    # tempResults = tempResults
                 self.finalResults = tempResults
                 self.tableWidgetResults.setColumnCount(len(self.finalResults.columns))
                 self.tableWidgetResults.setRowCount(len(self.finalResults.index))
 
                 for i in range(len(self.finalResults.index)):
                     for j in range(len(self.finalResults.columns)):
-                        self.tableWidgetResults.setItem(i, j, QTableWidgetItem(str(self.finalResults.iat[i, j])))
+                        data = self.finalResults.iat[i, j]
+                        self.tableWidgetResults.setItem(i, j, QTableWidgetItem(data))
                 print('* Results table populated by dataframe')
                 self.tableWidgetResults.resizeColumnsToContents()
                 self.tableWidgetResults.resizeRowsToContents()
