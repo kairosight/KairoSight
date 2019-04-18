@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>728</width>
-    <height>428</height>
+    <width>730</width>
+    <height>420</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,7 +19,7 @@
   <property name="windowTitle">
    <string>TIFF Viewer</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_3">
+  <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
@@ -91,7 +91,7 @@
      <item>
       <widget class="QGroupBox" name="groupBoxProperties">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -114,14 +114,14 @@
           <property name="formAlignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
           </property>
-          <item row="0" column="0">
+          <item row="1" column="0">
            <widget class="QLabel" name="SizeLabel">
             <property name="text">
              <string>Width x Height (px)</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
+          <item row="1" column="1">
            <widget class="QLabel" name="SizeLabelEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -140,21 +140,21 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="durationMsLabel">
             <property name="text">
              <string>Duration (ms)</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
+          <item row="2" column="0">
            <widget class="QLabel" name="framePeriodMsLabel">
             <property name="text">
              <string>Frame Period (ms)</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QLineEdit" name="framePeriodMsLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -164,8 +164,14 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>150</width>
+              <width>100</width>
               <height>20</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>150</width>
+              <height>16777215</height>
              </size>
             </property>
             <property name="placeholderText">
@@ -173,14 +179,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="frameRateLabel">
             <property name="text">
              <string>Frame Rate (fps)</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="3" column="1">
            <widget class="QLineEdit" name="frameRateLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -193,8 +199,14 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>150</width>
+              <width>100</width>
               <height>20</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>150</width>
+              <height>16777215</height>
              </size>
             </property>
             <property name="baseSize">
@@ -211,7 +223,7 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1">
            <widget class="QLineEdit" name="durationMsLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -221,8 +233,14 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>150</width>
+              <width>100</width>
               <height>20</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>150</width>
+              <height>16777215</height>
              </size>
             </property>
             <property name="placeholderText">
@@ -230,7 +248,7 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="1">
+          <item row="5" column="1">
            <widget class="QLineEdit" name="resolutionLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
@@ -240,8 +258,14 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>150</width>
+              <width>100</width>
               <height>20</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>150</width>
+              <height>16777215</height>
              </size>
             </property>
             <property name="placeholderText">
@@ -249,10 +273,42 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
+          <item row="5" column="0">
            <widget class="QLabel" name="resolutionLabel">
             <property name="text">
              <string>Resolution (cm/px)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="subjectLabel">
+            <property name="text">
+             <string>Subject:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="subjectLineEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>150</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="placeholderText">
+             <string>----</string>
             </property>
            </widget>
           </item>
@@ -269,6 +325,12 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>20</height>
+        </size>
+       </property>
        <property name="maximumSize">
         <size>
          <width>16777215</width>
@@ -283,6 +345,12 @@
      </item>
      <item>
       <widget class="QGroupBox" name="groupBoxROIs">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="title">
         <string>ROIs</string>
        </property>
@@ -297,7 +365,7 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>280</width>
+            <width>100</width>
             <height>10</height>
            </size>
           </property>
@@ -329,6 +397,12 @@
      </item>
      <item>
       <widget class="QGroupBox" name="groupBoxAnalysis">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="title">
         <string>Analysis</string>
        </property>
@@ -343,7 +417,7 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>280</width>
+            <width>100</width>
             <height>10</height>
            </size>
           </property>

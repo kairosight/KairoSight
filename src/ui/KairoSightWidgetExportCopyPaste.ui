@@ -101,9 +101,9 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="checkBoxPeriods">
+        <widget class="QCheckBox" name="checkBoxOther">
          <property name="text">
-          <string>Periods</string>
+          <string>Other</string>
          </property>
         </widget>
        </item>
@@ -217,7 +217,14 @@
     </layout>
    </item>
    <item>
-    <widget class="QTableWidget" name="tableWidgetResults"/>
+    <widget class="QTableWidget" name="tableWidgetResults">
+     <attribute name="horizontalHeaderCascadingSectionResizes">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="horizontalHeaderMinimumSectionSize">
+      <number>20</number>
+     </attribute>
+    </widget>
    </item>
   </layout>
  </widget>

@@ -201,28 +201,33 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.video_data[i] = np.fliplr(self.video_data[i])
 
         # Use a dummy dt (aka Frame Period) if none detected
-        # From MetaMorph: for exposure time 1.219 ms, dt = 1.238 ms
+        # From most MetaMorph videos: exposure time 1.219 ms -> dt = 1.238 ms
         if np.isnan(self.dt):
             self.framePeriodMsLabel.setText('!Frame Period (ms)')
             self.dt = 1.238
 
+        self.study = None     # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
         self.duration = self.fps * (self.frames + 1)
         self.width, self.height = self.video_shape[2], self.video_shape[1]
+        self.resolution = None  # cm/px
         print('video shape:         ', self.video_shape)
         print('Width x Height:      ', self.width, self.height)
         print('# of Frames:         ', self.frames)
         print('Frame Period (ms):   ', self.dt)
         print('FPS:                 ', self.fps)
         print('Duration (ms):       ', self.duration)
+
         self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height) + ' (X ' + str(self.frames) + ')')
 
+        self.subjectLineEdit.textEdited.connect(self.updateProperties)
         self.framePeriodMsLineEdit.setText(str(self.dt))
         self.framePeriodMsLineEdit.setEnabled(False)
         self.frameRateLineEdit.setText(str(self.fps))
         self.frameRateLineEdit.setEnabled(False)
         self.durationMsLineEdit.setText(str(self.duration))
         self.durationMsLineEdit.setEnabled(False)
+        self.resolutionLineEdit.textEdited.connect(self.updateProperties)
 
         # Setup ROIs and Anlysis variables
         self.ROIs = []  # A list of pg.ROI objects
@@ -251,6 +256,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewROIs.setModel(self.modelRoi)
         for idx in range(5):
             self.treeViewROIs.resizeColumnToContents(idx)
+        # TODO use single-click to highlight ROI
+
         # Analysis model
         self.treeViewAnalysis.setAlternatingRowColors(True)
         self.modelAnalysis = QStandardItemModel(0, 6)
@@ -263,9 +270,16 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewAnalysis.setModel(self.modelAnalysis)
         for idx in range(6):
             self.treeViewAnalysis.resizeColumnToContents(idx)
+        # TODO use single-click to highlight ROI
         # TODO use double-click to view analysis results
-
         print('WidgetTiff ready')
+
+    def updateProperties(self):
+        """Update TIFF parameters with user-entered values"""
+        # TODO Invalidate old results when these change?
+        print('** Updating properties')
+        self.study = self.subjectLineEdit.text()
+        self.resolution = self.resolutionLineEdit.text()
 
     def updateVideo(self, frame=0):
         """Updates the video frame drawn to the canvas"""
@@ -1096,8 +1110,8 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.checkBoxProperties.stateChanged.connect(self.loadResults)
         self.checkBoxAPDs.setChecked(True)
         self.checkBoxAPDs.stateChanged.connect(self.loadResults)
-        self.checkBoxPeriods.setChecked(True)
-        self.checkBoxPeriods.stateChanged.connect(self.loadResults)
+        self.checkBoxOther.setChecked(True)
+        self.checkBoxOther.stateChanged.connect(self.loadResults)
 
         self.pushButtonCopy.clicked.connect(self.copyResults)
         self.selectionMadeSource(0)
@@ -1148,7 +1162,7 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
 
     def loadResults(self):
         """Populate Results table with the current Analysis' results"""
-        # TODO copy and filter the dataframe to ony show APDs
+        # TODO redo to simplify: create full tables and filter at the end
         print('*** loadResults!')
         print('** currentResults:' + str(self.currentResults))
         if self.currentResults is None:
@@ -1157,25 +1171,19 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
             print('** Found results')
             try:
                 tempResults = pd.DataFrame()
-                # tempResults = pd.DataFrame(columns=self.currentResults.columns)
                 tempResultsProps = pd.DataFrame()
                 tempResultsAPD = pd.DataFrame()
                 tempResultsPer = pd.DataFrame()
 
                 # Filter based on desired values
-                if self.checkBoxProperties.isChecked():
-                    print('* Using Properties')
-                    # TODO create row/rows with subject, file_name, roi, analysis
-                    tempResultsProps = self.currentResults.iloc[:, :3]
                 if self.checkBoxAPDs.isChecked():
                     print('* Using APDs')
                     tempResultsAPD = self.currentResults.iloc[:, 4:8]
-                if self.checkBoxPeriods.isChecked():
-                    print('* Using periods')
-                    tempResultsPer = self.currentResults.iloc[:, 9:]
+                if self.checkBoxOther.isChecked():
+                    print('* Using all other data')
+                    # tempResultsPer = self.currentResults.iloc[:, 9:]
                 else:
                     print('* No results columns chosen!')
-
                 tempResults = pd.concat([tempResultsProps, tempResultsPer, tempResultsAPD], axis=1)
 
                 # Calculate means and SDs, if needed
@@ -1207,19 +1215,29 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
                 else:
                     print('* Using Individual results')
                     self.checkBoxSD.setEnabled(False)
-                    # tempResults = tempResults
+
+                if self.checkBoxProperties.isChecked():
+                    print('* Using Properties')
+                    # TODO create row/rows with subject, file_name, roi, analysis
+                    # tempResultsProps = self.currentResults[['']]
+                    tempResultsProps = pd.DataFrame(np.zeros(shape=(len(self.finalResults.index), 3)),
+                                                    columns=['Study', 'File', 'ROI'])
+                    tempResultsProps['Study'] = self.currentWindow.study
+                tempResults = pd.concat([tempResultsProps, tempResults], axis=1)
+
                 self.finalResults = tempResults
                 self.tableWidgetResults.setColumnCount(len(self.finalResults.columns))
                 self.tableWidgetResults.setRowCount(len(self.finalResults.index))
 
                 for i in range(len(self.finalResults.index)):
                     for j in range(len(self.finalResults.columns)):
-                        data = self.finalResults.iat[i, j]
+                        # Limit all results to 5 significant digits, due to dt limit
+                        data = str("{0:.5g}".format(self.finalResults.iat[i, j]))
                         self.tableWidgetResults.setItem(i, j, QTableWidgetItem(data))
                 print('* Results table populated by dataframe')
-                self.tableWidgetResults.resizeColumnsToContents()
-                self.tableWidgetResults.resizeRowsToContents()
                 self.tableWidgetResults.setHorizontalHeaderLabels(self.finalResults.columns)
+                self.tableWidgetResults.resizeRowsToContents()
+                self.tableWidgetResults.resizeColumnsToContents()
             except Exception:
                 traceback.print_exc()
 
