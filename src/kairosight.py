@@ -18,7 +18,7 @@ from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
 from ui.KairoSightWidgetFolderTree import Ui_WidgetFolderTree
 from ui.KairoSightWidgetIsolate import Ui_WidgetIsolate
 from ui.KairoSightWidgetAnalyze import Ui_WidgetAnalyze
-from ui.KairoSightWidgetExportCopyPaste import Ui_WidgetExportCopyPaste
+from ui.KairoSightWidgetExport import Ui_WidgetExport
 from algorithms import tifopen, peak_detect, process
 
 
@@ -41,8 +41,8 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
         self.actionFolder.triggered.connect(self.open_folder)
         self.actionStart_Isolate.triggered.connect(self.isolate)
         self.actionStart_Analyze.triggered.connect(self.analyze)
-        self.actionExport_csv.triggered.connect(self.exportCSV)
-        self.actionExport_CopyPaste.triggered.connect(self.exportCopyPaste)
+        # self.actionStart_Export.triggered.connect(self.export)
+        self.menuExport.aboutToShow.connect(self.export)
 
     def open_tiff(self, file=None):
         """Open a SubWindow with a TIFF stack in the main MDI area"""
@@ -127,28 +127,9 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
         else:
             self.statusBar().showMessage('No processed videos with ROIs to analyze!')
 
-    def exportCSV(self):
-        """Open a dialog to export a .csv of Analysis results"""
-        print('*** Opening export to .csv')
+    def export(self):
+        """Open a dialog to copy or export .csv of Analysis results"""
         # df.to_csv('myDataFrame.csv')
-        tiff_windows = []
-        # Create a list of all open TIFF subwindows
-        for sub in self.mdiArea.subWindowList():
-            # print('**' + str(type(sub.widget())) + ', ' + sub.widget().objectName() + ' is a tiff? ')
-            if type(sub.widget()) is DesignerSubWindowTiff:
-                if sub.widget().ROIs:
-                    tiff_windows.append(sub)
-        if tiff_windows:
-            self.statusBar().showMessage('**')
-            # sub_exportCopyPaste = DesignerSubWindowExportCopyPaste(w_list=tiff_windows)
-            # self.mdiArea.addSubWindow(sub_exportCopyPaste)
-            # sub_exportCopyPaste.show()
-        else:
-            self.statusBar().showMessage('No analyzed ROIs with results to export!')
-
-    def exportCopyPaste(self):
-        """Open a table view of Analysis results"""
-        print('*** Opening export for copy + paste')
         tiff_windows = []
         # Create a list of all open TIFF subwindows
         for sub in self.mdiArea.subWindowList():
@@ -157,9 +138,9 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
                 # if sub.widget().ROIs:
                 tiff_windows.append(sub)
         if tiff_windows:
-            sub_exportCopyPaste = DesignerSubWindowExportCopyPaste(w_list=tiff_windows)
-            self.mdiArea.addSubWindow(sub_exportCopyPaste)
-            sub_exportCopyPaste.show()
+            sub_export = DesignerSubWindowExport(w_list=tiff_windows)
+            self.mdiArea.addSubWindow(sub_export)
+            sub_export.show()
         else:
             self.statusBar().showMessage('No analyzed ROIs with results to export!')
 
@@ -206,7 +187,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.framePeriodMsLabel.setText('!Frame Period (ms)')
             self.dt = 1.238
 
-        self.study = None     # e.g. 20190418-ratb
+        self.study = 'NaN'     # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
         self.duration = self.fps * (self.frames + 1)
         self.width, self.height = self.video_shape[2], self.video_shape[1]
@@ -1072,12 +1053,12 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('*** Discard Analysis done')
 
 
-class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
+class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
     """Customization for Ui_WidgetExportCopyPaste subwindow for an MDI"""
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
-        super(DesignerSubWindowExportCopyPaste, self).__init__(parent)
+        super(DesignerSubWindowExport, self).__init__(parent)
         print('Creating WidgetCopyPaste')
         self.windowList = w_list
         self.currentFileName = ''
@@ -1091,6 +1072,7 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
             self.windowDict[w_name_short] = w.widget()
         self.currentWindow = None
         self.currentAnalysis = None
+        self.currentROI = None
         self.currentResults = None
         self.finalResults = None
         self.clip = QApplication.clipboard()
@@ -1106,14 +1088,17 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         self.radioButtonMean.toggled.connect(self.loadResults)
         self.checkBoxSD.toggled.connect(self.loadResults)
 
-        self.checkBoxProperties.setChecked(False)
+        self.checkBoxProperties.setChecked(True)
         self.checkBoxProperties.stateChanged.connect(self.loadResults)
         self.checkBoxAPDs.setChecked(True)
         self.checkBoxAPDs.stateChanged.connect(self.loadResults)
-        self.checkBoxOther.setChecked(True)
+        self.checkBoxOther.setChecked(False)
         self.checkBoxOther.stateChanged.connect(self.loadResults)
+        self.checkBoxParameters.setChecked(False)
+        self.checkBoxParameters.stateChanged.connect(self.loadResults)
 
         self.pushButtonCopy.clicked.connect(self.copyResults)
+        self.pushButtonExport.clicked.connect(self.exportResults)
         self.selectionMadeSource(0)
         print('WidgetCopyPaste ready')
 
@@ -1140,6 +1125,7 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
         print('** Current Analysis: ', self.comboBoxAnalysis.currentText())
         index_current = self.comboBoxAnalysis.currentIndex()
         self.currentAnalysis = self.currentWindow.Analysis[index_current]
+        self.currentROI = self.currentAnalysis['ROI']
         self.currentResults = self.currentAnalysis['RESULTS']
         self.radioButtonIndividual.setChecked(True)
         self.finalResults = self.currentResults
@@ -1162,6 +1148,7 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
 
     def loadResults(self):
         """Populate Results table with the current Analysis' results"""
+        # TODO create row/rows with subject, file_name, roi, analysis parameters
         # TODO redo to simplify: create full tables and filter at the end
         print('*** loadResults!')
         print('** currentResults:' + str(self.currentResults))
@@ -1173,7 +1160,8 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
                 tempResults = pd.DataFrame()
                 tempResultsProps = pd.DataFrame()
                 tempResultsAPD = pd.DataFrame()
-                tempResultsPer = pd.DataFrame()
+                tempResultsOther = pd.DataFrame()
+                tempResultsParams = pd.DataFrame()
 
                 # Filter based on desired values
                 if self.checkBoxAPDs.isChecked():
@@ -1181,10 +1169,11 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
                     tempResultsAPD = self.currentResults.iloc[:, 4:8]
                 if self.checkBoxOther.isChecked():
                     print('* Using all other data')
-                    # tempResultsPer = self.currentResults.iloc[:, 9:]
-                else:
+                    tempResultsOther = self.currentResults.iloc[:, 9:]
+
+                if not self.checkBoxOther.isChecked() and not self.checkBoxAPDs.isChecked():
                     print('* No results columns chosen!')
-                tempResults = pd.concat([tempResultsProps, tempResultsPer, tempResultsAPD], axis=1)
+                tempResults = pd.concat([tempResultsAPD, tempResultsOther], axis=1)
 
                 # Calculate means and SDs, if needed
                 if self.radioButtonMean.isChecked():
@@ -1216,13 +1205,25 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
                     print('* Using Individual results')
                     self.checkBoxSD.setEnabled(False)
 
+                # Check if analysis Paramaters are needed
+                if self.checkBoxParameters.isChecked():
+                    print('* Using Parameters')
+                    tempResultsParams = pd.DataFrame(np.zeros(shape=(len(self.finalResults.index), 2)),
+                                                    columns=['ROI', 'Analysis'])
+                    tempResultsProps.loc[:, ['ROI']] = self.currentROI.getState()
+                    tempResultsProps.loc[:, ['Analysis']] = self.currentAnalysis
+                tempResults = pd.concat([tempResultsParams, tempResults], axis=1)
+
+                # Check if video Properties are needed
                 if self.checkBoxProperties.isChecked():
                     print('* Using Properties')
-                    # TODO create row/rows with subject, file_name, roi, analysis
                     # tempResultsProps = self.currentResults[['']]
                     tempResultsProps = pd.DataFrame(np.zeros(shape=(len(self.finalResults.index), 3)),
                                                     columns=['Study', 'File', 'ROI'])
-                    tempResultsProps['Study'] = self.currentWindow.study
+                    tempResultsProps.loc[:, ['Study']] = self.currentWindow.study
+                    tempResultsProps.loc[:, ['File']] = self.currentWindow.video_name
+                    tempResultsProps.loc[:, ['ROI']] = self.currentAnalysis['ROI']
+
                 tempResults = pd.concat([tempResultsProps, tempResults], axis=1)
 
                 self.finalResults = tempResults
@@ -1231,10 +1232,15 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
 
                 for i in range(len(self.finalResults.index)):
                     for j in range(len(self.finalResults.columns)):
-                        # Limit all results to 5 significant digits, due to dt limit
-                        data = str("{0:.5g}".format(self.finalResults.iat[i, j]))
-                        self.tableWidgetResults.setItem(i, j, QTableWidgetItem(data))
-                print('* Results table populated by dataframe')
+                        dataDataFrame = self.finalResults.iat[i, j]
+                        try:
+                            # Limit all float results to 5 significant digits, due to dt limit
+                            float(dataDataFrame)
+                            dataTable = str("{0:.5g}".format(dataDataFrame))
+                        except ValueError:
+                            dataTable = dataDataFrame
+                        self.tableWidgetResults.setItem(i, j, QTableWidgetItem(dataTable))
+                print('* Results table populated by results dataframe')
                 self.tableWidgetResults.setHorizontalHeaderLabels(self.finalResults.columns)
                 self.tableWidgetResults.resizeRowsToContents()
                 self.tableWidgetResults.resizeColumnsToContents()
@@ -1264,6 +1270,34 @@ class DesignerSubWindowExportCopyPaste(QWidget, Ui_WidgetExportCopyPaste):
                         s += "\t"
                 s = s[:-1] + "\n"  # eliminate last '\t'
             self.clip.setText(s)
+        except Exception:
+            traceback.print_exc()
+
+    def exportResults(self):
+        print('*** exportResults!')
+        try:
+            file_list = [self.currentWindow.study, self.currentWindow.video_name, 'KS']
+            file_name = '_'.join(file_list)
+            print('** Exporting to ', file_name)
+            # File Dialog to generate filename
+
+            # selected = self.tableWidgetResults.selectedRanges()
+            # # s = '\t' + "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
+            # #                       range(selected[0].leftColumn(), selected[0].rightColumn())])
+            # s = "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
+            #                range(selected[0].leftColumn(), selected[0].rightColumn())])
+            # s = s + '\n'
+            # for r in range(selected[0].topRow(), selected[0].bottomRow()):
+            #     # s += self.tableWidgetResults.verticalHeaderItem(r).text() + '\t'
+            #     # s += str(self.tableWidgetResults.verticalHeaderItem(r).text()) + '\t'
+            #     for c in range(selected[0].leftColumn(), selected[0].rightColumn()):
+            #         try:
+            #             print('** try: s += str(self.table.item(r, c).text()) + "\t"')
+            #             s += str(self.tableWidgetResults.item(r, c).text()) + "\t"
+            #         except AttributeError:
+            #             s += "\t"
+            #     s = s[:-1] + "\n"  # eliminate last '\t'
+            # self.clip.setText(s)
         except Exception:
             traceback.print_exc()
 

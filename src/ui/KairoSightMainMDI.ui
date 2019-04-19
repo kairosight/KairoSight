@@ -63,8 +63,6 @@
     <property name="title">
      <string>Export</string>
     </property>
-    <addaction name="actionExport_csv"/>
-    <addaction name="actionExport_CopyPaste"/>
    </widget>
    <addaction name="menuOpen"/>
    <addaction name="menuIsolate"/>
@@ -105,9 +103,9 @@
     <string>Start wizard</string>
    </property>
   </action>
-  <action name="actionExport_csv">
+  <action name="actionStart_Export">
    <property name="text">
-    <string>to .csv</string>
+    <string>Start wizard</string>
    </property>
   </action>
   <action name="actionExport_CopyPaste">
