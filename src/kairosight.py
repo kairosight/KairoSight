@@ -199,6 +199,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('FPS:                 ', self.fps)
         print('Duration (ms):       ', self.duration)
 
+        # Set-up Properties fields
         self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height) + ' (X ' + str(self.frames) + ')')
 
         self.subjectLineEdit.textEdited.connect(self.updateProperties)
@@ -209,6 +210,10 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.durationMsLineEdit.setText(str(self.duration))
         self.durationMsLineEdit.setEnabled(False)
         self.resolutionLineEdit.textEdited.connect(self.updateProperties)
+
+        # Setup Signals UI for splitting options
+        self.pushButtonSignalAdd.pressed.connect(self.splitVideo)
+        self.pushButtonSignalRemove.pressed.connect(self.reduceVideo)
 
         # Setup ROIs and Anlysis variables
         self.ROIs = []  # A list of pg.ROI objects
@@ -276,6 +281,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         if self.ROIs:
             for roi in self.ROIs:
                 self.graphicsView.p1.addItem(roi)
+
+    def splitVideo(self):
+        """Splits and aligns a multi-signal video"""
+        print('*** Splitting video')
+
+    def reduceVideo(self):
+        """Reduce the number of signals/videos after splitting"""
+        print('*** Reducing video')
 
     def getRoiPreview(self, roi):
         data = self.video_data[self.frame_current]

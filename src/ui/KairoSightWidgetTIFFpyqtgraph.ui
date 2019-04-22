@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>730</width>
-    <height>420</height>
+    <width>804</width>
+    <height>500</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -21,11 +21,11 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_2">
+    <layout class="QVBoxLayout" name="verticalLayoutVideo">
      <item>
       <widget class="GraphicsWidget" name="graphicsView">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -85,16 +85,22 @@
    </item>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout">
-     <property name="spacing">
-      <number>0</number>
+     <property name="sizeConstraint">
+      <enum>QLayout::SetDefaultConstraint</enum>
      </property>
      <item>
       <widget class="QGroupBox" name="groupBoxProperties">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+        <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>280</width>
+         <height>16777215</height>
+        </size>
        </property>
        <property name="title">
         <string>Properties</string>
@@ -318,9 +324,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QGroupBox" name="groupBoxTransform">
+      <widget class="QGroupBox" name="groupBoxSignals">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <sizepolicy hsizetype="Fixed" vsizetype="Maximum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -328,28 +334,104 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>20</height>
+         <height>100</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>16777215</width>
-         <height>50</height>
+         <width>280</width>
+         <height>100</height>
         </size>
        </property>
        <property name="title">
-        <string>Transform</string>
+        <string>Signals</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_3"/>
+       <property name="flat">
+        <bool>false</bool>
+       </property>
+       <property name="checkable">
+        <bool>false</bool>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <layout class="QFormLayout" name="formLayout">
+            <item row="0" column="0">
+             <widget class="QLabel" name="signal1Label">
+              <property name="text">
+               <string>#1</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="signal1ComboBox">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <item>
+               <property name="text">
+                <string>Voltage (Vm)</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Calcium (Ca)</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="radioButtonSignal1">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QPushButton" name="pushButtonSignalAdd">
+            <property name="text">
+             <string>ADD (Split Video)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButtonSignalRemove">
+            <property name="text">
+             <string>REMOVE</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
      </item>
      <item>
       <widget class="QGroupBox" name="groupBoxROIs">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>280</width>
+         <height>16777215</height>
+        </size>
        </property>
        <property name="title">
         <string>ROIs</string>
@@ -358,7 +440,7 @@
         <item>
          <widget class="QTreeView" name="treeViewROIs">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+           <sizepolicy hsizetype="Ignored" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -371,7 +453,7 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>280</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
@@ -398,10 +480,16 @@
      <item>
       <widget class="QGroupBox" name="groupBoxAnalysis">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>280</width>
+         <height>16777215</height>
+        </size>
        </property>
        <property name="title">
         <string>Analysis</string>
@@ -410,7 +498,7 @@
         <item>
          <widget class="QTreeView" name="treeViewAnalysis">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+           <sizepolicy hsizetype="Ignored" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -423,7 +511,7 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>280</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
