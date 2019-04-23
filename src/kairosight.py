@@ -11,7 +11,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel, QDialogButtonBox, \
-    QTableWidgetItem
+    QTableWidgetItem, QLabel, QComboBox
 import pyqtgraph as pg
 from ui.KairoSightMainMDI import Ui_MDIMainWindow
 from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
@@ -19,6 +19,7 @@ from ui.KairoSightWidgetFolderTree import Ui_WidgetFolderTree
 from ui.KairoSightWidgetIsolate import Ui_WidgetIsolate
 from ui.KairoSightWidgetAnalyze import Ui_WidgetAnalyze
 from ui.KairoSightWidgetExport import Ui_WidgetExport
+from ui.signalwidget import SignalWidget
 from algorithms import tifopen, peak_detect, process
 
 
@@ -26,6 +27,7 @@ from algorithms import tifopen, peak_detect, process
 
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     """Customization for Ui_MDIMainWindow, and MDI main window"""
+
     # TODO add Export to csv (study, file, roi, ...)
     # TODO change MainWindow's subwindow creation methods to "Window..."
 
@@ -181,13 +183,19 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         for i in range(self.frames):
             self.video_data[i] = np.fliplr(self.video_data[i])
 
+        # Add an axis to the video data array, in case of video splitting, (signal, time, x, y)
+        self.video_data = self.video_data[np.newaxis, ...]
+        # Create array of display data
+        self.display_data = self.video_data[0]
+
         # Use a dummy dt (aka Frame Period) if none detected
         # From most MetaMorph videos: exposure time 1.219 ms -> dt = 1.238 ms
         if np.isnan(self.dt):
             self.framePeriodMsLabel.setText('!Frame Period (ms)')
             self.dt = 1.238
 
-        self.study = 'NaN'     # e.g. 20190418-ratb
+        # Set-up Properties fields
+        self.study = 'NaN'  # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
         self.duration = self.fps * (self.frames + 1)
         self.width, self.height = self.video_shape[2], self.video_shape[1]
@@ -199,8 +207,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('FPS:                 ', self.fps)
         print('Duration (ms):       ', self.duration)
 
-        # Set-up Properties fields
-        self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height) + ' (X ' + str(self.frames) + ')')
+        self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height)
+                                   + ' (' + str(self.frames) + ' frames)')
 
         self.subjectLineEdit.textEdited.connect(self.updateProperties)
         self.framePeriodMsLineEdit.setText(str(self.dt))
@@ -214,6 +222,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # Setup Signals UI for splitting options
         self.pushButtonSignalAdd.pressed.connect(self.splitVideo)
         self.pushButtonSignalRemove.pressed.connect(self.reduceVideo)
+        self.signal_ComboBoxes = []
+        self.SIGNAL_OPTIONS = ['Voltage (Vm)', 'Calcium (Ca)']
+        # TODO Create a default signal
 
         # Setup ROIs and Anlysis variables
         self.ROIs = []  # A list of pg.ROI objects
@@ -226,8 +237,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.horizontalScrollBar.setMaximum(self.frames)
         self.frame_current = 0
         # Set histogram to image levels and use a manual range
-        self.graphicsView.hist.setLevels(self.video_data.min(), self.video_data.max())
-        self.graphicsView.hist.setHistogramRange(self.video_data.min(), self.video_data.max())
+        self.graphicsView.hist.setLevels(self.display_data.min(), self.display_data.max())
+        self.graphicsView.hist.setHistogramRange(self.display_data.min(), self.display_data.max())
 
         # Setup data treeviews
         # Calling it a treeview, currently connected to table-like models
@@ -261,11 +272,12 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('WidgetTiff ready')
 
     def updateProperties(self):
-        """Update TIFF parameters with user-entered values"""
+        """Update TIFF parameters with user-entered or changed values"""
         # TODO Invalidate old results when these change?
         print('** Updating properties')
         self.study = self.subjectLineEdit.text()
         self.resolution = self.resolutionLineEdit.text()
+        # self.signals = []
 
     def updateVideo(self, frame=0):
         """Updates the video frame drawn to the canvas"""
@@ -273,7 +285,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('*** Showing ' + self.video_name + '[' + str(frame) + ']')
         # Update ImageItem with a frame in stack
         self.frame_current = frame
-        self.graphicsView.img.setImage(self.video_data[frame - 1])
+        self.graphicsView.img.setImage(self.display_data[frame - 1])
         # Notify histogram item of image change
         self.graphicsView.hist.regionChanged()
 
@@ -285,20 +297,36 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     def splitVideo(self):
         """Splits and aligns a multi-signal video"""
         print('*** Splitting video')
+        # idx_new = len(self.signal_ComboBoxes)
+        # label_new = str(idx_new + 1)
+        # print('** Adding Signal #' + label_new)
+        # self.formLayoutSignals.addRow(QLabel("#" + label_new), QComboBox())
+        # self.signal1ComboBox.addItems(self.SIGNAL_OPTIONS)
+        print('* Create a SignalWidget')
+        # new_signal = SignalWidget()
+        # self.formLayoutSignals.addRow(QLabel(), )
+        # self.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
+        # self.signals.append(self.widgetSignals)
+        # self.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
+        print('* Add the SignalWidget to the form (with label)')
+        # .addWidget(self.widgetSignals)
 
     def reduceVideo(self):
         """Reduce the number of signals/videos after splitting"""
         print('*** Reducing video')
+        idx_remove = len(self.signal_ComboBoxes)
+        print('** Removing Signal #' + idx_remove)
+        # self.formLayoutSignals.removeRow(idx_remove)
 
     def getRoiPreview(self, roi):
-        data = self.video_data[self.frame_current]
+        data = self.display_data[self.frame_current]
         data_img = self.graphicsView.img
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
     def getRoiStack(self, roi):
         data_stack = []
-        for idx, frame in enumerate(self.video_data):
+        for idx, frame in enumerate(self.display_data):
             data_img = self.graphicsView.img
             data_roi_frame = roi.getArrayRegion(frame, data_img)
             data_roi_frame[data_roi_frame == 0] = np.nan
@@ -428,6 +456,7 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
+
     # TODO Fix preview redundancies (updating image and plot multiple times per ROI change)
     # TODO Detect isolation of split/autoregistered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
@@ -620,7 +649,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         print('** updatePreviewImage')
         if self.roi_preview:
             # Get current video frame data and preview ROI data
-            data_frame = self.currentWindow.video_data[self.currentWindow.frame_current]
+            data_frame = self.currentWindow.display_data[self.currentWindow.frame_current]
             data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
 
             # self.roi_preview.setParentItem(img_preview)
@@ -703,6 +732,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
 class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     """Customization for Ui_WidgetAnalyze subwindow for an MDI"""
+
     # TODO clean up Apply and OK UI flow
 
     def __init__(self, parent=None, w_list=None):
@@ -1161,7 +1191,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
 
     def loadResults(self):
         """Populate Results table with the current Analysis' results"""
-        # TODO create row/rows with subject, file_name, roi, analysis parameters
+        # TODO Fix row/rows of analysis parameters, extra rows going from Individual to Mean
         # TODO redo to simplify: create full tables and filter at the end
         print('*** loadResults!')
         print('** currentResults:' + str(self.currentResults))
@@ -1222,7 +1252,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
                 if self.checkBoxParameters.isChecked():
                     print('* Using Parameters')
                     tempResultsParams = pd.DataFrame(np.zeros(shape=(len(self.finalResults.index), 2)),
-                                                    columns=['ROI', 'Analysis'])
+                                                     columns=['ROI', 'Analysis'])
                     tempResultsProps.loc[:, ['ROI']] = self.currentROI.getState()
                     tempResultsProps.loc[:, ['Analysis']] = self.currentAnalysis
                 tempResults = pd.concat([tempResultsParams, tempResults], axis=1)

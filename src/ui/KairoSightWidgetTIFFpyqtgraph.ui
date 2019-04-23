@@ -326,7 +326,7 @@
      <item>
       <widget class="QGroupBox" name="groupBoxSignals">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Maximum">
+        <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -340,7 +340,7 @@
        <property name="maximumSize">
         <size>
          <width>280</width>
-         <height>100</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="title">
@@ -354,52 +354,10 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_5">
-          <item>
-           <layout class="QFormLayout" name="formLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="signal1Label">
-              <property name="text">
-               <string>#1</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QComboBox" name="signal1ComboBox">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <item>
-               <property name="text">
-                <string>Voltage (Vm)</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Calcium (Ca)</string>
-               </property>
-              </item>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="radioButtonSignal1">
-            <property name="text">
-             <string/>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <layout class="QFormLayout" name="formLayoutSignals"/>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <layout class="QHBoxLayout" name="horizontalLayout_SignalsButtons">
           <item>
            <widget class="QPushButton" name="pushButtonSignalAdd">
             <property name="text">
