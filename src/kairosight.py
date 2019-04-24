@@ -7,11 +7,11 @@ import pandas as pd
 from pathlib import PurePath
 
 import scipy.signal as sig
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel, QDialogButtonBox, \
-    QTableWidgetItem, QLabel, QComboBox
+    QTableWidgetItem, QLabel, QComboBox, QCheckBox
 import pyqtgraph as pg
 from ui.KairoSightMainMDI import Ui_MDIMainWindow
 from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
@@ -282,7 +282,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     def updateVideo(self, frame=0):
         """Updates the video frame drawn to the canvas"""
         # print('Updating video plot in a subWindow with:')
-        print('*** Showing ' + self.video_name + '[' + str(frame) + ']')
+        print('\n*** Showing ' + self.video_name + '[' + str(frame) + ']')
         # Update ImageItem with a frame in stack
         self.frame_current = frame
         self.graphicsView.img.setImage(self.display_data[frame - 1])
@@ -296,14 +296,21 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
     def splitVideo(self):
         """Splits and aligns a multi-signal video"""
-        print('*** Splitting video')
+        print('\n*** Splitting video')
         # idx_new = len(self.signal_ComboBoxes)
         # label_new = str(idx_new + 1)
         # print('** Adding Signal #' + label_new)
         # self.formLayoutSignals.addRow(QLabel("#" + label_new), QComboBox())
         # self.signal1ComboBox.addItems(self.SIGNAL_OPTIONS)
-        print('* Create a SignalWidget')
-        # new_signal = SignalWidget()
+        try:
+            print('* Create a SignalWidget')
+            new_signal_widget = SignalWidget(self)
+            # self.formLayoutSignals.setWidget(0, QtWidgets.QFormLayout.FieldRole, new_signal_widget)
+            self.formLayoutSignals.addRow(QLabel("new:"), new_signal_widget)
+            # self.formLayoutSignals.addRow(QLabel("new:"), QComboBox())
+        except Exception:
+            traceback.print_exc()
+
         # self.formLayoutSignals.addRow(QLabel(), )
         # self.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
         # self.signals.append(self.widgetSignals)
@@ -313,9 +320,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
     def reduceVideo(self):
         """Reduce the number of signals/videos after splitting"""
-        print('*** Reducing video')
-        idx_remove = len(self.signal_ComboBoxes)
-        print('** Removing Signal #' + idx_remove)
+        print('\n*** Reducing video')
+        # idx_remove = len(self.signal_ComboBoxes)
+        # print('** Removing Signal #' + idx_remove)
         # self.formLayoutSignals.removeRow(idx_remove)
 
     def getRoiPreview(self, roi):
@@ -334,7 +341,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         return data_stack
 
     def addROI(self, idx=None, roi=None, frames=None):
-        print('*** addROI: idx:', idx, ' roi:', roi, ' frames:', frames)
+        print('\n*** addROI: idx:', idx, ' roi:', roi, ' frames:', frames)
         if roi:
             print('* ROIs were: ', self.ROIs)
             roi.translatable = False
@@ -387,7 +394,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
     def addAnalysis(self, idx=None, analysis=None):
         if analysis:
-            print('*** addAnalysis: idx:', idx, ' analysis:', analysis)
+            print('\n*** addAnalysis: idx:', idx, ' analysis:', analysis)
             roi = analysis['ROI']
             analysis_type = analysis['TYPE']
             roi_calc = analysis['ROI_CALC']
@@ -690,7 +697,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     def applyROI(self):
         """Add an ROI to a TIFF or applies changes to an existing ROI"""
         if not self.roi_preview:
-            print('*** No roi_preview to add or edit with')
+            print('\n*** No roi_preview to add or edit with')
             return
         else:
             if not self.checkBoxTimeAll.isChecked():
@@ -699,12 +706,12 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
                 frames = None
             if self.comboBoxROIs.currentIndex() is 0:
                 # Add the preview ROI to the current TIFF window
-                print('*** Applying *NEW* ROI ')
+                print('\n*** Applying *NEW* ROI ')
                 self.currentWindow.addROI(roi=self.roi_preview, frames=frames)
             else:
                 # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
                 idx_roi = self.comboBoxROIs.currentIndex() - 1
-                print('*** Changing ROI #' + str(idx_roi))
+                print('\n*** Changing ROI #' + str(idx_roi))
                 roi_current = self.currentROIs[idx_roi]
                 self.currentWindow.addROI(idx=idx_roi, roi=self.roi_preview, frames=frames)
                 roi_current.setPen(color='54FF00')
@@ -713,12 +720,12 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def discardROI(self):
         """Remove an existing ROI from a TIFF"""
-        print('*** Discarding ROI')
+        print('\n*** Discarding ROI')
         if self.comboBoxROIs.currentIndex() is 0:
-            print('*** Cannot discard *NEW* ROI!')
+            print('\n*** Cannot discard *NEW* ROI!')
         else:
             if len(self.currentROIs) < 1:
-                print('*** No ROIs to discard!')
+                print('\n*** No ROIs to discard!')
             else:
                 print('** Removing ROI: ', self.comboBoxROIs.currentText())
                 idx_roi = self.comboBoxROIs.currentIndex() - 1
@@ -800,7 +807,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
-        print('*** selection #', i, ' made in a ', type(self))
+        print('\n*** selection #', i, ' made in a ', type(self))
         print('* Current source: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentVideoPlot = self.currentWindow.graphicsView.p1
@@ -827,7 +834,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def selectionMadeROI(self, i):
         """Slot for comboBoxROIs.currentIndexChanged"""
-        print('*** selection #', i, ' made in a ', type(self))
+        print('\n*** selection #', i, ' made in a ', type(self))
         print('** Current ROI: ', self.comboBoxROIs.currentText())
         for roi in self.currentWindow.ROIs:
             roi.setPen(color='54FF00')
@@ -840,7 +847,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def selectionMadeAnalysis(self, i):
         """Slot for comboBoxAnalysis.currentIndexChanged"""
-        print('*** selection #', i, ' made in a ', type(self))
+        print('\n*** selection #', i, ' made in a ', type(self))
         print('** Current Analysis: ', self.comboBoxAnalysis.currentText())
         index_current = self.comboBoxAnalysis.currentIndex()
         if index_current > 0:
@@ -894,15 +901,15 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Toggle use of a low pass filter for the current conditioning"""
         if self.filterCheckBox.isChecked():
             self.filterFreqSpinBox.setEnabled(True)
-            print('*** Filter checked')
+            print('\n*** Filter checked')
         else:
             self.filterFreqSpinBox.setEnabled(False)
-            print('*** Filter unchecked')
+            print('\n*** Filter unchecked')
 
     def applyCondition(self):
         """Apply Condition tab selections"""
         # TODO use ROI's frame info
-        print('*** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
+        print('\n*** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
         self.progressBar.setValue(20)
         self.analysis_preview['ROI'] = str(self.comboBoxROIs.currentIndex())
@@ -951,14 +958,14 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.tabPeakDetect.setEnabled(True)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
         self.progressBar.setValue(60)
-        print('*** Finished Applying Condition')
+        print('\n*** Finished Applying Condition')
 
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
         # Detection Error @ trans#  0  our of  7
         # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
         # TODO set y axis to frames, not kframes
-        print('*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
+        print('\n*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())
         self.progressBar.setValue(60)
         thresh = self.thresholdDoubleSpinBox.value()
@@ -1006,11 +1013,11 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         self.progressBar.setValue(80)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabProcess)
-        print('*** Finished Applying Peak Detect')
+        print('\n*** Finished Applying Peak Detect')
 
     def applyProcess(self):
         """Apply Process tab selections"""
-        print('*** Applying Process, All Results')
+        print('\n*** Applying Process, All Results')
         self.progressBar.setValue(80)
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
         print('** Processing ', num_peaks, ' peaks above ', peak_thresh)
@@ -1042,11 +1049,11 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
         self.progressBar.setValue(100)
-        print('*** Finished Applying Process')
+        print('\n*** Finished Applying Process')
 
     def applyAnalysis(self):
         """Add an Analysis to a TIFF or applies changes to an existing Analysis"""
-        print('*** Applying Analysis')
+        print('\n*** Applying Analysis')
         if not self.analysis_preview:
             print('** No analysis_preview to add or edit with')
         else:
@@ -1068,11 +1075,11 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.progressBar.setValue(20)
             self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
             self.selectionMadeSource(0)
-        print('*** Apply Analysis done')
+        print('\n*** Apply Analysis done')
 
     def discardAnalysis(self):
         """Remove an existing Analysis from a TIFF"""
-        print('*** Discarding Analysis')
+        print('\n*** Discarding Analysis')
         if self.comboBoxAnalysis.currentIndex() is 0:
             print('** Cannot discard *NEW* Analysis!')
         else:
@@ -1093,7 +1100,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 self.progressBar.setValue(20)
                 self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
                 self.selectionMadeSource(0)
-        print('*** Discard Analysis done')
+        print('\n*** Discard Analysis done')
 
 
 class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
@@ -1164,7 +1171,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
 
     def selectionMadeAnalysis(self, i):
         """Slot for comboBoxAnalysis.currentIndexChanged"""
-        print('*** selection #', i, ' made in a ', type(self))
+        print('\n*** selection #', i, ' made in a ', type(self))
         print('** Current Analysis: ', self.comboBoxAnalysis.currentText())
         index_current = self.comboBoxAnalysis.currentIndex()
         self.currentAnalysis = self.currentWindow.Analysis[index_current]
@@ -1193,10 +1200,10 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         """Populate Results table with the current Analysis' results"""
         # TODO Fix row/rows of analysis parameters, extra rows going from Individual to Mean
         # TODO redo to simplify: create full tables and filter at the end
-        print('*** loadResults!')
+        print('\n*** loadResults!')
         print('** currentResults:' + str(self.currentResults))
         if self.currentResults is None:
-            print('*** No results yet!')
+            print('\n*** No results yet!')
         else:
             print('** Found results')
             try:
@@ -1293,7 +1300,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
             print('** Results loaded!')
 
     def copyResults(self):
-        print('*** copyResults!')
+        print('\n*** copyResults!')
         try:
             print('** copy...')
             selected = self.tableWidgetResults.selectedRanges()
@@ -1317,7 +1324,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
             traceback.print_exc()
 
     def exportResults(self):
-        print('*** exportResults!')
+        print('\n*** exportResults!')
         try:
             file_list = [self.currentWindow.study, self.currentWindow.video_name, 'KS']
             file_name = '_'.join(file_list)

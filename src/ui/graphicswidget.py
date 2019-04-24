@@ -11,7 +11,7 @@ class GraphicsWidget(QWidget):
     """Widget defined in Qt Designer"""
 
     def __init__(self, parent=None):
-        # initialization of Qt MainWindow widget
+        # initialization of widget
         super(GraphicsWidget, self).__init__(parent)
 
         # Create a central Graphics Layout Widget
