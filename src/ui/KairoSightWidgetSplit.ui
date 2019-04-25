@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>240</width>
+    <width>270</width>
     <height>250</height>
    </rect>
   </property>
@@ -54,54 +54,70 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <layout class="QHBoxLayout" name="horizontalLayoutParameters">
      <item>
-      <widget class="QGroupBox" name="groupBox">
+      <widget class="QGroupBox" name="groupBoxSignalA">
        <property name="title">
         <string>Signal A</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
-         <layout class="QFormLayout" name="formLayout">
+         <layout class="QFormLayout" name="formLayoutSignalA">
           <item row="0" column="0">
-           <widget class="QLabel" name="originXLabel">
+           <widget class="QLabel" name="originXLabelSignalA">
             <property name="text">
              <string>Origin X</string>
             </property>
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QSpinBox" name="originXSpinBox"/>
+           <widget class="QSpinBox" name="originXSpinBoxSignalA">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
           <item row="1" column="0">
-           <widget class="QLabel" name="originYLabel">
+           <widget class="QLabel" name="originYLabelSignalA">
             <property name="text">
              <string>Origin Y</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QSpinBox" name="originYSpinBox"/>
+           <widget class="QSpinBox" name="originYSpinBoxSignalA">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="widthLabel">
+           <widget class="QLabel" name="widthLabelSignalA">
             <property name="text">
              <string>Width</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QSpinBox" name="widthSpinBox"/>
+           <widget class="QSpinBox" name="widthSpinBoxSignalA">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLabel" name="heightLabel">
+           <widget class="QLabel" name="heightLabelSignalA">
             <property name="text">
              <string>Height</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QSpinBox" name="heightSpinBox"/>
+           <widget class="QSpinBox" name="heightSpinBoxSignalA">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -109,52 +125,68 @@
       </widget>
      </item>
      <item>
-      <widget class="QGroupBox" name="groupBox_2">
+      <widget class="QGroupBox" name="groupBoxSignalB">
        <property name="title">
         <string>Signal B (NEW)</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <layout class="QFormLayout" name="formLayout_2">
+         <layout class="QFormLayout" name="formLayoutSignalB">
           <item row="1" column="0">
-           <widget class="QLabel" name="originYLabel_2">
+           <widget class="QLabel" name="originYLabelSignalB">
             <property name="text">
              <string>Origin Y</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QSpinBox" name="originYSpinBox_2"/>
+           <widget class="QSpinBox" name="originYSpinBoxSignalB">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="widthLabel_2">
+           <widget class="QLabel" name="widthLabelSignalB">
             <property name="text">
              <string>Width</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QSpinBox" name="widthSpinBox_2"/>
+           <widget class="QSpinBox" name="widthSpinBoxSignalB">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLabel" name="heightLabel_2">
+           <widget class="QLabel" name="heightLabelSignalB">
             <property name="text">
              <string>Height</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QSpinBox" name="heightSpinBox_2"/>
+           <widget class="QSpinBox" name="heightSpinBoxSignalB">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
           <item row="0" column="0">
-           <widget class="QLabel" name="originXLabel_2">
+           <widget class="QLabel" name="originXLabelSignalB">
             <property name="text">
              <string>Origin X</string>
             </property>
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QSpinBox" name="originXSpinBox_2"/>
+           <widget class="QSpinBox" name="originXSpinBoxSignalB">
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>

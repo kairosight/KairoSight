@@ -202,7 +202,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # Set-up Properties fields
         self.study = 'NaN'  # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
-        self.duration = self.dt * (self.frames)
+        self.duration = self.dt * self.frames
         self.width, self.height = self.video_shape[2], self.video_shape[1]
         self.resolution = None  # cm/px
         print('video shape:         ', self.video_shape)
@@ -319,16 +319,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('** Signal #' + label_new)
         # self.formLayoutSignals.addRow(QLabel("#" + label_new), QComboBox())
         # self.signal1ComboBox.addItems(self.SIGNAL_OPTIONS)
-        try:
-            print('* Create a SignalWidget')
-            new_signal_widget = SignalWidget(self)
-            new_signal_widget.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
-            print('* Add the SignalWidget to the form (with label)')
-            self.formLayoutSignals.addRow(QLabel(label_new), new_signal_widget)
-        except Exception:
-            traceback.print_exc()
+        print('* Create a SignalWidget')
+        new_signal_widget = SignalWidget(self)
+        new_signal_widget.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
+        print('* Add the SignalWidget to the form (with label)')
+        self.formLayoutSignals.addRow(QLabel(label_new), new_signal_widget)
         new_signal_widget.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
         self.Signals.append(new_signal_widget)
+        self.pushButtonSignalAdd.setEnabled(True)
         print('** Signals are now: ' + str(self.Signals))
 
     def splitVideo(self):
@@ -339,10 +337,10 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             # main_window = self.MainWindow
             self.MainWindow.mdiArea.addSubWindow(sub_split)
             sub_split.show()
+            self.pushButtonSignalAdd.setEnabled(False)
         except Exception:
             traceback.print_exc()
         print('** Split video complete')
-
 
     def reduceVideo(self):
         """Reduce the number of signals/videos after splitting"""
@@ -502,11 +500,116 @@ class DesignerSubWindowSplit(QWidget, Ui_WidgetSplit):
     def __init__(self, parent=None):
         # initialization of the superclass
         super(DesignerSubWindowSplit, self).__init__(parent)
+
         print('Creating WidgetSplit')
+        self.currentWindow = parent
+        self.currentPlot = self.currentWindow.graphicsView.p1
+        # Create preview ROIs
+        # TODO Create with no scale handle
+        self.roi_A = pg.RectROI([0, 0], [0, 0])
+        self.roi_A.setPen(color='54FF00')
+        self.roi_B = pg.RectROI([0, 0], [0, 0])
+        self.roi_B.setPen(color='FF000A')
+        self.currentPlot.addItem(self.roi_A)
+        self.currentPlot.addItem(self.roi_B)
 
         print('WidgetSplit UI setup...')
         self.setupUi(self)
+
+        self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
+
+        self.originXSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+        self.originYSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+        self.heightSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+        self.heightSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+
+        self.originXSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+        self.originYSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+        self.heightSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+        self.heightSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+
+        self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
+        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
+        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.loadDefaults)
+        self.loadDefaults()
+
         print('WidgetSplit ready')
+
+    def closeEvent(self, event):
+        """Reimplementation of QWidget.closeEvent
+
+        Parameters
+        ----------
+        event : PySide2.QtGui.QCloseEvent
+            Event when Qt receives a window close request for a top-level widget from the window system
+        """
+        # for roi in self.currentWindow.ROIs:
+        #     roi.setPen(color='54FF00')
+        # self.checkBoxPreview.setChecked(False)
+
+        # Remove preview ROIs
+        self.currentPlot.removeItem(self.roi_A)
+        self.currentPlot.removeItem(self.roi_B)
+        self.currentWindow.pushButtonSignalAdd.setEnabled(True)
+        event.accept()
+
+    def loadDefaults(self):
+        """Populate Split parameter inputs with default values"""
+        print('** Loading defaults')
+        w, h = int(self.currentWindow.width / 2), int(self.currentWindow.height)
+        w_A, h_A = 384, int(self.currentWindow.height)
+        x_A, y_A = 0, 0
+        x_B, y_B = w_A + (w - w_A), y_A
+        # Populate fields with default values
+        self.originXSpinBoxSignalA.setValue(x_A)
+        self.originYSpinBoxSignalA.setValue(y_A)
+        self.widthSpinBoxSignalA.setValue(w_A)
+        self.heightSpinBoxSignalA.setValue(h_A)
+
+        self.originXSpinBoxSignalB.setValue(x_B)
+        self.originYSpinBoxSignalB.setValue(y_B)
+
+        self.lockDimensionsCheckBox.setChecked(True)
+        self.updateParameters()
+
+    def updateParameters(self):
+        """Update Split parameter inputs and UI elements"""
+        print('** Updating parameters')
+        x_A, y_A = self.originXSpinBoxSignalA.value(), self.originYSpinBoxSignalA.value()
+        w_A, h_A = self.widthSpinBoxSignalA.value(), self.heightSpinBoxSignalA.value()
+        x_B, y_B = self.originXSpinBoxSignalB.value(), self.originYSpinBoxSignalB.value()
+        w_B, h_B = self.widthSpinBoxSignalB.value(), self.heightSpinBoxSignalB.value()
+        # r = int(roi_state['size'][0])
+        # print("Updating roi params with: ", x, ' ', y, ' ', r)
+        # Populate fields with passed values
+        if self.lockDimensionsCheckBox.isChecked():
+            self.widthSpinBoxSignalB.setValue(w_A)
+            self.widthSpinBoxSignalB.setEnabled(False)
+            self.heightSpinBoxSignalB.setValue(h_A)
+            self.heightSpinBoxSignalB.setEnabled(False)
+        else:
+            # self.widthSpinBoxSignalB.setValue(w_B)
+            self.widthSpinBoxSignalB.setEnabled(True)
+            # self.heightSpinBoxSignalB.setValue(h_B)
+            self.heightSpinBoxSignalB.setEnabled(True)
+        self.updateROIs()
+
+    def updateROIs(self):
+        x_A, y_A = self.originXSpinBoxSignalA.value(), self.originYSpinBoxSignalA.value()
+        w_A, h_A = self.widthSpinBoxSignalA.value(), self.heightSpinBoxSignalA.value()
+        x_B, y_B = self.originXSpinBoxSignalB.value(), self.originYSpinBoxSignalB.value()
+        w_B, h_B = self.widthSpinBoxSignalB.value(), self.heightSpinBoxSignalB.value()
+        self.roi_A.setPos([x_A, y_A])
+        self.roi_A.setSize([w_A, h_A])
+        self.roi_B.setPos([x_B, y_B])
+        self.roi_B.setSize([w_B, h_B])
+
+    def applySplit(self):
+        print('\n*** Applying Split')
+        print('** Calculating split data arrays stacks')
+        print('** Image registration using first frame ')
+        print('** ... ')
+        # self.close()
 
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
@@ -621,7 +724,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def loadDefaults(self):
         """Populate ROI parameter inputs with default values"""
-        print('* Loading defaults')
+        print('** Loading defaults')
         default_r = 15
         # Populate fields with default values
         self.originXLineEdit.setText(str(int(self.currentWindow.width / 2)))
@@ -909,7 +1012,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def loadDefaults(self):
         """Populate Analysis parameter inputs with default values"""
-        print('** loadDefaults!')
+        print('** Load defaults!')
         self.analysis_preview = self.currentWindow.analysis_default.copy()
         self.updateParameters(self.currentWindow.analysis_default)
         if self.tabProcess.isEnabled():

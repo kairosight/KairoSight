@@ -156,7 +156,7 @@ class Ui_WidgetTiff(object):
         self.horizontalLayout_4.addLayout(self.formLayoutProperties)
         self.verticalLayout.addWidget(self.groupBoxProperties)
         self.groupBoxSignals = QtWidgets.QGroupBox(WidgetTiff)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.groupBoxSignals.sizePolicy().hasHeightForWidth())
