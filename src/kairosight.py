@@ -228,6 +228,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
         # Setup ROIs and Anlysis variables
         self.ROIs = []  # A list of pg.ROI objects
+        self.ROIsLabels = []  # A list of pg.ROI object labels
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': '0', 'INDEX_A': np.nan, 'TYPE': 'Voltage',
                                  'ROI_CALC': 'Mean', 'FILTER': '60', 'PEAKS': '0.72,172',
@@ -290,9 +291,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.graphicsView.hist.regionChanged()
 
         # Draw ROIs
-        if self.ROIs:
-            for roi in self.ROIs:
-                self.graphicsView.p1.addItem(roi)
+        # if self.ROIs:
+        #     for roi in self.ROIs:
+        #         self.graphicsView.p1.addItem(roi)
 
     def splitVideo(self):
         """Splits and aligns a multi-signal video"""
@@ -352,10 +353,12 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
             if idx is not None:
                 roi_current = self.ROIs[idx]
+                label_current = self.ROIsLabels[idx]
                 print('** Changing existing Analysis from: ', roi_current)
                 print('**                              to: ', roi)
                 roi_current.setState(roi_state)
                 roi_current.setPen(color='54FF00')
+                label_current.setPos(int(x), int(y))
             else:
                 print('** Adding passed ROI: ', roi)
                 length = self.modelRoi.rowCount()
@@ -366,6 +369,11 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
                 self.graphicsView.p1.addItem(roi_new)
                 self.ROIs.append(roi_new)
                 roi_new.removeHandle(0)
+                label = pg.TextItem('#' + str(idx))
+                label.setPos(int(x), int(y))
+                label.setColor(color='54FF00')
+                self.graphicsView.p1.addItem(label)
+                self.ROIsLabels.append(label)
             if not frames:
                 frames = '1-' + str(self.frames)
 
@@ -387,6 +395,9 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.ROIs = rois_new
             self.modelRoi.removeRow(idx)
             self.graphicsView.p1.removeItem(roi)
+            labels_new = [j for i, j in enumerate(self.ROIsLabels) if i not in [idx]]
+            self.ROIsLabels = labels_new
+            self.graphicsView.p1.removeItem(self.ROIsLabels[idx])
             for idx in range(5):
                 self.treeViewROIs.resizeColumnToContents(idx)
         else:
