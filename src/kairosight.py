@@ -16,6 +16,7 @@ import pyqtgraph as pg
 from ui.KairoSightMainMDI import Ui_MDIMainWindow
 from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
 from ui.KairoSightWidgetFolderTree import Ui_WidgetFolderTree
+from ui.KairoSightWidgetSplit import Ui_WidgetSplit
 from ui.KairoSightWidgetIsolate import Ui_WidgetIsolate
 from ui.KairoSightWidgetAnalyze import Ui_WidgetAnalyze
 from ui.KairoSightWidgetExport import Ui_WidgetExport
@@ -157,6 +158,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
         # Initialization of the superclass
         super(DesignerSubWindowTiff, self).__init__(parent)
+        self.MainWindow = parent
         # Setup the GUI
         self.setupUi(self)
         pg.setConfigOptions(background=pg.mkColor(0.1))
@@ -194,10 +196,13 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.framePeriodMsLabel.setText('!Frame Period (ms)')
             self.dt = 1.238
 
+        # Limit all float results to 5 significant digits, due to dt limit
+        self.dt = float("{0:.5g}".format(self.dt))
+
         # Set-up Properties fields
         self.study = 'NaN'  # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
-        self.duration = self.fps * (self.frames + 1)
+        self.duration = self.dt * (self.frames)
         self.width, self.height = self.video_shape[2], self.video_shape[1]
         self.resolution = None  # cm/px
         print('video shape:         ', self.video_shape)
@@ -218,15 +223,17 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.durationMsLineEdit.setText(str(self.duration))
         self.durationMsLineEdit.setEnabled(False)
         self.resolutionLineEdit.textEdited.connect(self.updateProperties)
+        self.updateProperties()
 
-        # Setup Signals UI for splitting options
+        # Setup Signals data and Signals UI for splitting options
+        self.Signals = []
+        self.SIGNAL_OPTIONS = ['Voltage (Vm)', 'Calcium (Ca)']
         self.pushButtonSignalAdd.pressed.connect(self.splitVideo)
         self.pushButtonSignalRemove.pressed.connect(self.reduceVideo)
-        self.signal_ComboBoxes = []
-        self.SIGNAL_OPTIONS = ['Voltage (Vm)', 'Calcium (Ca)']
         # TODO Create a default signal
+        self.addSignal()
 
-        # Setup ROIs and Anlysis variables
+        # Setup ROIs and Anlysis data
         self.ROIs = []  # A list of pg.ROI objects
         self.ROIsLabels = []  # A list of pg.ROI object labels
         self.Analysis = []  # A list of Analysis results dictionaries
@@ -278,6 +285,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         print('** Updating properties')
         self.study = self.subjectLineEdit.text()
         self.resolution = self.resolutionLineEdit.text()
+        print('* Limit Frame Period and Frame Rate to 5 significant figures')
+        self.dt = float("{0:.5g}".format(self.dt))
+        self.fps = float("{0:.5g}".format(self.fps))
+
+        print('* Update Properties UI elements')
+        self.framePeriodMsLineEdit.setText(str(self.dt))
+        self.frameRateLineEdit.setText(str(self.fps))
+        self.durationMsLineEdit.setText(str(self.duration))
         # self.signals = []
 
     def updateVideo(self, frame=0):
@@ -295,29 +310,39 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         #     for roi in self.ROIs:
         #         self.graphicsView.p1.addItem(roi)
 
-    def splitVideo(self):
+    def addSignal(self):
         """Splits and aligns a multi-signal video"""
-        print('\n*** Splitting video')
+        print('\n*** Adding a Signal')
+        idx_new = self.formLayoutSignals.rowCount()
         # idx_new = len(self.signal_ComboBoxes)
-        # label_new = str(idx_new + 1)
-        # print('** Adding Signal #' + label_new)
+        label_new = str(idx_new + 1)
+        print('** Signal #' + label_new)
         # self.formLayoutSignals.addRow(QLabel("#" + label_new), QComboBox())
         # self.signal1ComboBox.addItems(self.SIGNAL_OPTIONS)
         try:
             print('* Create a SignalWidget')
             new_signal_widget = SignalWidget(self)
-            # self.formLayoutSignals.setWidget(0, QtWidgets.QFormLayout.FieldRole, new_signal_widget)
-            self.formLayoutSignals.addRow(QLabel("new:"), new_signal_widget)
-            # self.formLayoutSignals.addRow(QLabel("new:"), QComboBox())
+            new_signal_widget.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
+            print('* Add the SignalWidget to the form (with label)')
+            self.formLayoutSignals.addRow(QLabel(label_new), new_signal_widget)
         except Exception:
             traceback.print_exc()
+        new_signal_widget.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
+        self.Signals.append(new_signal_widget)
+        print('** Signals are now: ' + str(self.Signals))
 
-        # self.formLayoutSignals.addRow(QLabel(), )
-        # self.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
-        # self.signals.append(self.widgetSignals)
-        # self.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
-        print('* Add the SignalWidget to the form (with label)')
-        # .addWidget(self.widgetSignals)
+    def splitVideo(self):
+        """Splits and aligns a multi-signal video"""
+        print('\n*** Splitting current video data')
+        try:
+            sub_split = DesignerSubWindowSplit(parent=self)
+            # main_window = self.MainWindow
+            self.MainWindow.mdiArea.addSubWindow(sub_split)
+            sub_split.show()
+        except Exception:
+            traceback.print_exc()
+        print('** Split video complete')
+
 
     def reduceVideo(self):
         """Reduce the number of signals/videos after splitting"""
@@ -470,6 +495,18 @@ class DesignerSubWindowFolder(QWidget, Ui_WidgetFolderTree):
         self.currentFileName = self.model.fileName(index_item)
         self.currentFilePath = self.model.filePath(index_item)
         print('Clicked: ' + self.currentFilePath + ' ' + self.currentFileName)
+
+
+class DesignerSubWindowSplit(QWidget, Ui_WidgetSplit):
+    """Customization for Ui_WidgetSplit subwindow for an MDI"""
+    def __init__(self, parent=None):
+        # initialization of the superclass
+        super(DesignerSubWindowSplit, self).__init__(parent)
+        print('Creating WidgetSplit')
+
+        print('WidgetSplit UI setup...')
+        self.setupUi(self)
+        print('WidgetSplit ready')
 
 
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
