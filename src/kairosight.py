@@ -29,7 +29,6 @@ from algorithms import tifopen, peak_detect, process
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     """Customization for Ui_MDIMainWindow, and MDI main window"""
 
-    # TODO add Export to csv (study, file, roi, ...)
     # TODO change MainWindow's subwindow creation methods to "Window..."
 
     def __init__(self, parent=None):
@@ -132,7 +131,6 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
     def export(self):
         """Open a dialog to copy or export .csv of Analysis results"""
-        # df.to_csv('myDataFrame.csv')
         tiff_windows = []
         # Create a list of all open TIFF subwindows
         for sub in self.mdiArea.subWindowList():
@@ -200,6 +198,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.dt = float("{0:.5g}".format(self.dt))
 
         # Set-up Properties fields
+        # TODO use file's directory as default study name
         self.study = 'NaN'  # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
         self.duration = self.dt * self.frames
@@ -438,12 +437,14 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
                 analysis_current = self.Analysis[idx]
                 print('** Changing existing Analysis from: ', analysis_current)
                 print('**                              to: ', analysis)
+                analysis['INDEX_A'] = idx
                 self.Analysis[idx] = analysis.copy()
             else:
                 print('** Adding passed Analysis: ', analysis)
-                self.Analysis.append(analysis.copy())
                 length = self.modelAnalysis.rowCount()
                 idx = length
+                analysis['INDEX_A'] = idx
+                self.Analysis.append(analysis.copy())
                 self.modelAnalysis.insertRow(idx)
 
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.INDEX_A), str(idx))
@@ -687,7 +688,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current source: ', i, ', ', self.comboBoxSource.currentText())
+        print('* Current Source: ', i, ', ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentPlot = self.currentWindow.graphicsView.p1
 
@@ -959,7 +960,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
         print('\n*** selection #', i, ' made in a ', type(self))
-        print('* Current source: ', self.comboBoxSource.currentText())
+        print('* Current Source: ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
         self.currentVideoPlot = self.currentWindow.graphicsView.p1
 
@@ -1272,7 +1273,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
             # Populate dictionary
             self.windowDict[w_name_short] = w.widget()
         self.currentWindow = None
-        self.currentAnalysis = None
+        self.currentAnalysis_copy = None
         self.currentROI = None
         self.currentResults = None
         self.finalResults = None
@@ -1306,7 +1307,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
     def selectionMadeSource(self, i):
         """Slot for comboBoxSource.currentIndexChanged"""
         print('** selection made in a ', type(self))
-        print('* Current source: ', i, ', ', self.comboBoxSource.currentText())
+        print('* Current Source: ', i, ', ', self.comboBoxSource.currentText())
         self.currentWindow = self.windowDict[self.comboBoxSource.currentText()]
 
         self.comboBoxAnalysis.clear()
@@ -1325,11 +1326,9 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         print('\n*** selection #', i, ' made in a ', type(self))
         print('** Current Analysis: ', self.comboBoxAnalysis.currentText())
         index_current = self.comboBoxAnalysis.currentIndex()
-        self.currentAnalysis = self.currentWindow.Analysis[index_current]
-        self.currentROI = self.currentAnalysis['ROI']
-        self.currentResults = self.currentAnalysis['RESULTS']
+        currentAnalysis = self.currentWindow.Analysis[index_current]
+        self.updateResults(currentAnalysis)
         self.radioButtonIndividual.setChecked(True)
-        self.finalResults = self.currentResults
         self.loadResults()
 
     def updateParameters(self):
@@ -1347,12 +1346,23 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         # except Exception:
         #     traceback.print_exc()
 
+    def updateResults(self, analysis):
+        """Update current Analysis and Results"""
+        print('\n*** updateResults!')
+        self.currentAnalysis_copy = self.analysis.copy()
+        # print('* Old Analysis dict: ', self.currentAnalysis_copy)
+        self.currentResults = self.currentAnalysis_copy.pop('RESULTS', None)
+        print('** Removed RESULTS : ', self.currentResults)
+        print('** New Analysis dict: ', self.currentAnalysis_copy)
+        self.currentROI = self.currentAnalysis_copy['ROI']
+
     def loadResults(self):
         """Populate Results table with the current Analysis' results"""
-        # TODO Fix row/rows of analysis parameters, extra rows going from Individual to Mean
-        # TODO redo to simplify: create full tables and filter at the end
+        # TODO redo to simplify: create full tables and filter at the end, read ROI frames from modelRoi
         print('\n*** loadResults!')
-        print('** currentResults:' + str(self.currentResults))
+        self.updateResults()
+
+        # print('** currentResults:' + str(self.currentResults))
         if self.currentResults is None:
             print('\n*** No results yet!')
         else:
@@ -1406,27 +1416,46 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
                     print('* Using Individual results')
                     self.checkBoxSD.setEnabled(False)
 
-                # Check if analysis Paramaters are needed
-                if self.checkBoxParameters.isChecked():
-                    print('* Using Parameters')
-                    tempResultsParams = pd.DataFrame(np.zeros(shape=(len(self.finalResults.index), 2)),
-                                                     columns=['ROI', 'Analysis'])
-                    tempResultsProps.loc[:, ['ROI']] = self.currentROI.getState()
-                    tempResultsProps.loc[:, ['Analysis']] = self.currentAnalysis
-                tempResults = pd.concat([tempResultsParams, tempResults], axis=1)
-
                 # Check if video Properties are needed
                 if self.checkBoxProperties.isChecked():
                     print('* Using Properties')
                     # tempResultsProps = self.currentResults[['']]
-                    tempResultsProps = pd.DataFrame(np.zeros(shape=(len(self.finalResults.index), 3)),
-                                                    columns=['Study', 'File', 'ROI'])
-                    tempResultsProps.loc[:, ['Study']] = self.currentWindow.study
+                    tempResultsProps = pd.DataFrame(np.zeros(shape=(len(tempResults.index), 3)),
+                                                    columns=['Subject', 'File', 'ROI#'])
+                    tempResultsProps.loc[:, ['Subject']] = self.currentWindow.study
                     tempResultsProps.loc[:, ['File']] = self.currentWindow.video_name
-                    tempResultsProps.loc[:, ['ROI']] = self.currentAnalysis['ROI']
-
+                    tempResultsProps.loc[:, ['ROI#']] = self.currentAnalysis_copy['ROI']
                 tempResults = pd.concat([tempResultsProps, tempResults], axis=1)
 
+                # Check if analysis Paramaters are needed
+                if self.checkBoxParameters.isChecked():
+                    print('* Using Parameters')
+                    tempResultsParams = pd.DataFrame(np.zeros(shape=(len(tempResults.index), 6)),
+                                                     columns=['ROI (X,Y)', 'ROI Size',
+                                                              'Type', 'Calculation', 'Filter (Hz)',
+                                                              'Peaks (Threshold, Lockout)'])
+
+                    params_ROI = self.currentWindow.ROIs[int(self.currentROI)].getState()
+                    x, y = str(int(params_ROI['pos'].x())), str(int(params_ROI['pos'].y()))
+                    position = x + ',' + y
+                    size = int(params_ROI['size'][0])
+
+                    params_Analysis = self.currentAnalysis_copy
+                    print('** Parameters:')
+                    print('* ROI: ', params_ROI)
+                    print('* Analysis: ', params_Analysis)
+
+                    tempResultsParams.loc[:, ['ROI (X,Y)']] = position
+                    tempResultsParams.loc[:, ['ROI Size']] = size
+                    tempResultsParams.loc[:, ['Type']] = params_Analysis['TYPE']
+                    tempResultsParams.loc[:, ['Calculation']] = params_Analysis['ROI_CALC']
+                    tempResultsParams.loc[:, ['Filter (Hz)']] = params_Analysis['FILTER']
+                    tempResultsParams.loc[:, ['Peaks (Threshold, Lockout)']] = params_Analysis['PEAKS']
+                    # tempResultsParams.loc[:, ['ROI']] = 828
+                    # tempResultsParams.loc[:, ['Analysis']] = 828
+                tempResults = pd.concat([tempResults, tempResultsParams], axis=1)
+
+                # Finalize results table
                 self.finalResults = tempResults
                 self.tableWidgetResults.setColumnCount(len(self.finalResults.columns))
                 self.tableWidgetResults.setRowCount(len(self.finalResults.index))
@@ -1439,6 +1468,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
                             float(dataDataFrame)
                             dataTable = str("{0:.5g}".format(dataDataFrame))
                         except ValueError:
+                            # Not a float, no need to limit digits
                             dataTable = dataDataFrame
                         self.tableWidgetResults.setItem(i, j, QTableWidgetItem(dataTable))
                 print('* Results table populated by results dataframe')
@@ -1477,30 +1507,38 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
     def exportResults(self):
         print('\n*** exportResults!')
         try:
-            file_list = [self.currentWindow.study, self.currentWindow.video_name, 'KS']
-            file_name = '_'.join(file_list)
-            print('** Exporting to ', file_name)
-            # File Dialog to generate filename
+            if self.currentWindow.study:
+                file_name_list = [self.currentWindow.study, self.currentWindow.video_name, '']
+            else:
+                file_name_list = [self.currentWindow.video_name, '']
 
-            # selected = self.tableWidgetResults.selectedRanges()
-            # # s = '\t' + "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
-            # #                       range(selected[0].leftColumn(), selected[0].rightColumn())])
-            # s = "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
-            #                range(selected[0].leftColumn(), selected[0].rightColumn())])
-            # s = s + '\n'
-            # for r in range(selected[0].topRow(), selected[0].bottomRow()):
-            #     # s += self.tableWidgetResults.verticalHeaderItem(r).text() + '\t'
-            #     # s += str(self.tableWidgetResults.verticalHeaderItem(r).text()) + '\t'
-            #     for c in range(selected[0].leftColumn(), selected[0].rightColumn()):
-            #         try:
-            #             print('** try: s += str(self.table.item(r, c).text()) + "\t"')
-            #             s += str(self.tableWidgetResults.item(r, c).text()) + "\t"
-            #         except AttributeError:
-            #             s += "\t"
-            #     s = s[:-1] + "\n"  # eliminate last '\t'
-            # self.clip.setText(s)
+            file_name_default = '_'.join(file_name_list)
+
+            # File Dialog to generate filename
+            export_file_name, _ = QFileDialog.getSaveFileName(self, 'Export results to .csv', file_name_default,
+                                                           'Comma-separated values (*.csv)')
+            print('* Exporting results as: ', export_file_name)
+            self.finalResults.to_csv(export_file_name, na_rep='NaN', index=False)
+            print('** Exported results as')
         except Exception:
             traceback.print_exc()
+        # selected = self.tableWidgetResults.selectedRanges()
+        # # s = '\t' + "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
+        # #                       range(selected[0].leftColumn(), selected[0].rightColumn())])
+        # s = "\t".join([str(self.tableWidgetResults.horizontalHeaderItem(i).text()) for i in
+        #                range(selected[0].leftColumn(), selected[0].rightColumn())])
+        # s = s + '\n'
+        # for r in range(selected[0].topRow(), selected[0].bottomRow()):
+        #     # s += self.tableWidgetResults.verticalHeaderItem(r).text() + '\t'
+        #     # s += str(self.tableWidgetResults.verticalHeaderItem(r).text()) + '\t'
+        #     for c in range(selected[0].leftColumn(), selected[0].rightColumn()):
+        #         try:
+        #             print('** try: s += str(self.table.item(r, c).text()) + "\t"')
+        #             s += str(self.tableWidgetResults.item(r, c).text()) + "\t"
+        #         except AttributeError:
+        #             s += "\t"
+        #     s = s[:-1] + "\n"  # eliminate last '\t'
+        # self.clip.setText(s)
 
 
 class PandasModel(QtCore.QAbstractTableModel):
