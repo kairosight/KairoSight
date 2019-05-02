@@ -616,8 +616,8 @@ class DesignerSubWindowSplit(QWidget, Ui_WidgetSplit):
 class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
 
-    # TODO Fix preview redundancies (updating image and plot multiple times per ROI change)
-    # TODO Detect isolation of split/autoregistered video
+    # TODO FIX preview redundancies (updating image and plot multiple times per ROI change)
+    # TODO Detect isolation of split/auto-registered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
     def __init__(self, parent=None, w_list=None):
@@ -722,6 +722,7 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         else:
             # *NEW* has been selected
             self.loadDefaults()
+            self.checkBoxPreview.setChecked(True)
 
     def loadDefaults(self):
         """Populate ROI parameter inputs with default values"""
@@ -893,6 +894,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
     """Customization for Ui_WidgetAnalyze subwindow for an MDI"""
 
     # TODO clean up Apply and OK UI flow
+    # TODO ADD export trace as .csv feature to Condition Tab
 
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
@@ -1195,6 +1197,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.analysis_preview['RESULTS'] = self.process_results
         print('* Process results calculated')
 
+        # TODO FIX rows showing sums of CLs, other values also weird
         table_model = PandasModel(self.process_results)
         self.processTableView.setModel(table_model)
         print('* Results table populated')
@@ -1273,6 +1276,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
             # Populate dictionary
             self.windowDict[w_name_short] = w.widget()
         self.currentWindow = None
+        self.currentAnalysis = None
         self.currentAnalysis_copy = None
         self.currentROI = None
         self.currentResults = None
@@ -1326,8 +1330,8 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         print('\n*** selection #', i, ' made in a ', type(self))
         print('** Current Analysis: ', self.comboBoxAnalysis.currentText())
         index_current = self.comboBoxAnalysis.currentIndex()
-        currentAnalysis = self.currentWindow.Analysis[index_current]
-        self.updateResults(currentAnalysis)
+        self.currentAnalysis = self.currentWindow.Analysis[index_current]
+        self.updateResults(self.currentAnalysis)
         self.radioButtonIndividual.setChecked(True)
         self.loadResults()
 
@@ -1349,7 +1353,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
     def updateResults(self, analysis):
         """Update current Analysis and Results"""
         print('\n*** updateResults!')
-        self.currentAnalysis_copy = self.analysis.copy()
+        self.currentAnalysis_copy = analysis.copy()
         # print('* Old Analysis dict: ', self.currentAnalysis_copy)
         self.currentResults = self.currentAnalysis_copy.pop('RESULTS', None)
         print('** Removed RESULTS : ', self.currentResults)
@@ -1360,7 +1364,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         """Populate Results table with the current Analysis' results"""
         # TODO redo to simplify: create full tables and filter at the end, read ROI frames from modelRoi
         print('\n*** loadResults!')
-        self.updateResults()
+        self.updateResults(self.currentAnalysis)
 
         # print('** currentResults:' + str(self.currentResults))
         if self.currentResults is None:
@@ -1568,12 +1572,13 @@ class PandasModel(QtCore.QAbstractTableModel):
         return None
 
 
-# create the GUI application
-app = QApplication(sys.argv)
-# instantiate the main window
-dmw = DesignerMainWindow()
-# show it
-dmw.show()
-# start the Qt main loop execution, exiting from this script
-# with the same return code as the Qt application
-sys.exit(app.exec_())
+if __name__ == '__main__':
+    # create the GUI application
+    app = QApplication(sys.argv)
+    # instantiate the main window
+    dmw = DesignerMainWindow()
+    # show it
+    dmw.show()
+    # start the Qt main loop execution, exiting from this script
+    # with the same return code as the Qt application
+    sys.exit(app.exec_())
