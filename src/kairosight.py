@@ -1468,7 +1468,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
                     for j in range(len(self.finalResults.columns)):
                         dataDataFrame = self.finalResults.iat[i, j]
                         try:
-                            # Limit all float results to 5 significant digits, due to dt limit
+                            # Round all float results to 5 significant digits, due to dt limit
                             float(dataDataFrame)
                             dataTable = str("{0:.5g}".format(dataDataFrame))
                         except ValueError:
