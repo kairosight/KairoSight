@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>345</width>
+    <width>348</width>
     <height>512</height>
    </rect>
   </property>
@@ -170,9 +170,9 @@
        <attribute name="title">
         <string>Condition</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
+       <layout class="QVBoxLayout" name="verticalLayout_6">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayoutCondition">
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
           <item>
            <layout class="QFormLayout" name="formLayoutCondition1">
             <item row="0" column="0">
@@ -221,43 +221,59 @@
            </layout>
           </item>
           <item>
-           <layout class="QFormLayout" name="formLayoutCondition2">
-            <item row="0" column="0">
-             <widget class="QLabel" name="filterLabel">
-              <property name="text">
+           <layout class="QVBoxLayout" name="verticalLayout_5">
+            <item>
+             <widget class="QGroupBox" name="groupBoxFilter">
+              <property name="title">
                <string>Low Pass Filter</string>
               </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QCheckBox" name="filterCheckBox">
-              <property name="checked">
+              <property name="checkable">
                <bool>true</bool>
               </property>
+              <layout class="QFormLayout" name="formLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="filterFreqLabel">
+                 <property name="text">
+                  <string>Cutoff (Hz)</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QSpinBox" name="filterFreqSpinBox">
+                 <property name="minimum">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>200</number>
+                 </property>
+                 <property name="value">
+                  <number>50</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="filterFreqLabel">
-              <property name="text">
-               <string>Cutoff (Hz)</string>
-              </property>
-              <property name="wordWrap">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QSpinBox" name="filterFreqSpinBox">
-              <property name="minimum">
-               <number>1</number>
-              </property>
-              <property name="maximum">
-               <number>200</number>
-              </property>
-              <property name="value">
-               <number>50</number>
-              </property>
-             </widget>
+            <item>
+             <layout class="QFormLayout" name="formLayout_3">
+              <item row="0" column="0">
+               <widget class="QLabel" name="detrendLinearLabel">
+                <property name="text">
+                 <string>Detrend (Linear)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QCheckBox" name="detrendLinearCheckBox">
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
            </layout>
           </item>
@@ -337,17 +353,37 @@
          </layout>
         </item>
         <item>
-         <widget class="QDialogButtonBox" name="buttonBoxPeakDetect">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="spacing">
+           <number>0</number>
           </property>
-          <property name="standardButtons">
-           <set>QDialogButtonBox::Apply</set>
-          </property>
-         </widget>
+          <item>
+           <widget class="QPushButton" name="pushButtonExportTrace">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Export Trace (.csv)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QDialogButtonBox" name="buttonBoxPeakDetect">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="standardButtons">
+             <set>QDialogButtonBox::Apply</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>

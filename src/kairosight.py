@@ -192,6 +192,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # From most MetaMorph videos: exposure time 1.219 ms -> dt = 1.238 ms
         if np.isnan(self.dt):
             self.framePeriodMsLabel.setText('!Frame Period (ms)')
+            self.frameRateLabel.setText('!Frame Rate (fps)')
             self.dt = 1.238
 
         # Limit all float results to 5 significant digits, due to dt limit
@@ -216,12 +217,15 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
         self.subjectLineEdit.textEdited.connect(self.updateProperties)
         self.framePeriodMsLineEdit.setText(str(self.dt))
-        self.framePeriodMsLineEdit.setEnabled(False)
+        # self.framePeriodMsLineEdit.setEnabled(False)
         self.frameRateLineEdit.setText(str(self.fps))
-        self.frameRateLineEdit.setEnabled(False)
+        # self.frameRateLineEdit.setEnabled(False)
         self.durationMsLineEdit.setText(str(self.duration))
         self.durationMsLineEdit.setEnabled(False)
-        self.resolutionLineEdit.textEdited.connect(self.updateProperties)
+
+        self.framePeriodMsLineEdit.editingFinished.connect(self.updateProperties)
+        self.frameRateLineEdit.editingFinished.connect(self.updateProperties)
+        self.resolutionLineEdit.editingFinished.connect(self.updateProperties)
         self.updateProperties()
 
         # Setup Signals data and Signals UI for splitting options
@@ -285,8 +289,11 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.study = self.subjectLineEdit.text()
         self.resolution = self.resolutionLineEdit.text()
         print('* Limit Frame Period and Frame Rate to 5 significant figures')
-        self.dt = float("{0:.5g}".format(self.dt))
-        self.fps = float("{0:.5g}".format(self.fps))
+        self.dt = float("{0:.5g}".format(float(self.framePeriodMsLineEdit.text())))
+        self.fps = float("{0:.5g}".format(float(self.frameRateLineEdit.text())))
+        print('* duration was: ', self.duration)
+        self.duration = self.dt * self.frames
+        print('* duration is: ', self.duration)
 
         print('* Update Properties UI elements')
         self.framePeriodMsLineEdit.setText(str(self.dt))
@@ -297,7 +304,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     def updateVideo(self, frame=0):
         """Updates the video frame drawn to the canvas"""
         # print('Updating video plot in a subWindow with:')
-        print('\n*** Showing ' + self.video_name + '[' + str(frame) + ']')
+        # print('\n*** Showing ' + self.video_name + '[' + str(frame) + ']')
         # Update ImageItem with a frame in stack
         self.frame_current = frame
         self.graphicsView.img.setImage(self.display_data[frame - 1])
@@ -617,6 +624,8 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
 
     # TODO FIX preview redundancies (updating image and plot multiple times per ROI change)
+    # TODO FIX discard feature
+    # TODO FIX crash when applying to two sources
     # TODO Detect isolation of split/auto-registered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
@@ -924,7 +933,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('WidgetAnalyze UI setup...')
         self.setupUi(self)
         self.plot_preview = self.widgetPreview.addPlot()
-        self.filterCheckBox.stateChanged.connect(self.filterCheckBoxChanged)
+        self.groupBoxFilter.toggled.connect(self.filterCheckBoxChanged)
         self.tabPeakDetect.setEnabled(False)
         self.tabProcess.setEnabled(False)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
@@ -935,6 +944,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.comboBoxAnalysis.currentIndexChanged['int'].connect(self.selectionMadeAnalysis)
 
         self.buttonBoxCondition.button(QDialogButtonBox.Apply).clicked.connect(self.applyCondition)
+        self.pushButtonExportTrace.clicked.connect(self.exportTrace)
         self.buttonBoxPeakDetect.button(QDialogButtonBox.Apply).clicked.connect(self.applyPeakDetect)
         self.buttonBoxProcess.button(QDialogButtonBox.Apply).clicked.connect(self.applyProcess)
 
@@ -1042,9 +1052,9 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.signalTypeComboBox.setCurrentText(str(analysis_type))
         self.roiCalculationComboBox.setCurrentText(roi_calc)
         if pd.isna(analysis_filter):
-            self.filterCheckBox.setChecked(False)
+            self.groupBoxFilter.setChecked(False)
         else:
-            self.filterCheckBox.setChecked(True)
+            self.groupBoxFilter.setChecked(True)
             self.filterFreqSpinBox.setValue(int(analysis_filter))
         self.thresholdDoubleSpinBox.setValue(float(peaks_thresh))
         self.lockoutTimeSpinBox.setValue(int(peaks_lockout))
@@ -1053,7 +1063,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def filterCheckBoxChanged(self):
         """Toggle use of a low pass filter for the current conditioning"""
-        if self.filterCheckBox.isChecked():
+        if self.groupBoxFilter.isChecked():
             self.filterFreqSpinBox.setEnabled(True)
             print('\n*** Filter checked')
         else:
@@ -1069,7 +1079,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.analysis_preview['ROI'] = str(self.comboBoxROIs.currentIndex())
         self.analysis_preview['TYPE'] = self.signalTypeComboBox.currentText()
         self.analysis_preview['ROI_CALC'] = self.roiCalculationComboBox.currentText()
-        if self.filterCheckBox.isChecked():
+        if self.groupBoxFilter.isChecked():
             self.analysis_preview['FILTER'] = str(self.filterFreqSpinBox.value())
         else:
             self.analysis_preview['FILTER'] = np.nan
@@ -1083,24 +1093,30 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             roi_data_mean = np.zeros(self.currentWindow.frames)
             for idx, frame in enumerate(roi_data):
                 roi_data_mean[idx] = np.nanmean(frame)
-            roi_data_mean_norm = np.copy(roi_data_mean)
-            norm_MIN = roi_data_mean_norm.min()
-            norm_MAX = roi_data_mean_norm.max()
-            roi_data_mean_norm = (roi_data_mean_norm - norm_MIN) / (norm_MAX - norm_MIN)
             if 'Voltage' in self.analysis_preview['TYPE']:
                 # TODO Signal type should determine Process tab's results options
-                roi_data_mean_norm = 1 - roi_data_mean_norm
+                roi_data_mean = 1 - roi_data_mean
             print('* ROI mean calculated')
-            if self.filterCheckBox.isChecked():
+
+            print('* Filtering ROI data')
+            roi_data_mean_filter = roi_data_mean
+            if self.groupBoxFilter.isChecked():
                 print('* Filtering ROI mean ')
                 fs = 1 / (self.currentWindow.dt / 1000)
                 Wn = (self.filterFreqSpinBox.value() / (fs / 2))
                 [b, a] = sig.butter(5, Wn)
-                roi_data_mean_norm_filt = sig.filtfilt(b, a, roi_data_mean_norm)
-                print('* ROI mean filtered')
-                self.condition_results = roi_data_mean_norm_filt
-            else:
-                self.condition_results = roi_data_mean_norm
+                roi_data_mean_filter = sig.filtfilt(b, a, roi_data_mean_filter)
+            if self.detrendLinearCheckBox.isChecked():
+                roi_data_mean_filter = sig.detrend(roi_data_mean_filter)
+            print('* ROI data Filtered')
+
+            print('* Normalizing ROI data')
+            roi_data_mean_filter_copy = np.copy(roi_data_mean_filter)
+            norm_MIN = roi_data_mean_filter_copy.min()
+            norm_MAX = roi_data_mean_filter_copy.max()
+            roi_data_mean_filter_norm = (roi_data_mean_filter_copy - norm_MIN) / (norm_MAX - norm_MIN)
+            print('* ROI data Normalized')
+            self.condition_results = roi_data_mean_filter_norm
         else:
             print('* UNKNOWN ROI_CALC! : ', self.analysis_preview['ROI_CALC'])
         # Plot conditioned signal
@@ -1113,6 +1129,26 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
         self.progressBar.setValue(60)
         print('\n*** Finished Applying Condition')
+
+    def exportTrace(self):
+        """Export the trace before Peak Detection"""
+        print('\n*** exportTrace!')
+        try:
+            if self.currentWindow.study:
+                file_name_list = [self.currentWindow.study, self.currentWindow.video_name, '']
+            else:
+                file_name_list = [self.currentWindow.video_name, '']
+
+            file_name_default = '_'.join(file_name_list)
+
+            # File Dialog to generate filename
+            export_file_name, _ = QFileDialog.getSaveFileName(self, 'Export results to .csv', file_name_default,
+                                                           'Comma-separated values (*.csv)')
+            print('* Exporting results as: ', export_file_name)
+            pd.DataFrame(self.condition_results).to_csv(export_file_name, na_rep='NaN', index=False)
+            print('** Exported results as')
+        except Exception:
+            traceback.print_exc()
 
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
@@ -1189,22 +1225,22 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         try:
             self.process_results = process.process(self.condition_results, self.currentWindow.dt,
                                                    t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
+            self.analysis_preview['RESULTS'] = self.process_results
+            print('* Process results calculated')
+
+            # TODO FIX rows showing sums of CLs, other values also weird
+            table_model = PandasModel(self.process_results)
+            self.processTableView.setModel(table_model)
+            print('* Results table populated')
+
+            self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.progressBar.setValue(100)
+            print('\n*** Finished Applying Process')
         except Exception:
             traceback.print_exc()
-            # ex_type, ex_value, ex_traceback = sys.exc_info()
-            # self.parentWidget().parentWidget().statusBar().showMessage('Failed to open, ' + str(ex_type))
-
-        self.analysis_preview['RESULTS'] = self.process_results
-        print('* Process results calculated')
-
-        # TODO FIX rows showing sums of CLs, other values also weird
-        table_model = PandasModel(self.process_results)
-        self.processTableView.setModel(table_model)
-        print('* Results table populated')
-
-        self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
-        self.progressBar.setValue(100)
-        print('\n*** Finished Applying Process')
+            ex_type, ex_value, ex_traceback = sys.exc_info()
+            # self.parentWidget().parentWidget().statusBar().showMessage('FAILED to process : ' + str(ex_type))
+            print('\n*** Process FAILED')
 
     def applyAnalysis(self):
         """Add an Analysis to a TIFF or applies changes to an existing Analysis"""
@@ -1303,8 +1339,8 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         self.checkBoxParameters.setChecked(False)
         self.checkBoxParameters.stateChanged.connect(self.loadResults)
 
-        self.pushButtonCopy.clicked.connect(self.copyResults)
-        self.pushButtonExport.clicked.connect(self.exportResults)
+        self.pushButtonTrace.clicked.connect(self.copyResults)
+        self.pushButtonResults.clicked.connect(self.exportResults)
         self.selectionMadeSource(0)
         print('WidgetCopyPaste ready')
 
@@ -1432,6 +1468,7 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
                 tempResults = pd.concat([tempResultsProps, tempResults], axis=1)
 
                 # Check if analysis Paramaters are needed
+                # TODO included individual/mean
                 if self.checkBoxParameters.isChecked():
                     print('* Using Parameters')
                     tempResultsParams = pd.DataFrame(np.zeros(shape=(len(tempResults.index), 6)),
@@ -1508,7 +1545,22 @@ class DesignerSubWindowExport(QWidget, Ui_WidgetExport):
         except Exception:
             traceback.print_exc()
 
+    def exportTrace(self):
+        """Export the trace from the current Analysis"""
+        print('\n*** exportTrace!')
+        self.updateResults(self.currentAnalysis)
+
+        if self.currentResults is None:
+            print('\n*** No results yet!')
+        else:
+            print('** Found results')
+            try:
+                tempResults = pd.DataFrame()
+            except Exception:
+                traceback.print_exc()
+
     def exportResults(self):
+        """Export the results from the current Analysis"""
         print('\n*** exportResults!')
         try:
             if self.currentWindow.study:
