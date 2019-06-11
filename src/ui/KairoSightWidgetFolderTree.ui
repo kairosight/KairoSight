@@ -18,7 +18,20 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QTreeView" name="treeView"/>
+    <widget class="QTreeView" name="treeView">
+     <property name="sortingEnabled">
+      <bool>true</bool>
+     </property>
+     <attribute name="headerCascadingSectionResizes">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="headerHighlightSections">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="headerMinimumSectionSize">
+      <number>20</number>
+     </attribute>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">

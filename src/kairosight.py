@@ -148,7 +148,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
 
 class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for Ui_WidgetTiff subwindow for an MDI"""
-    # TODO split and overlay videos (Voltage + Calcium) and use autoregistration
+    # TODO split and overlay videos (Voltage + Calcium) and use autoregistration, XYCZT
     # TODO build a better data tree for ROIs and Analysis
     INDEX_R, TYPE_R, POSITION, SIZE, FRAMES = range(5)
     INDEX_A, ROI, TYPE_A, ROI_CALC, FILTER, PEAKS = range(6)
@@ -284,6 +284,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
 
     def updateProperties(self):
         """Update TIFF parameters with user-entered or changed values"""
+        # TODO Recalculate fps after new dt, and the reverse
         # TODO Invalidate old results when these change?
         print('** Updating properties')
         self.study = self.subjectLineEdit.text()
@@ -1094,7 +1095,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             for idx, frame in enumerate(roi_data):
                 roi_data_mean[idx] = np.nanmean(frame)
             if 'Voltage' in self.analysis_preview['TYPE']:
-                # TODO Signal type should determine Process tab's results options
+                # TODO Signal type should determine Process tab's results options (intensity signal, area, ...)
                 roi_data_mean = 1 - roi_data_mean
             print('* ROI mean calculated')
 
