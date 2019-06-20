@@ -1154,6 +1154,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Apply Peak Detect tab selections"""
         # Detection Error @ trans#  0  our of  7
         # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
+        # TODO troubleshoot peak detection (is it finding dt and fps?)
         # TODO set y axis to frames, not kframes
         print('\n*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())

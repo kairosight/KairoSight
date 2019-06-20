@@ -129,6 +129,7 @@ class Ui_WidgetIsolate(object):
         sizePolicy.setHeightForWidth(self.radiusSpinBox.sizePolicy().hasHeightForWidth())
         self.radiusSpinBox.setSizePolicy(sizePolicy)
         self.radiusSpinBox.setMinimumSize(QtCore.QSize(50, 0))
+        self.radiusSpinBox.setMaximum(999)
         self.radiusSpinBox.setObjectName("radiusSpinBox")
         self.formLayoutRadius.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.radiusSpinBox)
         self.horizontalLayout_3.addLayout(self.formLayoutRadius)
