@@ -422,16 +422,20 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
 
     def removeROI(self, idx=None, roi=None):
         if roi:
-            print('** Removing passed ROI: ', roi)
-            rois_new = [j for i, j in enumerate(self.ROIs) if i not in [idx]]
-            self.ROIs = rois_new
-            self.modelRoi.removeRow(idx)
-            self.graphicsView.p1.removeItem(roi)
-            labels_new = [j for i, j in enumerate(self.ROIsLabels) if i not in [idx]]
-            self.ROIsLabels = labels_new
-            self.graphicsView.p1.removeItem(self.ROIsLabels[idx])
-            for idx in range(4):
-                self.treeViewROIs.resizeColumnToContents(idx)
+            try:
+                print('** Removing passed ROI: ', roi)
+                rois_new = [j for i, j in enumerate(self.ROIs) if i not in [idx]]
+                self.modelRoi.removeRow(idx)
+                self.graphicsView.p1.removeItem(roi)
+                self.ROIs = rois_new
+
+                labels_new = [j for i, j in enumerate(self.ROIsLabels) if i not in [idx]]
+                self.graphicsView.p1.removeItem(self.ROIsLabels[idx])
+                self.ROIsLabels = labels_new
+                for idx in range(4):
+                    self.treeViewROIs.resizeColumnToContents(idx)
+            except Exception:
+                traceback.print_exc()
         else:
             print('** No ROI to remove!')
 
@@ -629,8 +633,6 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
 class WindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
 
-    # TODO FIX preview redundancies (updating image and plot multiple times per ROI change)
-    # TODO FIX discard feature
     # TODO FIX crash when applying to two sources
     # TODO Detect isolation of split/auto-registered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
@@ -676,7 +678,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyROI)
         self.buttonBox.button(QDialogButtonBox.Discard).clicked.connect(self.discardROI)
         self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
-        self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
+        self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(True)
         self.selectionMadeSource(0)
 
         print('WidgetIsolate ready')
@@ -730,6 +732,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
             self.updateParameters(roi_current)
         else:
             # *NEW* has been selected
+            print('* ROI NEW selected')
             self.loadDefaults()
             self.checkBoxPreview.setChecked(True)
 
@@ -755,37 +758,48 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def checkBoxChangedPreview(self):
         """Create/destroy preview ROI and read parameter entries"""
-        print('** checkBoxChangedPreview')
+        print('\n*** checkBoxChangedPreview')
         if self.checkBoxPreview.isChecked():
-            if not self.roi_preview:
-                # Get current ROI values
-                x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
-                r = self.radiusSpinBox.value()
-                # Create preview ROI if it doesn't exist
-                self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
-                self.roi_preview.setPen(color='FF8700')
-                # Draw region on current tiff window's plot
-                self.currentPlot.addItem(self.roi_preview)
-                self.roi_preview.sigRegionChanged.connect(self.updatePreviewImage)
-                self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview))
-                # self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
+            try:
+                if not self.roi_preview:
+                    # Get current ROI values
+                    print('* checkBoxChangedPreview_1')
+                    x, y = int(self.originXLineEdit.text()), int(self.originYLineEdit.text())
+                    r = self.radiusSpinBox.value()
+                    # Create preview ROI if it doesn't exist
+                    print('* checkBoxChangedPreview_2')
+                    self.roi_preview = pg.CircleROI([x, y], [r, r], pen=(2, 9), scaleSnap=True, translateSnap=True)
+                    self.roi_preview.setPen(color='FF8700')
+                    # Draw region on current tiff window's plot
+                    print('* checkBoxChangedPreview_3')
+                    self.currentPlot.addItem(self.roi_preview)
+                    self.roi_preview.sigRegionChanged.connect(self.updatePreviewImage)
+                    self.roi_preview.sigRegionChangeFinished.connect(lambda: self.updateParameters(self.roi_preview))
+                    # self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview))
+                    # self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
 
-                self.originXLineEdit.textEdited.connect(self.updatePreviewROI)
-                self.originYLineEdit.textEdited.connect(self.updatePreviewROI)
-                self.radiusSpinBox.valueChanged.connect(self.updatePreviewROI)
-                self.updatePreviewROI()
-                # self.updatePreviewPlot()
-                print('** Created preview ROI')
+                    self.originXLineEdit.textEdited.connect(self.updatePreviewROI)
+                    self.originYLineEdit.textEdited.connect(self.updatePreviewROI)
+                    self.radiusSpinBox.valueChanged.connect(self.updatePreviewROI)
+                    self.updatePreviewROI()
+                    # self.updatePreviewPlot()
+                    print('** Created preview ROI')
+            except Exception:
+                traceback.print_exc()
         else:
             # Remove preview ROI
-            self.currentPlot.removeItem(self.roi_preview)
-            self.roi_preview = None
-            self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
-            print('** Removed preview ROI')
+            try:
+                print('* checkBoxChangedPreview_remove')
+                self.currentPlot.removeItem(self.roi_preview)
+                self.roi_preview = None
+                self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
+                print('** Removed preview ROI')
+            except Exception:
+                traceback.print_exc()
 
     def updatePreviewROI(self):
         """Update ROI preview in Isolate subwindow"""
-        print('** updatePreviewROI')
+        print('\n*** updatePreviewROI')
         if self.roi_preview:
             # ROI Preview exists, update the params
             # Get current ROI values
@@ -793,15 +807,15 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
             r = self.radiusSpinBox.value()
             self.roi_preview.setPos((x, y))
             self.roi_preview.setSize(r)
-
-            self.updatePreviewImage()
-            print('** Set ROI preview')
+            #
+            # self.updatePreviewImage()
+            print('** Updated ROI preview')
         else:
             print('** No ROI preview to update, clearing!')
 
     def updatePreviewImage(self):
         """Update ROI preview image in Isolate subwindow"""
-        print('** updatePreviewImage')
+        print('\n*** updatePreviewImage')
         if self.roi_preview:
             # Get current video frame data and preview ROI data
             data_frame = self.currentWindow.display_data[self.currentWindow.frame_current]
@@ -819,7 +833,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
 
     def updatePreviewPlot(self):
         """Update ROI preview plot in Isolate subwindow"""
-        print('** updatePreviewPlot')
+        print('\n*** updatePreviewPlot')
         if self.roi_preview:
             # Calculate conditioned ROI data across all frames
             print('* Calculating ROI mean')
@@ -864,7 +878,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
             self.selectionMadeSource(0)
 
     def discardROI(self):
-        """Remove an existing ROI from a TIFF"""
+        """Remove an existing ROI from an open TIFF"""
         print('\n*** Discarding ROI')
         if self.comboBoxROIs.currentIndex() is 0:
             print('\n*** Cannot discard *NEW* ROI!')
@@ -877,7 +891,6 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
                 roi_current = self.currentROIs[idx_roi]
 
                 self.currentWindow.removeROI(idx=idx_roi, roi=roi_current)
-
                 self.checkBoxPreview.setChecked(False)
                 self.selectionMadeSource(0)
 
@@ -938,7 +951,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.buttonBoxAnalyze.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).clicked.connect(self.applyAnalysis)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Discard).clicked.connect(self.discardAnalysis)
-        # self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
         self.progressBar.setValue(0)
         self.selectionMadeSource(0)
 
