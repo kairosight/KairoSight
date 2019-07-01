@@ -149,8 +149,8 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for Ui_WidgetTiff subwindow for an MDI"""
     # TODO split and overlay videos (Voltage + Calcium) and use autoregistration, XYCZT
     # TODO build a better data tree for ROIs and Analysis
-    INDEX_R, TYPE_R, POSITION, SIZE, FRAMES = range(5)
-    INDEX_A, ROI, TYPE_A, ROI_CALC, FILTER, PEAKS = range(6)
+    INDEX_R, TYPE_R, POSITION, SIZE = range(4)
+    INDEX_A, ROI, TYPE_A, ROI_CALC, FRAMES, FILTER, PEAKS = range(7)
 
     def __init__(self, parent=None, f_path=None, f_dir=None, f_name=None, f_ext=None):
         # Initialization of the superclass
@@ -243,7 +243,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.ROIsLabels = []  # A list of pg.ROI object labels
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': '0', 'INDEX_A': np.nan, 'TYPE': 'Voltage',
-                                 'ROI_CALC': 'Mean', 'FILTER': '60', 'PEAKS': '0.72,172',
+                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '60', 'PEAKS': '0.72,172',
                                  'RESULTS': None}
         # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
@@ -257,28 +257,28 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # Calling it a treeview, currently connected to table-like models
         # ROI model
         self.treeViewROIs.setAlternatingRowColors(True)
-        self.modelRoi = QStandardItemModel(0, 5)
+        self.modelRoi = QStandardItemModel(0, 4)
         self.modelRoi.setHeaderData(self.INDEX_R, Qt.Horizontal, "#")
         self.modelRoi.setHeaderData(self.TYPE_R, Qt.Horizontal, "Type")
         self.modelRoi.setHeaderData(self.POSITION, Qt.Horizontal, "Position (X,Y)")
         self.modelRoi.setHeaderData(self.SIZE, Qt.Horizontal, "Size (px)")
-        self.modelRoi.setHeaderData(self.FRAMES, Qt.Horizontal, "Frames")
         self.treeViewROIs.setModel(self.modelRoi)
-        for idx in range(5):
+        for idx in range(4):
             self.treeViewROIs.resizeColumnToContents(idx)
         # TODO use single-click to highlight ROI
 
         # Analysis model
         self.treeViewAnalysis.setAlternatingRowColors(True)
-        self.modelAnalysis = QStandardItemModel(0, 6)
+        self.modelAnalysis = QStandardItemModel(0, 7)
         self.modelAnalysis.setHeaderData(self.INDEX_A, Qt.Horizontal, "#")
         self.modelAnalysis.setHeaderData(self.ROI, Qt.Horizontal, "ROI#")
         self.modelAnalysis.setHeaderData(self.TYPE_A, Qt.Horizontal, "Type")
         self.modelAnalysis.setHeaderData(self.ROI_CALC, Qt.Horizontal, "ROI Calc.")
+        self.modelAnalysis.setHeaderData(self.FRAMES, Qt.Horizontal, "Frames")
         self.modelAnalysis.setHeaderData(self.FILTER, Qt.Horizontal, "Filter")
         self.modelAnalysis.setHeaderData(self.PEAKS, Qt.Horizontal, "Peak Det.")
         self.treeViewAnalysis.setModel(self.modelAnalysis)
-        for idx in range(6):
+        for idx in range(7):
             self.treeViewAnalysis.resizeColumnToContents(idx)
         # TODO use single-click to highlight ROI
         # TODO use double-click to view analysis results
@@ -364,17 +364,24 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
-    def getRoiStack(self, roi):
+    def getRoiStack(self, roi, start_idx=None, end_idx=None):
         data_stack = []
         for idx, frame in enumerate(self.display_data):
             data_img = self.graphicsView.img
             data_roi_frame = roi.getArrayRegion(frame, data_img)
             data_roi_frame[data_roi_frame == 0] = np.nan
             data_stack.append(data_roi_frame)
-        return data_stack
+        if (start_idx or end_idx) is not None:
+            if not start_idx:
+                return data_stack[:end_idx]
+            if not end_idx:
+                return data_stack[start_idx:]
+            return data_stack[start_idx:end_idx]
+        else:
+            return data_stack
 
-    def addROI(self, idx=None, roi=None, frames=None):
-        print('\n*** addROI: idx:', idx, ' roi:', roi, ' frames:', frames)
+    def addROI(self, idx=None, roi=None):
+        print('\n*** addROI: idx:', idx, ' roi:', roi)
         if roi:
             print('* ROIs were: ', self.ROIs)
             roi.translatable = False
@@ -386,7 +393,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             if idx is not None:
                 roi_current = self.ROIs[idx]
                 label_current = self.ROIsLabels[idx]
-                print('** Changing existing Analysis from: ', roi_current)
+                print('** Changing existing ROI from: ', roi_current)
                 print('**                              to: ', roi)
                 roi_current.setState(roi_state)
                 roi_current.setPen(color='54FF00')
@@ -406,15 +413,12 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
                 label.setColor(color='54FF00')
                 self.graphicsView.p1.addItem(label)
                 self.ROIsLabels.append(label)
-            if not frames:
-                frames = '1-' + str(self.frames)
 
             self.modelRoi.setData(self.modelRoi.index(idx, self.INDEX_R), idx)
             self.modelRoi.setData(self.modelRoi.index(idx, self.TYPE_R), 'Circle')
             self.modelRoi.setData(self.modelRoi.index(idx, self.POSITION), position)
             self.modelRoi.setData(self.modelRoi.index(idx, self.SIZE), r)
-            self.modelRoi.setData(self.modelRoi.index(idx, self.FRAMES), frames)
-            for idx in range(5):
+            for idx in range(4):
                 self.treeViewROIs.resizeColumnToContents(idx)
             # print('* ROIs are now: ', self.ROIs)
         else:
@@ -430,7 +434,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             labels_new = [j for i, j in enumerate(self.ROIsLabels) if i not in [idx]]
             self.ROIsLabels = labels_new
             self.graphicsView.p1.removeItem(self.ROIsLabels[idx])
-            for idx in range(5):
+            for idx in range(4):
                 self.treeViewROIs.resizeColumnToContents(idx)
         else:
             print('** No ROI to remove!')
@@ -441,6 +445,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             roi = analysis['ROI']
             analysis_type = analysis['TYPE']
             roi_calc = analysis['ROI_CALC']
+            frames = analysis['FRAMES']
             analysis_filter = analysis['FILTER']
             peaks = analysis['PEAKS']
             if idx is not None:
@@ -461,9 +466,10 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI), roi)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.TYPE_A), analysis_type)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI_CALC), roi_calc)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FRAMES), frames)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FILTER), analysis_filter)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.PEAKS), peaks)
-            for idx in range(6):
+            for idx in range(7):
                 self.treeViewAnalysis.resizeColumnToContents(idx)
         else:
             print('** No Analysis to add!')
@@ -474,7 +480,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
             analysis_new = [j for i, j in enumerate(self.Analysis) if i not in [idx]]
             self.Analysis = analysis_new
             self.modelAnalysis.removeRow(idx)
-            for idx in range(6):
+            for idx in range(7):
                 self.treeViewAnalysis.resizeColumnToContents(idx)
         else:
             print('* No Analysis to remove!')
@@ -669,8 +675,6 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
         self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
 
-        self.checkBoxTimeAll.stateChanged.connect(self.checkBoxChangedTimeAll)
-
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applyROI)
         self.buttonBox.button(QDialogButtonBox.Discard).clicked.connect(self.discardROI)
@@ -678,10 +682,6 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.buttonBox.button(QDialogButtonBox.Apply).setEnabled(False)
         self.selectionMadeSource(0)
 
-        self.startSpinBox.setMaximum(self.currentWindow.frames)
-        self.endSpinBox.setMaximum(self.currentWindow.frames)
-        self.endSpinBox.setValue(self.currentWindow.frames)
-        self.checkBoxTimeAll.setChecked(True)
         print('WidgetIsolate ready')
 
     def closeEvent(self, event):
@@ -755,20 +755,6 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
         self.originXLineEdit.setText(x)
         self.originYLineEdit.setText(y)
         self.radiusSpinBox.setValue(r)
-
-    def checkBoxChangedTimeAll(self):
-        """Toggle use of all frames of a video for the current ROI"""
-        print('** checkBoxChangedTimeAll')
-        if self.checkBoxTimeAll.isChecked():
-            self.startSpinBox.setValue(1)
-            self.startSpinBox.setEnabled(False)
-            self.endSpinBox.setValue(self.currentWindow.frames)
-            self.endSpinBox.setEnabled(False)
-            print('* UseAll checked')
-        else:
-            self.startSpinBox.setEnabled(True)
-            self.endSpinBox.setEnabled(True)
-            print('* UseAll unchecked')
 
     def checkBoxChangedPreview(self):
         """Create/destroy preview ROI and read parameter entries"""
@@ -865,20 +851,17 @@ class DesignerSubWindowIsolate(QWidget, Ui_WidgetIsolate):
             print('\n*** No roi_preview to add or edit with')
             return
         else:
-            if not self.checkBoxTimeAll.isChecked():
-                frames = self.startSpinBox.text() + '-' + self.endSpinBox.text()
-            else:
-                frames = None
+            # Add or update the ROI
             if self.comboBoxROIs.currentIndex() is 0:
                 # Add the preview ROI to the current TIFF window
                 print('\n*** Applying *NEW* ROI ')
-                self.currentWindow.addROI(roi=self.roi_preview, frames=frames)
+                self.currentWindow.addROI(roi=self.roi_preview)
             else:
                 # Set state of the chosen ROI (current list index - 1, due to *NEW* at index 0)
                 idx_roi = self.comboBoxROIs.currentIndex() - 1
                 print('\n*** Changing ROI #' + str(idx_roi))
                 roi_current = self.currentROIs[idx_roi]
-                self.currentWindow.addROI(idx=idx_roi, roi=self.roi_preview, frames=frames)
+                self.currentWindow.addROI(idx=idx_roi, roi=self.roi_preview)
                 roi_current.setPen(color='54FF00')
             self.checkBoxPreview.setChecked(False)
             self.selectionMadeSource(0)
@@ -928,6 +911,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.currentAnalysis = []
         self.roi_current = None
         self.analysis_preview = None
+        self.frame_start, self.frame_end = None, None
         self.condition_results = None
         self.peak_results = None
         self.process_results = None
@@ -936,7 +920,9 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('WidgetAnalyze UI setup...')
         self.setupUi(self)
         self.plot_preview = self.widgetPreview.addPlot()
+        self.checkBoxTimeAll.stateChanged.connect(self.checkBoxChangedTimeAll)
         self.groupBoxFilter.toggled.connect(self.filterCheckBoxChanged)
+        self.tabCondition.setEnabled(False)
         self.tabPeakDetect.setEnabled(False)
         self.tabProcess.setEnabled(False)
         self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
@@ -946,6 +932,7 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
         self.comboBoxAnalysis.currentIndexChanged['int'].connect(self.selectionMadeAnalysis)
 
+        self.buttonBoxTimeSlice.button(QDialogButtonBox.Apply).clicked.connect(self.applyTimeSlice)
         self.buttonBoxCondition.button(QDialogButtonBox.Apply).clicked.connect(self.applyCondition)
         self.pushButtonExportTrace.clicked.connect(self.exportTrace)
         self.buttonBoxPeakDetect.button(QDialogButtonBox.Apply).clicked.connect(self.applyPeakDetect)
@@ -957,6 +944,11 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         # self.checkBoxPreview.stateChanged.connect(self.checkBoxChangedPreview)
         self.progressBar.setValue(0)
         self.selectionMadeSource(0)
+
+        self.startSpinBox.setMaximum(self.currentWindow.frames)
+        self.endSpinBox.setMaximum(self.currentWindow.frames)
+        self.endSpinBox.setValue(self.currentWindow.frames)
+        self.checkBoxTimeAll.setChecked(True)
         # self.listWidgetOpenTiffs.addItems(self.windowListNames)
         print('WidgetAnalyze ready')
 
@@ -1036,14 +1028,17 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         if self.tabPeakDetect.isEnabled():
             self.tabPeakDetect.setEnabled(False)
+        if self.tabCondition.isEnabled():
+            self.tabCondition.setEnabled(False)
         self.plot_preview.clear()
         self.progressBar.setValue(20)
-        self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
+        self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabTimeSlice)
 
     def updateParameters(self, analysis):
         """Populate Analysis parameter inputs with an existing Analysis's parameters"""
         print('** Updating Analysis parameters')
         roi = analysis['ROI']
+        start, end = analysis['FRAMES'].split('-')
         analysis_type = analysis['TYPE']
         roi_calc = analysis['ROI_CALC']
         analysis_filter = analysis['FILTER']
@@ -1052,6 +1047,13 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
               peaks_thresh, ',', peaks_lockout, ' ', process)
 
         # Populate fields with passed values
+        self.startSpinBox.setValue(int(start))
+        try:
+            self.endSpinBox.setValue(int(end))
+        except ValueError:
+            # Use videos frame count if nothing passed
+            self.endSpinBox.setValue(self.currentWindow.frames)
+
         self.signalTypeComboBox.setCurrentText(str(analysis_type))
         self.roiCalculationComboBox.setCurrentText(roi_calc)
         if pd.isna(analysis_filter):
@@ -1064,6 +1066,20 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         # self.allResultsCheckBoxVm.setChecked(process == 'ALL')
         # self.allResultsCheckBoxCa.setChecked(process == 'ALL')
 
+    def checkBoxChangedTimeAll(self):
+        """Toggle use of all frames of a video for the current ROI"""
+        print('** checkBoxChangedTimeAll')
+        if self.checkBoxTimeAll.isChecked():
+            self.startSpinBox.setValue(1)
+            self.startSpinBox.setEnabled(False)
+            self.endSpinBox.setValue(self.currentWindow.frames)
+            self.endSpinBox.setEnabled(False)
+            print('* UseAll checked')
+        else:
+            self.startSpinBox.setEnabled(True)
+            self.endSpinBox.setEnabled(True)
+            print('* UseAll unchecked')
+
     def filterCheckBoxChanged(self):
         """Toggle use of a low pass filter for the current conditioning"""
         if self.groupBoxFilter.isChecked():
@@ -1073,9 +1089,53 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.filterFreqSpinBox.setEnabled(False)
             print('\n*** Filter unchecked')
 
+    def applyTimeSlice(self):
+        """Apply Time Slice tab selections"""
+        try:
+            print('\n*** Applying Time Slice, Start:', self.startSpinBox.text(),
+                  ' End:', self.endSpinBox.text())
+            # Set frame range of ROI, or None for all frames
+            if not self.checkBoxTimeAll.isChecked():
+                self.frame_start = int(self.startSpinBox.text())
+                self.frame_end = int(self.endSpinBox.text())
+            else:
+                self.frame_start = 1
+                self.frame_end = self.currentWindow.frames
+            self.analysis_preview['FRAMES'] = str(self.frame_start) + '-' + str(self.frame_start)
+
+            print('* Time Slice start/end read')
+            roi_data = self.currentWindow.getRoiStack(self.roi_current,
+                                                      start_idx=self.frame_start-1, end_idx=self.frame_end-1)
+            print('* Time Slice roi_data computed')
+            # Plot ROI's time-sliced mean values
+            roi_data_mean = np.zeros(len(roi_data))
+            for idx, frame in enumerate(roi_data):
+                roi_data_mean[idx] = np.nanmean(frame)
+            roi_data_mean_norm = np.copy(roi_data_mean)
+            norm_MIN = roi_data_mean_norm.min()
+            norm_MAX = roi_data_mean_norm.max()
+            roi_data_mean_norm = (roi_data_mean_norm - norm_MIN) / (norm_MAX - norm_MIN)
+            # if 'Voltage' in self.analysis_preview['TYPE']:
+            # roi_data_mean_norm = 1 - roi_data_mean_norm
+            print('* ROI mean calculated')
+            sliced_results = roi_data_mean_norm
+            # Plot conditioned signal
+            self.plot_preview.plot(sliced_results, clear=True)
+            # self.plot_preview.plot(roi_data, clear=True)
+            print('* Time Slice roi_data plotted')
+
+            if self.tabProcess.isEnabled():
+                self.tabProcess.setEnabled(False)
+                self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
+            self.tabCondition.setEnabled(True)
+            self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabCondition)
+            self.progressBar.setValue(10)
+        except Exception:
+            traceback.print_exc()
+        print('\n*** Finished Applying Time Slice')
+
     def applyCondition(self):
         """Apply Condition tab selections"""
-        # TODO use ROI's frame info
         print('\n*** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
         self.progressBar.setValue(20)
@@ -1092,8 +1152,13 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('** ROI_CALC is ', self.analysis_preview['ROI_CALC'])
         if 'Mean' in self.analysis_preview['ROI_CALC']:
             print('* Calculating ROI mean')
-            roi_data = self.currentWindow.getRoiStack(self.roi_current)
-            roi_data_mean = np.zeros(self.currentWindow.frames)
+            # Check for/use ROI's frame info
+            # if self.analysis_preview['FRAMES']
+            roi_data = self.currentWindow.getRoiStack(self.roi_current,
+                                                      start_idx=self.frame_start, end_idx=self.frame_end)
+            # Allocate space for mean data array
+            roi_data_mean = np.zeros(len(roi_data))
+
             for idx, frame in enumerate(roi_data):
                 roi_data_mean[idx] = np.nanmean(frame)
             if 'Voltage' in self.analysis_preview['TYPE']:
@@ -1104,7 +1169,6 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
             print('* Filtering ROI data')
             roi_data_mean_filter = roi_data_mean
             if self.groupBoxFilter.isChecked():
-                print('* Filtering ROI mean ')
                 fs = 1 / (self.currentWindow.dt / 1000)
                 Wn = (self.filterFreqSpinBox.value() / (fs / 2))
                 [b, a] = sig.butter(5, Wn)
@@ -1125,11 +1189,9 @@ class DesignerSubWindowAnalyze(QWidget, Ui_WidgetAnalyze):
         # Plot conditioned signal
         self.plot_preview.plot(self.condition_results, clear=True)
 
-        if self.tabProcess.isEnabled():
-            self.tabProcess.setEnabled(False)
-            self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         self.tabPeakDetect.setEnabled(True)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
+        self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(False)
         self.progressBar.setValue(60)
         print('\n*** Finished Applying Condition')
 
