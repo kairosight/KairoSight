@@ -24,8 +24,6 @@ from ui.signalwidget import SignalWidget
 from algorithms import tifopen, peak_detect, process
 
 
-# TODO review/remove/reformat print statements
-
 class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
     """Customization for Ui_MDIMainWindow, and MDI main window"""
 
@@ -58,6 +56,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
             self.statusBar().showMessage('Opening ' + file + ' ...')
             f_purepath = PurePath(file)
             f_path = str(f_purepath.parent) + '/'
+            f_dir = f_purepath.parent.parts[-1]
             f_name = f_purepath.stem
             f_ext = f_purepath.suffix
             f_display = f_path + ' ' + f_name + ' ' + f_ext
@@ -66,7 +65,7 @@ class DesignerMainWindow(QMainWindow, Ui_MDIMainWindow):
                 # print('TIFF chosen')
                 # Create QMdiSubWindow with Ui_WidgetTiff
                 try:
-                    sub = DesignerSubWindowTiff(parent=self, f_path=f_path, f_name=f_name, f_ext=f_ext)
+                    sub = DesignerSubWindowTiff(parent=self, f_path=f_path, f_dir=f_dir, f_name=f_name, f_ext=f_ext)
                     # print('DesignerSubWindowTiff "sub" created')
                     sub.setObjectName(str(file))
                     sub.setWindowTitle('TIFF View: ' + f_display)
@@ -153,7 +152,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
     INDEX_R, TYPE_R, POSITION, SIZE, FRAMES = range(5)
     INDEX_A, ROI, TYPE_A, ROI_CALC, FILTER, PEAKS = range(6)
 
-    def __init__(self, parent=None, f_path=None, f_name=None, f_ext=None):
+    def __init__(self, parent=None, f_path=None, f_dir=None, f_name=None, f_ext=None):
         # Initialization of the superclass
         super(DesignerSubWindowTiff, self).__init__(parent)
         self.MainWindow = parent
@@ -165,10 +164,13 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.graphicsView.p1.setAspectLocked(True)
         # Connect the scrollbar's value signal to trigger a video update
         self.horizontalScrollBar.valueChanged['int'].connect(self.updateVideo)
+
         # Load the video file
         self.video_path = f_path
+        self.video_dir = f_dir
         self.video_name = f_name
         self.video_ext = f_ext
+        print('Opening video:', self.video_dir, ' / ', self.video_name, ' ', self.video_ext)
         self.video_file, self.dt = tifopen.tifopen(self.video_path, self.video_name + self.video_ext)
         # print('tifopen finished')
         # get video properties
@@ -199,8 +201,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         self.dt = float("{0:.5g}".format(self.dt))
 
         # Set-up Properties fields
-        # TODO use file's directory as default study name
-        self.study = 'NaN'  # e.g. 20190418-ratb
+        self.subject = self.video_dir  # e.g. 20190418-ratb
         self.fps = 1000 / self.dt
         self.duration = self.dt * self.frames
         self.width, self.height = self.video_shape[2], self.video_shape[1]
@@ -216,6 +217,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
                                    + ' (' + str(self.frames) + ' frames)')
 
         self.subjectLineEdit.textEdited.connect(self.updateProperties)
+        self.subjectLineEdit.setText(self.subject)
         self.framePeriodMsLineEdit.setText(str(self.dt))
         # self.framePeriodMsLineEdit.setEnabled(False)
         self.frameRateLineEdit.setText(str(self.fps))
@@ -287,7 +289,7 @@ class DesignerSubWindowTiff(QWidget, Ui_WidgetTiff):
         # TODO Recalculate fps after new dt, and the reverse
         # TODO Invalidate old results when these change?
         print('** Updating properties')
-        self.study = self.subjectLineEdit.text()
+        self.subject = self.subjectLineEdit.text()
         self.resolution = self.resolutionLineEdit.text()
         print('* Limit Frame Period and Frame Rate to 5 significant figures')
         self.dt = float("{0:.5g}".format(float(self.framePeriodMsLineEdit.text())))
