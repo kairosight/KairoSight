@@ -261,7 +261,6 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewROIs.setModel(self.modelRoi)
         for idx in range(4):
             self.treeViewROIs.resizeColumnToContents(idx)
-        # TODO use single-click to highlight ROI
 
         # Analysis model
         self.treeViewAnalysis.setAlternatingRowColors(True)
@@ -276,8 +275,6 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.treeViewAnalysis.setModel(self.modelAnalysis)
         for idx in range(7):
             self.treeViewAnalysis.resizeColumnToContents(idx)
-        # TODO use single-click to highlight ROI
-        # TODO use double-click to view analysis results
         print('WidgetTiff ready')
 
     def updateProperties(self):
