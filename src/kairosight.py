@@ -189,8 +189,8 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         # Use a dummy dt (aka Frame Period) if none detected
         # From most MetaMorph videos: exposure time 1.219 ms -> dt = 1.238 ms
         if np.isnan(self.dt):
-            self.framePeriodMsLabel.setText('!Frame Period (ms)')
-            self.frameRateLabel.setText('!Frame Rate (fps)')
+            self.framePeriodMsLabel.setText('?Frame Period (ms)')
+            self.frameRateLabel.setText('?Frame Rate (fps)')
             self.dt = 1.238
 
         # Limit all float results to 5 significant digits, due to dt limit
@@ -210,20 +210,18 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         print('Duration (ms):       ', self.duration)
 
         self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height)
-                                   + ' (' + str(self.frames) + ' frames)')
+                                   + ' [X ' + str(self.frames) + ']')
 
-        self.subjectLineEdit.textEdited.connect(self.updateProperties)
         self.subjectLineEdit.setText(self.subject)
         self.framePeriodMsLineEdit.setText(str(self.dt))
-        # self.framePeriodMsLineEdit.setEnabled(False)
         self.frameRateLineEdit.setText(str(self.fps))
-        # self.frameRateLineEdit.setEnabled(False)
         self.durationMsLineEdit.setText(str(self.duration))
         self.durationMsLineEdit.setEnabled(False)
 
-        self.framePeriodMsLineEdit.editingFinished.connect(self.updateProperties)
-        self.frameRateLineEdit.editingFinished.connect(self.updateProperties)
-        self.resolutionLineEdit.editingFinished.connect(self.updateProperties)
+        self.subjectLineEdit.editingFinished.connect(lambda: self.updateProperties(param=self.subject))
+        self.framePeriodMsLineEdit.editingFinished.connect(lambda: self.updateProperties(param=self.dt))
+        self.frameRateLineEdit.editingFinished.connect(lambda: self.updateProperties(param=self.fps))
+        self.resolutionLineEdit.editingFinished.connect(lambda: self.updateProperties(param=self.resolution))
         self.updateProperties()
 
         # Setup Signals data and Signals UI for splitting options
@@ -277,25 +275,42 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             self.treeViewAnalysis.resizeColumnToContents(idx)
         print('WidgetTiff ready')
 
-    def updateProperties(self):
-        """Update TIFF parameters with user-entered or changed values"""
-        # TODO Recalculate fps after new dt, and the reverse
-        # TODO Invalidate old results when these change?
-        print('** Updating properties')
+    def updateProperties(self, param=None):
+        """Update TIFF parameters with user-entered/calculated values
+
+            Parameters
+            ----------
+            param : str, optional
+                If specified, the particular parameter changed
+            """
+        # TODO Invalidate old analysis results when these change?
+        print('*** Updating properties')
+        # Get text-based params
         self.subject = self.subjectLineEdit.text()
         self.resolution = self.resolutionLineEdit.text()
-        print('* Limit Frame Period and Frame Rate to 5 significant figures')
-        self.dt = float("{0:.5g}".format(float(self.framePeriodMsLineEdit.text())))
-        self.fps = float("{0:.5g}".format(float(self.frameRateLineEdit.text())))
-        print('* duration was: ', self.duration)
-        self.duration = self.dt * self.frames
-        print('* duration is: ', self.duration)
+        # Populate all 'new' params by default
+        dt_new = float(self.framePeriodMsLineEdit.text())
+        fps_new = float(self.frameRateLineEdit.text())
+        # Either use new dt or new fps to calculate the other
+        if param is self.dt:
+            dt_new = float(self.framePeriodMsLineEdit.text())
+            fps_new = 1000 / dt_new
+        elif param is self.fps:
+            fps_new = float(self.frameRateLineEdit.text())
+            dt_new = 1000 / fps_new
+        duration_new = dt_new * self.frames
 
-        print('* Update Properties UI elements')
+        # Limit Frame Period and Frame Rate to 5 significant figures
+        self.dt = float("{0:.5g}".format(dt_new))
+        self.fps = float("{0:.5g}".format(fps_new))
+        self.duration = float("{0:.5g}".format(duration_new))
+
+        # Update Properties UI elements
         self.framePeriodMsLineEdit.setText(str(self.dt))
         self.frameRateLineEdit.setText(str(self.fps))
         self.durationMsLineEdit.setText(str(self.duration))
         # self.signals = []
+        print('** Updated properties')
 
     def updateVideo(self, frame=0):
         """Updates the video frame drawn to the canvas"""
