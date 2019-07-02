@@ -4,7 +4,7 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget
 
 from pyqtgraph.widgets.GraphicsLayoutWidget import GraphicsLayoutWidget
-from pyqtgraph import ImageItem, HistogramLUTItem
+from pyqtgraph import ImageItem, HistogramLUTItem, HistogramLUTWidget
 
 
 class GraphicsWidget(QWidget):
@@ -19,9 +19,11 @@ class GraphicsWidget(QWidget):
 
         # A plot area (ViewBox + axes) for displaying the image
         self.p1 = self.widget.addPlot()
-        # Item for displaying image data
-        self.img = ImageItem()
-        self.p1.addItem(self.img)
+        # Item for displaying an array of image data stacks
+        self.stacks = []
+        img = ImageItem()
+        self.p1.addItem(img)
+        self.stacks.append(img)
 
         # create a vertical box layout
         self.vbl = QVBoxLayout()
@@ -31,8 +33,17 @@ class GraphicsWidget(QWidget):
         self.setLayout(self.vbl)
 
         # Levels/color control with a histogram
-        # TODO try with a HistogramLUTWidget
-        self.hist = HistogramLUTItem()
-        self.hist.setImageItem(self.img)
-        self.widget.addItem(self.hist)
-        self.hist.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
+        # self.hist = HistogramLUTWidget()
+        # self.hist.setImageItem(self.img)
+        # parent.horizontalLayout_View.addWidget(self.hist)
+        # # self.widget.addWidget(self.hist, 0, 1)
+        # self.hist.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
+
+        # Create an array of histograms
+        self.histograms = []
+        # Levels/color control with a histogram
+        hist = HistogramLUTItem()
+        hist.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
+        hist.setImageItem(img)
+        self.widget.addItem(hist)
+        self.histograms.append(hist)

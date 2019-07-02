@@ -227,6 +227,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.updateProperties()
 
         # Setup Signals data and Signals UI for splitting options
+        # TODO use checkboxes for signal stack visibility
         self.Signals = []
         self.SIGNAL_OPTIONS = ['Voltage (Vm)', 'Calcium (Ca)']
         self.pushButtonSignalAdd.pressed.connect(self.splitVideo)
@@ -246,8 +247,8 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.horizontalScrollBar.setMaximum(self.frames)
         self.frame_current = 0
         # Set histogram to image levels and use a manual range
-        self.graphicsView.hist.setLevels(self.display_data.min(), self.display_data.max())
-        self.graphicsView.hist.setHistogramRange(self.display_data.min(), self.display_data.max())
+        self.graphicsView.histograms[0].setLevels(self.display_data.min(), self.display_data.max())
+        self.graphicsView.histograms[0].setHistogramRange(self.display_data.min(), self.display_data.max())
 
         # Setup data treeviews
         # Calling it a treeview, currently connected to table-like models
@@ -320,9 +321,9 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         # print('\n*** Showing ' + self.video_name + '[' + str(frame) + ']')
         # Update ImageItem with a frame in stack
         self.frame_current = frame
-        self.graphicsView.img.setImage(self.display_data[frame - 1])
+        self.graphicsView.stacks[0].setImage(self.display_data[frame - 1])
         # Notify histogram item of image change
-        self.graphicsView.hist.regionChanged()
+        self.graphicsView.histograms[0].regionChanged()
 
         # Draw ROIs
         # if self.ROIs:
@@ -343,6 +344,22 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         new_signal_widget.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
         print('* Add the SignalWidget to the form (with label)')
         self.formLayoutSignals.addRow(QLabel(label_new), new_signal_widget)
+
+        if idx_new > 0:
+            try:
+                print('* Add the new HistogramLUTItem')
+                hist_new = pg.HistogramLUTItem()
+                # Item for displaying image data
+                img = pg.ImageItem()
+                self.graphicsView.p1.addItem(img)
+
+                hist_new.setImageItem(img)
+                hist_new.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
+                self.graphicsView.widget.addItem(hist_new)
+                self.graphicsView.histograms.append(hist_new)
+            except Exception:
+                traceback.print_exc()
+
         new_signal_widget.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
         self.Signals.append(new_signal_widget)
         self.pushButtonSignalAdd.setEnabled(True)
@@ -370,14 +387,14 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
 
     def getRoiPreview(self, roi):
         data = self.display_data[self.frame_current]
-        data_img = self.graphicsView.img
+        data_img = self.graphicsView.stacks[0]
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
     def getRoiStack(self, roi, start_idx=None, end_idx=None):
         data_stack = []
         for idx, frame in enumerate(self.display_data):
-            data_img = self.graphicsView.img
+            data_img = self.graphicsView.stacks[0]
             data_roi_frame = roi.getArrayRegion(frame, data_img)
             data_roi_frame[data_roi_frame == 0] = np.nan
             data_stack.append(data_roi_frame)
@@ -562,7 +579,7 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
 
         self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
-        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.loadDefaults)
+        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applySplit)
         self.loadDefaults()
 
         print('WidgetSplit ready')
@@ -580,6 +597,7 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         # self.checkBoxPreview.setChecked(False)
 
         # Remove preview ROIs
+
         self.currentPlot.removeItem(self.roi_A)
         self.currentPlot.removeItem(self.roi_B)
         self.currentWindow.pushButtonSignalAdd.setEnabled(True)
@@ -641,7 +659,8 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         print('** Calculating split data arrays stacks')
         print('** Image registration using first frame ')
         print('** ... ')
-        # self.close()
+        self.currentWindow.addSignal()
+        self.close()
 
 
 class WindowIsolate(QWidget, Ui_WidgetIsolate):
