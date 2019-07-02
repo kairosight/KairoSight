@@ -4,7 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class SignalWidget(QtWidgets.QWidget):
-    """Widget defined in Qt Designer"""
+    """Widget based on another defined in Qt Designer"""
 
     def __init__(self, parent=None):
         # initialization of widget

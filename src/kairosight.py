@@ -166,7 +166,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.video_dir = f_dir
         self.video_name = f_name
         self.video_ext = f_ext
-        print('Opening video:', self.video_dir, ' / ', self.video_name, ' ', self.video_ext)
+        print('* Opening video:', self.video_dir, ' / ', self.video_name, ' ', self.video_ext)
         self.video_file, self.dt = tifopen.tifopen(self.video_path, self.video_name + self.video_ext)
         # print('tifopen finished')
         # get video properties
@@ -176,8 +176,10 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.frames = self.video_shape[0]
 
         # Transpose second and third axes (y, x) to correct orientation (x, y)
+        print('* Transposing')
         self.video_data = np.transpose(self.video_file, (0, 2, 1))
         # Flip each frame in the left/right direction, expected to be up/down
+        print('* Flipping each frame along x-axis')
         for i in range(self.frames):
             self.video_data[i] = np.fliplr(self.video_data[i])
 

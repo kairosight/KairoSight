@@ -120,6 +120,38 @@
           <property name="formAlignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
           </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="subjectLabel">
+            <property name="text">
+             <string>Subject:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="subjectLineEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>150</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="placeholderText">
+             <string>----</string>
+            </property>
+           </widget>
+          </item>
           <item row="1" column="0">
            <widget class="QLabel" name="SizeLabel">
             <property name="text">
@@ -143,13 +175,6 @@
             </property>
             <property name="text">
              <string>---- X ----</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QLabel" name="durationMsLabel">
-            <property name="text">
-             <string>Duration (ms)</string>
             </property>
            </widget>
           </item>
@@ -182,6 +207,9 @@
             </property>
             <property name="placeholderText">
              <string>----</string>
+            </property>
+            <property name="clearButtonEnabled">
+             <bool>false</bool>
             </property>
            </widget>
           </item>
@@ -229,33 +257,15 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="1">
-           <widget class="QLineEdit" name="durationMsLineEdit">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>100</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>150</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="placeholderText">
-             <string>----</string>
+          <item row="4" column="0">
+           <widget class="QLabel" name="durationMsLabel">
+            <property name="text">
+             <string>Duration (ms)</string>
             </property>
            </widget>
           </item>
-          <item row="5" column="1">
-           <widget class="QLineEdit" name="resolutionLineEdit">
+          <item row="4" column="1">
+           <widget class="QLineEdit" name="durationMsLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
               <horstretch>0</horstretch>
@@ -286,15 +296,8 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="subjectLabel">
-            <property name="text">
-             <string>Subject:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QLineEdit" name="subjectLineEdit">
+          <item row="5" column="1">
+           <widget class="QLineEdit" name="resolutionLineEdit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
               <horstretch>0</horstretch>
@@ -334,7 +337,7 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>100</height>
+         <height>75</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -353,8 +356,15 @@
         <bool>false</bool>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
+        <property name="spacing">
+         <number>0</number>
+        </property>
         <item>
-         <layout class="QFormLayout" name="formLayoutSignals"/>
+         <layout class="QFormLayout" name="formLayoutSignals">
+          <property name="verticalSpacing">
+           <number>0</number>
+          </property>
+         </layout>
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_SignalsButtons">
