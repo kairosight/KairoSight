@@ -212,7 +212,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         print('Duration (ms):       ', self.duration)
 
         self.SizeLabelEdit.setText(str(self.width) + ' X ' + str(self.height)
-                                   + ' [X ' + str(self.frames) + ']')
+                                   + ' [ X ' + str(self.frames) + ']')
 
         self.subjectLineEdit.setText(self.subject)
         self.framePeriodMsLineEdit.setText(str(self.dt))
@@ -243,12 +243,17 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
                                  'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '60', 'PEAKS': '0.72,172',
                                  'RESULTS': None}
         # Set scroll bar maximum to number of frames
-        self.horizontalScrollBar.setMinimum(1)
-        self.horizontalScrollBar.setMaximum(self.frames)
-        self.frame_current = 0
-        # Set histogram to image levels and use a manual range
-        self.graphicsView.histograms[0].setLevels(self.display_data.min(), self.display_data.max())
-        self.graphicsView.histograms[0].setHistogramRange(self.display_data.min(), self.display_data.max())
+        print('scrollbar')
+        try:
+            self.horizontalScrollBar.setMinimum(1)
+            self.horizontalScrollBar.setMaximum(self.frames)
+            self.frame_current = 0
+            print('hist')
+            # Set histogram to image levels and use a manual range
+            self.graphicsView.histograms[0].setLevels(self.display_data.min(), self.display_data.max())
+            self.graphicsView.histograms[0].setHistogramRange(self.display_data.min(), self.display_data.max())
+        except Exception:
+            traceback.print_exc()
 
         # Setup data treeviews
         # Calling it a treeview, currently connected to table-like models
@@ -319,11 +324,17 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         """Updates the video frame drawn to the canvas"""
         # print('Updating video plot in a subWindow with:')
         # print('\n*** Showing ' + self.video_name + '[' + str(frame) + ']')
-        # Update ImageItem with a frame in stack
-        self.frame_current = frame
-        self.graphicsView.stacks[0].setImage(self.display_data[frame - 1])
-        # Notify histogram item of image change
-        self.graphicsView.histograms[0].regionChanged()
+
+        # Update ImageItem(s) with a frame in a stack
+        try:
+            self.frame_current = frame
+            for idx, stack in self.graphicsView.stacks:
+                stack.setImage(self.display_data[idx][frame - 1])
+            # Notify histogram items of image change
+            for idx, hist in self.graphicsView.histograms:
+                hist.regionChanged()
+        except:
+            traceback.print_exc()
 
         # Draw ROIs
         # if self.ROIs:
@@ -340,10 +351,10 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         # self.formLayoutSignals.addRow(QLabel("#" + label_new), QComboBox())
         # self.signal1ComboBox.addItems(self.SIGNAL_OPTIONS)
         print('* Create a SignalWidget')
-        new_signal_widget = SignalWidget(self)
-        new_signal_widget.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
+        signal_widget_new = SignalWidget(self)
+        signal_widget_new.comboBoxSignal.addItems(self.SIGNAL_OPTIONS)
         print('* Add the SignalWidget to the form (with label)')
-        self.formLayoutSignals.addRow(QLabel(label_new), new_signal_widget)
+        self.formLayoutSignals.addRow(QLabel(label_new), signal_widget_new)
 
         if idx_new > 0:
             try:
@@ -352,6 +363,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
                 # Item for displaying image data
                 img = pg.ImageItem()
                 self.graphicsView.p1.addItem(img)
+                self.graphicsView.stacks.append(img)
 
                 hist_new.setImageItem(img)
                 hist_new.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
@@ -360,10 +372,34 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             except Exception:
                 traceback.print_exc()
 
-        new_signal_widget.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
-        self.Signals.append(new_signal_widget)
+        signal_widget_new.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
+        signal_widget_new.checkBoxSignal.stateChanged.connect(lambda: self.toggleSignal(signal_w=signal_widget_new))
+        self.Signals.append(signal_widget_new)
         self.pushButtonSignalAdd.setEnabled(True)
         print('** Signals are now: ' + str(self.Signals))
+
+    def toggleSignal(self, signal_w=None):
+        """Toggles visibility of a particular signal stack"""
+        # print('*** Toggling Signal # XXX')
+        try:
+            idx_sig = self.Signals.index(signal_w)
+            print('*** Toggling Signal #' + str(idx_sig + 1))
+            ticks = self.graphicsView.histograms[idx_sig].gradient.ticks
+            for idx_tick, tick in enumerate(ticks):
+                color_old = tick.color
+                color_oldRGB = [color_old.red(), color_old.green(), color_old.blue()]
+                if signal_w.checkBoxSignal.isChecked():
+                    print('* Turning on')
+                    print('* Changing tick alphas to 255')
+                    color_new = color_oldRGB[0], color_oldRGB[1], color_oldRGB[2], 255
+                else:
+                    print('* Turning off')
+                    print('* Changing tick alphas to 0')
+                    color_new = color_oldRGB[0], color_oldRGB[1], color_oldRGB[2], 0
+                self.graphicsView.histograms[idx_sig].gradient.setTickColor(idx_tick, pg.mkColor(color_new))
+                self.graphicsView.histograms[idx_sig].gradientChanged()
+        except Exception:
+            traceback.print_exc()
 
     def splitVideo(self):
         """Splits and aligns a multi-signal video"""
@@ -553,6 +589,7 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         print('Creating WidgetSplit')
         self.currentWindow = parent
         self.currentPlot = self.currentWindow.graphicsView.p1
+        self.image_full = self.currentWindow.display_data
         # Create preview ROIs
         # TODO Create with no scale handle
         self.roi_A = pg.RectROI([0, 0], [0, 0])
@@ -655,12 +692,32 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         self.roi_B.setSize([w_B, h_B])
 
     def applySplit(self):
-        print('\n*** Applying Split')
-        print('** Calculating split data arrays stacks')
-        print('** Image registration using first frame ')
-        print('** ... ')
-        self.currentWindow.addSignal()
-        self.close()
+        try:
+            print('\n*** Applying Split')
+            print('** Calculating split data arrays stacks')
+            # Find the width and height of the color image
+            im_size = self.image_full.shape
+            print('* Original image size ' + str(im_size))
+            width = int(im_size[0] / 2)
+            height = im_size[1]
+            frames = im_size[2]
+
+            # Extract the two channels from the gray scale image
+            # and merge the two channels into one color image
+            im_color = np.zeros((width, height, frames, 2), dtype=np.uint16)
+            for i in range(0, 2):
+                im_color[:, :, :, i] = self.image_full[i * width:(i + 1) * width, :, :]
+
+            print('** Set stack data and update ')
+            for i in range(0, 2):
+                self.currentWindow.display_data = im_color
+            self.currentWindow.updateVideo()
+            print('** Image registration using first frame ')
+            print('** ... ')
+            self.currentWindow.addSignal()
+            # self.close()
+        except Exception:
+            traceback.print_exc()
 
 
 class WindowIsolate(QWidget, Ui_WidgetIsolate):
