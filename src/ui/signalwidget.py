@@ -10,6 +10,7 @@ class SignalWidget(QtWidgets.QWidget):
         # initialization of widget
         super(SignalWidget, self).__init__(parent)
         # self.widget = QtWidgets.QWidget()
+        self.alpha = 255
 
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
