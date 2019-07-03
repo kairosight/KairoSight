@@ -330,6 +330,8 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             # self.graphicsView.p1.clear()
             self.frame_current = frame
             self.display_data = self.video_data[..., 0]
+            self.video_shape = self.video_data.shape
+            self.width, self.height = self.video_shape[0], self.video_shape[1]
             for idx, stack in enumerate(self.graphicsView.stacks):
                 stack.setImage(self.video_data[..., frame - 1, idx])
             # self.graphicsView.stacks[0].setImage(self.display_data[frame - 1])
@@ -436,16 +438,17 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         # self.formLayoutSignals.removeRow(idx_remove)
 
     def getRoiPreview(self, roi):
-        data = self.display_data[self.frame_current]
         data_img = self.graphicsView.stacks[0]
+        data = self.display_data[..., self.frame_current]
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
     def getRoiStack(self, roi, start_idx=None, end_idx=None):
         data_stack = []
-        for idx, frame in enumerate(self.display_data):
+        # for idx, frame in enumerate(self.display_data):
+        for i in range(self.display_data.shape[-1]):
             data_img = self.graphicsView.stacks[0]
-            data_roi_frame = roi.getArrayRegion(frame, data_img)
+            data_roi_frame = roi.getArrayRegion(self.display_data[..., i], data_img)
             data_roi_frame[data_roi_frame == 0] = np.nan
             data_stack.append(data_roi_frame)
         if (start_idx or end_idx) is not None:
@@ -927,7 +930,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
         print('\n*** updatePreviewImage')
         if self.roi_preview:
             # Get current video frame data and preview ROI data
-            data_frame = self.currentWindow.display_data[self.currentWindow.frame_current]
+            data_frame = self.currentWindow.display_data[..., self.currentWindow.frame_current]
             data_preview = self.currentWindow.getRoiPreview(self.roi_preview)
 
             # self.roi_preview.setParentItem(img_preview)
