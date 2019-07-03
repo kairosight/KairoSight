@@ -143,7 +143,6 @@ class MDIWindow(QMainWindow, Ui_MDIMainWindow):
 
 class WindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for Ui_WidgetTiff subwindow for an MDI"""
-    # TODO split and overlay videos (Voltage + Calcium) and use autoregistration, XYCZT
     # TODO build a better data tree for ROIs and Analysis
     INDEX_R, TYPE_R, POSITION, SIZE = range(4)
     INDEX_A, ROI, TYPE_A, ROI_CALC, FRAMES, FILTER, PEAKS = range(7)
@@ -229,7 +228,6 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.updateProperties()
 
         # Setup Signals data and Signals UI for splitting options
-        # TODO use checkboxes for signal stack visibility
         self.Signals = []
         self.SIGNAL_OPTIONS = ['Voltage (Vm)', 'Calcium (Ca)']
         self.SIGNAL_COLORS = ['w', 'r', 'g']
@@ -746,7 +744,6 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
 
     # TODO FIX crash when applying to two sources
-    # TODO Detect isolation of split/auto-registered video
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
     def __init__(self, parent=None, w_list=None):
@@ -1340,8 +1337,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Apply Peak Detect tab selections"""
         # Detection Error @ trans#  0  our of  7
         # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
-        # TODO troubleshoot peak detection (is it finding dt and fps?)
-        # TODO set y axis to frames, not kframes
+        # TODO troubleshoot peak detection (basline issues; is it finding dt and fps?)
         print('\n*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())
         self.progressBar.setValue(60)
