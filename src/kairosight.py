@@ -228,7 +228,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.updateProperties()
 
         # Setup Signals data and Signals UI for splitting options
-        self.Signals = []
+        self.Signal_widgets = []
         self.SIGNAL_OPTIONS = ['Voltage (Vm)', 'Calcium (Ca)']
         self.SIGNAL_COLORS = ['w', 'r', 'g']
         self.SIGNAL_ALPHAS = [0, 127, 255]
@@ -360,7 +360,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.formLayoutSignals.addRow(QLabel(label_new), signal_widget_new)
         signal_widget_new.comboBoxSignal.currentIndexChanged['int'].connect(self.updateProperties)
         signal_widget_new.checkBoxSignal.stateChanged.connect(lambda: self.toggleSignal(signal_w=signal_widget_new))
-        self.Signals.append(signal_widget_new)
+        self.Signal_widgets.append(signal_widget_new)
 
         if idx_new > 0:
             try:
@@ -382,36 +382,44 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
                     hist.setHistogramRange(self.video_data[..., idx].min(), self.video_data[..., idx].max())
                     # Set top (last) tick color of each histogram
                     hist.gradient.setTickColor(1, pg.mkColor(self.SIGNAL_COLORS[idx+1]))
+                    hist.gradientChanged()
             except Exception:
                 traceback.print_exc()
 
-            for signal in self.Signals:
+            for signal in self.Signal_widgets:
+                # Set each signal opacity (alpha) to ~50%
                 signal.alpha = self.SIGNAL_ALPHAS[1]
                 self.toggleSignal(signal_w=signal)
 
         self.pushButtonSignalAdd.setEnabled(True)
-        print('** Signals are now: ' + str(self.Signals))
+        print('** Signals are now: ' + str(self.Signal_widgets))
 
     def toggleSignal(self, signal_w=None):
-        """Toggles visibility of a particular signal stack"""
+        """Toggles visibility of a particular signal stack
+
+        Parameters
+        ----------
+        signal_w : SignalWidget
+            A custom Widget representing each signal"""
         # print('*** Toggling Signal # XXX')
         try:
-            idx_sig = self.Signals.index(signal_w)
+            idx_sig = self.Signal_widgets.index(signal_w)
+            his = self.graphicsView.histograms[idx_sig]
             print('*** Toggling Signal #' + str(idx_sig + 1))
-            ticks = self.graphicsView.histograms[idx_sig].gradient.ticks
+            ticks = his.gradient.ticks
             for idx_tick, tick in enumerate(ticks):
                 color_old = tick.color
                 color_oldRGB = [color_old.red(), color_old.green(), color_old.blue()]
                 if signal_w.checkBoxSignal.isChecked():
                     print('* Turning on')
                     print('* Changing tick alphas back to original value')
-                    color_new = color_oldRGB[0], color_oldRGB[1], color_oldRGB[2], self.Signals[idx_sig].alpha
+                    color_new = color_oldRGB[0], color_oldRGB[1], color_oldRGB[2], signal_w.alpha
                 else:
                     print('* Turning off')
                     print('* Changing tick alphas to 0')
                     color_new = color_oldRGB[0], color_oldRGB[1], color_oldRGB[2], 0
-                self.graphicsView.histograms[idx_sig].gradient.setTickColor(idx_tick, pg.mkColor(color_new))
-                self.graphicsView.histograms[idx_sig].gradientChanged()
+                his.gradient.setTickColor(idx_tick, pg.mkColor(color_new))
+                his.gradientChanged()
         except Exception:
             traceback.print_exc()
 
@@ -1254,6 +1262,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def applyCondition(self):
         """Apply Condition tab selections"""
+        # TODO replace linear with polyfit
         print('\n*** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
         self.progressBar.setValue(20)
@@ -1337,7 +1346,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Apply Peak Detect tab selections"""
         # Detection Error @ trans#  0  our of  7
         # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
-        # TODO troubleshoot peak detection (basline issues; is it finding dt and fps?)
+        # TODO preserve new threshold/lockout values even when going backwards
         print('\n*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())
         self.progressBar.setValue(60)
