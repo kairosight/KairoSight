@@ -99,7 +99,7 @@ def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0
 
         results.ActTime[trans] = t0 * dt
         results.Vmax[trans] = max_vel[trans]
-        results.RiseTime[trans] = (up90) * dt
+        results.RiseTime[trans] = up90 * dt
         results.TimeToPeak[trans] = (peak - t0) * dt
         results.D30[trans] = (ret30 + peak - start) * dt
         results.DXX[trans] = (retXX + peak - start) * dt

@@ -1075,6 +1075,8 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.endSpinBox.setMaximum(self.currentWindow.frames)
         self.endSpinBox.setValue(self.currentWindow.frames)
         self.checkBoxTimeAll.setChecked(True)
+
+
         # self.listWidgetOpenTiffs.addItems(self.windowListNames)
         print('WidgetAnalyze ready')
 
@@ -1262,7 +1264,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def applyCondition(self):
         """Apply Condition tab selections"""
-        # TODO replace linear with polyfit
         print('\n*** Applying Condition, Signal Type:', self.signalTypeComboBox.currentText(),
               ' ROI Calc.:', self.roiCalculationComboBox.currentText())
         self.progressBar.setValue(20)
@@ -1300,21 +1301,34 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
                 Wn = (self.filterFreqSpinBox.value() / (fs / 2))
                 [b, a] = sig.butter(5, Wn)
                 roi_data_mean_filter = sig.filtfilt(b, a, roi_data_mean_filter)
-            if self.detrendLinearCheckBox.isChecked():
-                roi_data_mean_filter = sig.detrend(roi_data_mean_filter)
             print('* ROI data Filtered')
 
+            roi_data_mean_filter_detrend = np.copy(roi_data_mean_filter)
+            if self.detrendLinearCheckBox.isChecked():
+                print('* Detrending ROI data')
+                # Polynomial fit and detrend
+                # xp = np.linspace(0, len(roi_data_mean_filter), num=len(roi_data_mean_filter))
+                # Fit a 3rd degree polynomial to the data; minimises squared error in the order deg, deg-1, ... 0
+                xp = np.arange(start=0, stop=len(roi_data_mean_filter))
+                p = np.poly1d(np.polyfit(xp, roi_data_mean_filter, 3))
+                roi_data_mean_filter_detrend = roi_data_mean_filter_detrend - p(xp)
+                print('* ROI data Detrended')
+                # roi_data_mean_filter_norm = sig.detrend(roi_data_mean_filter_norm)
+
             print('* Normalizing ROI data')
-            roi_data_mean_filter_copy = np.copy(roi_data_mean_filter)
-            norm_MIN = roi_data_mean_filter_copy.min()
-            norm_MAX = roi_data_mean_filter_copy.max()
-            roi_data_mean_filter_norm = (roi_data_mean_filter_copy - norm_MIN) / (norm_MAX - norm_MIN)
+            roi_data_mean_filter_detrend_copy = np.copy(roi_data_mean_filter_detrend)
+            norm_MIN = roi_data_mean_filter_detrend_copy.min()
+            norm_MAX = roi_data_mean_filter_detrend_copy.max()
+            roi_data_mean_filter_detrend_norm = (roi_data_mean_filter_detrend_copy - norm_MIN) / (norm_MAX - norm_MIN)
             print('* ROI data Normalized')
-            self.condition_results = roi_data_mean_filter_norm
+
+
+            self.condition_results = roi_data_mean_filter_detrend_norm
         else:
             print('* UNKNOWN ROI_CALC! : ', self.analysis_preview['ROI_CALC'])
         # Plot conditioned signal
         self.plot_preview.plot(self.condition_results, clear=True)
+        # self.plot_preview.plot(xp, p(xp))
 
         self.tabPeakDetect.setEnabled(True)
         self.tabWidgetAnalysisSteps.setCurrentWidget(self.tabPeakDetect)
@@ -1326,8 +1340,8 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Export the trace before Peak Detection"""
         print('\n*** exportTrace!')
         try:
-            if self.currentWindow.study:
-                file_name_list = [self.currentWindow.study, self.currentWindow.video_name, '']
+            if self.currentWindow.subject:
+                file_name_list = [self.currentWindow.subject, self.currentWindow.video_name, '']
             else:
                 file_name_list = [self.currentWindow.video_name, '']
 
@@ -1336,9 +1350,9 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             # File Dialog to generate filename
             export_file_name, _ = QFileDialog.getSaveFileName(self, 'Export results to .csv', file_name_default,
                                                               'Comma-separated values (*.csv)')
-            print('* Exporting results as: ', export_file_name)
+            print('* Exporting trace as: ', export_file_name)
             pd.DataFrame(self.condition_results).to_csv(export_file_name, na_rep='NaN', index=False)
-            print('** Exported results as')
+            print('** Exported trace')
         except Exception:
             traceback.print_exc()
 
@@ -1346,7 +1360,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Apply Peak Detect tab selections"""
         # Detection Error @ trans#  0  our of  7
         # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
-        # TODO preserve new threshold/lockout values even when going backwards
         print('\n*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())
         self.progressBar.setValue(60)
@@ -1354,6 +1367,8 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         lockout = self.lockoutTimeSpinBox.value()
         param_peaks = str(thresh) + ',' + str(lockout)
         self.analysis_preview['PEAKS'] = param_peaks
+        # Update windowtiff's default Thresh/Lockout with new values (unlikely to change)
+        self.currentWindow.analysis_default['PEAKS'] = param_peaks
         print('** analysis_preview: ', self.analysis_preview)
 
         print('** PEAKS is ', self.analysis_preview['PEAKS'])
@@ -1399,6 +1414,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def applyProcess(self):
         """Apply Process tab selections"""
+        # TODO Change datatable to mirror Morgan's Sleeping Bear excel sheet
         print('\n*** Applying Process, All Results')
         self.progressBar.setValue(80)
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
@@ -1653,7 +1669,7 @@ class WindowExport(QWidget, Ui_WidgetExport):
                     # tempResultsProps = self.currentResults[['']]
                     tempResultsProps = pd.DataFrame(np.zeros(shape=(len(tempResults.index), 3)),
                                                     columns=['Subject', 'File', 'ROI#'])
-                    tempResultsProps.loc[:, ['Subject']] = self.currentWindow.study
+                    tempResultsProps.loc[:, ['Subject']] = self.currentWindow.subject
                     tempResultsProps.loc[:, ['File']] = self.currentWindow.video_name
                     tempResultsProps.loc[:, ['ROI#']] = self.currentAnalysis_copy['ROI']
                 tempResults = pd.concat([tempResultsProps, tempResults], axis=1)
@@ -1754,8 +1770,8 @@ class WindowExport(QWidget, Ui_WidgetExport):
         """Export the results from the current Analysis"""
         print('\n*** exportResults!')
         try:
-            if self.currentWindow.study:
-                file_name_list = [self.currentWindow.study, self.currentWindow.video_name, '']
+            if self.currentWindow.subject:
+                file_name_list = [self.currentWindow.subject, self.currentWindow.video_name, '']
             else:
                 file_name_list = [self.currentWindow.video_name, '']
 
