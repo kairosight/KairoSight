@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>348</width>
-    <height>512</height>
+    <height>528</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -158,7 +158,7 @@
        <enum>QTabWidget::North</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -320,7 +320,7 @@
             <item row="1" column="0">
              <widget class="QLabel" name="roiCalculationLabel">
               <property name="text">
-               <string>ROI Calculation:</string>
+               <string>Calculation:</string>
               </property>
              </widget>
             </item>
@@ -373,22 +373,39 @@
              </widget>
             </item>
             <item>
-             <layout class="QFormLayout" name="formLayout_3">
-              <item row="0" column="0">
-               <widget class="QLabel" name="detrendLinearLabel">
-                <property name="text">
-                 <string>Detrend (Linear)</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QCheckBox" name="detrendLinearCheckBox">
-                <property name="checked">
-                 <bool>true</bool>
-                </property>
-               </widget>
-              </item>
-             </layout>
+             <widget class="QGroupBox" name="groupBoxDetrend">
+              <property name="title">
+               <string>Detrend (Polynomial)</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <layout class="QFormLayout" name="formLayout_2">
+               <item row="0" column="0">
+                <widget class="QLabel" name="detrendDegreeLabel">
+                 <property name="text">
+                  <string>Degree</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QSpinBox" name="detrendDegreeSpinBox">
+                 <property name="minimum">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>4</number>
+                 </property>
+                 <property name="value">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
             </item>
            </layout>
           </item>

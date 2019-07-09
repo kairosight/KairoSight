@@ -145,7 +145,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for Ui_WidgetTiff subwindow for an MDI"""
     # TODO build a better data tree for ROIs and Analysis
     INDEX_R, TYPE_R, POSITION, SIZE = range(4)
-    INDEX_A, ROI, TYPE_A, ROI_CALC, FRAMES, FILTER, PEAKS = range(7)
+    INDEX_A, ROI, TYPE_A, ROI_CALC, FRAMES, FILTER, DETREND, PEAKS = range(8)
 
     def __init__(self, parent=None, f_path=None, f_dir=None, f_name=None, f_ext=None):
         # Initialization of the superclass
@@ -242,8 +242,8 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.ROIsLabels = []  # A list of pg.ROI object labels
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': '0', 'INDEX_A': np.nan, 'TYPE': 'Voltage',
-                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '60', 'PEAKS': '0.72,172',
-                                 'RESULTS': None}
+                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '60', 'DETREND': '2',
+                                 'PEAKS': '0.72,172', 'RESULTS': None}
         # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frames)
@@ -537,6 +537,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             roi_calc = analysis['ROI_CALC']
             frames = analysis['FRAMES']
             analysis_filter = analysis['FILTER']
+            analysis_detrend = analysis['DETREND']
             peaks = analysis['PEAKS']
             if idx is not None:
                 analysis_current = self.Analysis[idx]
@@ -558,8 +559,9 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI_CALC), roi_calc)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FRAMES), frames)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FILTER), analysis_filter)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.DETEND), analysis_detrend)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.PEAKS), peaks)
-            for idx in range(7):
+            for idx in range(8):
                 self.treeViewAnalysis.resizeColumnToContents(idx)
         else:
             print('** No Analysis to add!')
@@ -570,7 +572,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             analysis_new = [j for i, j in enumerate(self.Analysis) if i not in [idx]]
             self.Analysis = analysis_new
             self.modelAnalysis.removeRow(idx)
-            for idx in range(7):
+            for idx in range(8):
                 self.treeViewAnalysis.resizeColumnToContents(idx)
         else:
             print('* No Analysis to remove!')
@@ -1049,6 +1051,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.plot_preview = self.widgetPreview.addPlot()
         self.checkBoxTimeAll.stateChanged.connect(self.checkBoxChangedTimeAll)
         self.groupBoxFilter.toggled.connect(self.filterCheckBoxChanged)
+        self.groupBoxDetrend.toggled.connect(self.detrendCheckBoxChanged)
         self.tabCondition.setEnabled(False)
         self.tabPeakDetect.setEnabled(False)
         self.tabProcess.setEnabled(False)
@@ -1075,7 +1078,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.endSpinBox.setMaximum(self.currentWindow.frames)
         self.endSpinBox.setValue(self.currentWindow.frames)
         self.checkBoxTimeAll.setChecked(True)
-
 
         # self.listWidgetOpenTiffs.addItems(self.windowListNames)
         print('WidgetAnalyze ready')
@@ -1170,9 +1172,10 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         analysis_type = analysis['TYPE']
         roi_calc = analysis['ROI_CALC']
         analysis_filter = analysis['FILTER']
+        analysis_detrend = analysis['DETREND']
         peaks_thresh, peaks_lockout = analysis['PEAKS'].split(',')
         print("* using Analysis parameters: ", roi, ' ', analysis_type, ' ', roi_calc, ' ', analysis_filter, ' ',
-              peaks_thresh, ',', peaks_lockout, ' ', process)
+              analysis_detrend, ' ', peaks_thresh, ',', peaks_lockout, ' ', process)
 
         # Populate fields with passed values
         self.startSpinBox.setValue(int(start))
@@ -1189,6 +1192,11 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         else:
             self.groupBoxFilter.setChecked(True)
             self.filterFreqSpinBox.setValue(int(analysis_filter))
+        if pd.isna(analysis_detrend):
+            self.groupBoxDetrend.setChecked(False)
+        else:
+            self.groupBoxDetrend.setChecked(True)
+            self.detrendDegreeSpinBox.setValue(int(analysis_detrend))
         self.thresholdDoubleSpinBox.setValue(float(peaks_thresh))
         self.lockoutTimeSpinBox.setValue(int(peaks_lockout))
         # self.allResultsCheckBoxVm.setChecked(process == 'ALL')
@@ -1212,9 +1220,18 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Toggle use of a low pass filter for the current conditioning"""
         if self.groupBoxFilter.isChecked():
             self.filterFreqSpinBox.setEnabled(True)
-            print('\n*** Filter checked')
+            print('\n*** Detrend checked')
         else:
             self.filterFreqSpinBox.setEnabled(False)
+            print('\n*** Detrend unchecked')
+
+    def detrendCheckBoxChanged(self):
+        """Toggle use of a polynomial detrend for the current conditioning"""
+        if self.groupBoxDetrend.isChecked():
+            self.detrendDegreeSpinBox.setEnabled(True)
+            print('\n*** Filter checked')
+        else:
+            self.detrendDegreeSpinBox.setEnabled(False)
             print('\n*** Filter unchecked')
 
     def applyTimeSlice(self):
@@ -1226,16 +1243,29 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             if not self.checkBoxTimeAll.isChecked():
                 self.frame_start = int(self.startSpinBox.text())
                 self.frame_end = int(self.endSpinBox.text())
+                # Plot full length signal
+                roi_data_full = self.currentWindow.getRoiStack(self.roi_current)
+                # Calculate normalized mean data
+                roi_data_full_mean = np.zeros(len(roi_data_full))
+                for idx, frame in enumerate(roi_data_full):
+                    roi_data_full_mean[idx] = np.nanmean(frame)
+                roi_data_full_mean_norm = np.copy(roi_data_full_mean)
+                norm_MIN = roi_data_full_mean_norm.min()
+                norm_MAX = roi_data_full_mean_norm.max()
+                roi_data_full_mean_norm = (roi_data_full_mean_norm - norm_MIN) / (norm_MAX - norm_MIN)
+                self.plot_preview.plot(roi_data_full_mean_norm, pen=pg.mkPen(0.5), clear=True)
+                print('* Full roi_data plotted')
             else:
                 self.frame_start = 1
                 self.frame_end = self.currentWindow.frames
-            self.analysis_preview['FRAMES'] = str(self.frame_start) + '-' + str(self.frame_start)
+                self.plot_preview.clear()
 
+            self.analysis_preview['FRAMES'] = str(self.frame_start) + '-' + str(self.frame_start)
             print('* Time Slice start/end read')
             roi_data = self.currentWindow.getRoiStack(self.roi_current,
                                                       start_idx=self.frame_start - 1, end_idx=self.frame_end - 1)
             print('* Time Slice roi_data computed')
-            # Plot ROI's time-sliced mean values
+            # Calculate normalized mean data
             roi_data_mean = np.zeros(len(roi_data))
             for idx, frame in enumerate(roi_data):
                 roi_data_mean[idx] = np.nanmean(frame)
@@ -1243,12 +1273,12 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             norm_MIN = roi_data_mean_norm.min()
             norm_MAX = roi_data_mean_norm.max()
             roi_data_mean_norm = (roi_data_mean_norm - norm_MIN) / (norm_MAX - norm_MIN)
-            # if 'Voltage' in self.analysis_preview['TYPE']:
-            # roi_data_mean_norm = 1 - roi_data_mean_norm
-            print('* ROI mean calculated')
+            print('* ROI normalized mean calculated')
+            # Plot ROI's time-sliced mean values
             sliced_results = roi_data_mean_norm
             # Plot conditioned signal
-            self.plot_preview.plot(sliced_results, clear=True)
+            x = np.arange(start=self.frame_start, stop=self.frame_end)
+            self.plot_preview.plot(x=x, y=sliced_results)
             # self.plot_preview.plot(roi_data, clear=True)
             print('* Time Slice roi_data plotted')
 
@@ -1304,13 +1334,14 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             print('* ROI data Filtered')
 
             roi_data_mean_filter_detrend = np.copy(roi_data_mean_filter)
-            if self.detrendLinearCheckBox.isChecked():
+            if self.groupBoxDetrend.isChecked():
                 print('* Detrending ROI data')
                 # Polynomial fit and detrend
                 # xp = np.linspace(0, len(roi_data_mean_filter), num=len(roi_data_mean_filter))
-                # Fit a 3rd degree polynomial to the data; minimises squared error in the order deg, deg-1, ... 0
+                # Fit a n'th degree polynomial to the data; minimises squared error in the order deg, deg-1, ... 0
+                deg = self.detrendDegreeSpinBox.value()
                 xp = np.arange(start=0, stop=len(roi_data_mean_filter))
-                p = np.poly1d(np.polyfit(xp, roi_data_mean_filter, 3))
+                p = np.poly1d(np.polyfit(xp, roi_data_mean_filter, deg))
                 roi_data_mean_filter_detrend = roi_data_mean_filter_detrend - p(xp)
                 print('* ROI data Detrended')
                 # roi_data_mean_filter_norm = sig.detrend(roi_data_mean_filter_norm)
@@ -1321,7 +1352,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             norm_MAX = roi_data_mean_filter_detrend_copy.max()
             roi_data_mean_filter_detrend_norm = (roi_data_mean_filter_detrend_copy - norm_MIN) / (norm_MAX - norm_MIN)
             print('* ROI data Normalized')
-
 
             self.condition_results = roi_data_mean_filter_detrend_norm
         else:
@@ -1358,8 +1388,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
     def applyPeakDetect(self):
         """Apply Peak Detect tab selections"""
-        # Detection Error @ trans#  0  our of  7
-        # t0_locs[trans]  70 , up_locs[trans]  72 , peak_locs[trans]  75 , base_locs[trans]  14
         print('\n*** Applying Peak Detect, Threshold:', self.thresholdDoubleSpinBox.value(),
               ' Lockout Time:', self.lockoutTimeSpinBox.value())
         self.progressBar.setValue(60)
@@ -1415,6 +1443,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def applyProcess(self):
         """Apply Process tab selections"""
         # TODO Change datatable to mirror Morgan's Sleeping Bear excel sheet
+        # TODO Detect errors due to low lockout time/multiple baseline points per peak
         print('\n*** Applying Process, All Results')
         self.progressBar.setValue(80)
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
