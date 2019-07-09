@@ -449,12 +449,13 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         data_preview = roi.getArrayRegion(data, data_img)
         return data_preview
 
-    def getRoiStack(self, roi, start_idx=None, end_idx=None):
+    def getRoiStack(self, roi, stack_idx=0, start_idx=None, end_idx=None):
         data_stack = []
         # for idx, frame in enumerate(self.display_data):
-        for i in range(self.display_data.shape[-1]):
-            data_img = self.graphicsView.stacks[0]
-            data_roi_frame = roi.getArrayRegion(self.display_data[..., i], data_img)
+        current_display_data = self.video_data[..., stack_idx]
+        for i in range(current_display_data.shape[-1]):
+            data_img = self.graphicsView.stacks[stack_idx]
+            data_roi_frame = roi.getArrayRegion(current_display_data[..., i], data_img)
             data_roi_frame[data_roi_frame == 0] = np.nan
             data_stack.append(data_roi_frame)
         if (start_idx or end_idx) is not None:
@@ -1037,8 +1038,10 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.currentWindow = None
         self.currentVideoPlot = None
         self.currentROIs = []
+        self.currentSignals = []
         self.currentAnalysis = []
         self.roi_current = None
+        self.signal_current = None
         self.analysis_preview = None
         self.frame_start, self.frame_end = None, None
         self.condition_results = None
@@ -1060,6 +1063,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         self.comboBoxSource.addItems(self.windowDict.keys())
         self.comboBoxSource.currentIndexChanged['int'].connect(self.selectionMadeSource)
         self.comboBoxROIs.currentIndexChanged['int'].connect(self.selectionMadeROI)
+        self.comboBoxSignal.currentIndexChanged['int'].connect(self.selectionMadeSignal)
         self.comboBoxAnalysis.currentIndexChanged['int'].connect(self.selectionMadeAnalysis)
 
         self.buttonBoxTimeSlice.button(QDialogButtonBox.Apply).clicked.connect(self.applyTimeSlice)
@@ -1107,6 +1111,12 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.comboBoxROIs.addItem(str(idx) + ': ' + str(roi.saveState()))
             print('Listing ROI #', idx, ': ', roi)
 
+        self.comboBoxSignal.clear()
+        self.currentSignals = self.currentWindow.Signal_widgets
+        for idx, signal_w in enumerate(self.currentSignals):
+            self.comboBoxSignal.addItem(str(idx) + ': ' + str(signal_w.comboBoxSignal.currentText()))
+            print('Listing Signals #', idx, ': ', str(signal_w))
+
         self.comboBoxAnalysis.clear()
         self.currentAnalysis = self.currentWindow.Analysis
         self.comboBoxAnalysis.addItem('*New*')
@@ -1118,6 +1128,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('* Window: ', str(self.currentWindow))
         print('* W x H: ', str(self.currentWindow.width), ' X ', str(self.currentWindow.height))
         print('* ROIs: ', str(self.currentROIs))
+        print('* Signals: ', str(self.currentSignals))
         print('* Analysis: ', str(self.currentAnalysis))
         # self.loadDefaults()
 
@@ -1133,6 +1144,15 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('* ROI: ', str(self.roi_current))
         self.roi_current.setPen(color='FF000A')
         self.progressBar.setValue(20)
+
+    def selectionMadeSignal(self, i):
+        """Slot for comboBoxSignal.currentIndexChanged"""
+        print('\n*** selection #', i, ' made in a ', type(self))
+        print('** Current Signal: ', self.comboBoxSignal.currentText())
+        index_current = self.comboBoxSignal.currentIndex()
+        # An existing Signal has been selected
+        self.signal_current = self.currentWindow.Signal_widgets[index_current]
+        print('* Signal #', index_current, ': ', str(self.signal_current.comboBoxSignal.currentText()))
 
     def selectionMadeAnalysis(self, i):
         """Slot for comboBoxAnalysis.currentIndexChanged"""
@@ -1262,7 +1282,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
 
             self.analysis_preview['FRAMES'] = str(self.frame_start) + '-' + str(self.frame_start)
             print('* Time Slice start/end read')
-            roi_data = self.currentWindow.getRoiStack(self.roi_current,
+            roi_data = self.currentWindow.getRoiStack(self.roi_current, stack_idx=self.comboBoxSignal.currentIndex(),
                                                       start_idx=self.frame_start - 1, end_idx=self.frame_end - 1)
             print('* Time Slice roi_data computed')
             # Calculate normalized mean data
@@ -1312,7 +1332,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             print('* Calculating ROI mean')
             # Check for/use ROI's frame info
             # if self.analysis_preview['FRAMES']
-            roi_data = self.currentWindow.getRoiStack(self.roi_current,
+            roi_data = self.currentWindow.getRoiStack(self.roi_current, stack_idx=self.comboBoxSignal.currentIndex(),
                                                       start_idx=self.frame_start, end_idx=self.frame_end)
             # Allocate space for mean data array
             roi_data_mean = np.zeros(len(roi_data))
