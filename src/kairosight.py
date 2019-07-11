@@ -242,7 +242,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.ROIsLabels = []  # A list of pg.ROI object labels
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': '0', 'INDEX_A': np.nan, 'TYPE': 'Voltage',
-                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '60', 'DETREND': '2',
+                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '50', 'DETREND': '2',
                                  'PEAKS': '0.72,172', 'RESULTS': None}
         # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
@@ -547,7 +547,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
                 analysis['INDEX_A'] = idx
                 self.Analysis[idx] = analysis.copy()
             else:
-                print('** Adding passed Analysis: ', analysis)
+                print('** Adding passed Analysis: ')
                 length = self.modelAnalysis.rowCount()
                 idx = length
                 analysis['INDEX_A'] = idx
@@ -560,7 +560,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.ROI_CALC), roi_calc)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FRAMES), frames)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.FILTER), analysis_filter)
-            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.DETEND), analysis_detrend)
+            self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.DETREND), analysis_detrend)
             self.modelAnalysis.setData(self.modelAnalysis.index(idx, self.PEAKS), peaks)
             for idx in range(8):
                 self.treeViewAnalysis.resizeColumnToContents(idx)
@@ -607,6 +607,7 @@ class WindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class WindowSplit(QWidget, Ui_WidgetSplit):
     """Customization for Ui_WidgetSplit subwindow for an MDI"""
+    # TODO ADD align functionality
 
     def __init__(self, parent=None):
         # initialization of the superclass
@@ -1676,7 +1677,9 @@ class WindowExport(QWidget, Ui_WidgetExport):
                     tempResultsAPD = self.currentResults.iloc[:, 4:8]
                 if self.checkBoxOther.isChecked():
                     print('* Using all other data')
-                    tempResultsOther = self.currentResults.iloc[:, 9:]
+                    df = self.currentResults.iloc[:, 9:]
+                    # Reindex columns into desired order
+                    # tempResultsOther = df.reindex(columns=['mean', 0, 1, 2, 3, 4])
 
                 if not self.checkBoxOther.isChecked() and not self.checkBoxAPDs.isChecked():
                     print('* No results columns chosen!')
