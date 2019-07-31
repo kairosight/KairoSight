@@ -245,7 +245,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.ROIsLabels = []  # A list of pg.ROI object labels
         self.Analysis = []  # A list of Analysis results dictionaries
         self.analysis_default = {'ROI': '0', 'INDEX_A': np.nan, 'TYPE': 'Voltage',
-                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '50', 'DETREND': '2',
+                                 'ROI_CALC': 'Mean', 'FRAMES': '1-XXXX', 'FILTER': '75', 'DETREND': '2',
                                  'PEAKS': '0.72,172', 'RESULTS': None}
         # Set scroll bar maximum to number of frames
         self.horizontalScrollBar.setMinimum(1)
@@ -610,7 +610,6 @@ class WindowFolder(QWidget, Ui_WidgetFolderTree):
 
 class WindowSplit(QWidget, Ui_WidgetSplit):
     """Customization for Ui_WidgetSplit subwindow for an MDI"""
-    # TODO ADD align functionality
 
     def __init__(self, parent=None):
         # initialization of the superclass
@@ -673,7 +672,6 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
 
     def loadDefaults(self):
         """Populate Split parameter inputs with default values"""
-        # TODO Add UI to choose signal types during split
         print('** Loading defaults')
         w, h = int(self.currentWindow.width / 2), int(self.currentWindow.height)
         w_A, h_A = 384, int(self.currentWindow.height)
@@ -1434,7 +1432,13 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         print('** analysis_preview: ', self.analysis_preview)
 
         print('** PEAKS is ', self.analysis_preview['PEAKS'])
-        self.peak_results = peak_detect.peak_detect(f=self.condition_results, thresh=thresh, LOT=lockout)
+        try:
+            self.peak_results = peak_detect.peak_detect(f=self.condition_results, thresh=thresh, LOT=lockout)
+        except:
+            exctype, exvalue = sys.exc_info()[:2]
+            self.MainWindow.status_print('FAILED peak detection, ' + str(exctype) + ' : ' + str(exvalue))
+            traceback.print_exc()
+
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
         print('** Detected ', num_peaks, ' peaks above ', peak_thresh)
         print('* max_vel: ', max_vel)
@@ -1477,7 +1481,6 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def applyProcess(self):
         """Apply Process tab selections"""
         # TODO Change datatable to mirror Morgan's Sleeping Bear excel sheet
-        # TODO Detect errors due to low lockout time/multiple baseline points per peak
         print('\n*** Applying Process, All Results')
         self.progressBar.setValue(80)
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
@@ -1507,11 +1510,10 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             self.buttonBoxAnalyze.button(QDialogButtonBox.Ok).setEnabled(True)
             self.progressBar.setValue(100)
             print('\n*** Finished Applying Process')
-        except Exception:
+        except:
+            exctype, exvalue = sys.exc_info()[:2]
+            self.MainWindow.status_print('FAILED processing, ' + str(exctype) + ' : ' + str(exvalue))
             traceback.print_exc()
-            ex_type, ex_value, ex_traceback = sys.exc_info()
-            # self.parentWidget().parentWidget().statusBar().showMessage('FAILED to process : ' + str(ex_type))
-            print('\n*** Process FAILED')
 
     def applyAnalysis(self):
         """Add an Analysis to a TIFF or applies changes to an existing Analysis"""
@@ -1601,7 +1603,7 @@ class WindowExport(QWidget, Ui_WidgetExport):
         self.radioButtonMean.toggled.connect(self.loadResults)
         self.checkBoxSD.toggled.connect(self.loadResults)
 
-        self.checkBoxProperties.setChecked(True)
+        self.checkBoxProperties.setChecked(False)
         self.checkBoxProperties.stateChanged.connect(self.loadResults)
         self.checkBoxAPDs.setChecked(True)
         self.checkBoxAPDs.stateChanged.connect(self.loadResults)
@@ -1687,12 +1689,16 @@ class WindowExport(QWidget, Ui_WidgetExport):
                 # Filter based on desired values
                 if self.checkBoxAPDs.isChecked():
                     print('* Using APDs')
-                    tempResultsAPD = self.currentResults.iloc[:, 4:8]
+                    # tempResultsAPD = self.currentResults.iloc[:, [0, 4, 5, 6, 7, 8]]
+                    tempResultsAPD = self.currentResults.reindex(columns=['CL', 'APD30', 'APD80', 'APD90',
+                                                                          'APD30/80', 'Vmax', 'TauFall'])
                 if self.checkBoxOther.isChecked():
                     print('* Using all other data')
                     df = self.currentResults.iloc[:, 9:]
                     # Reindex columns into desired order
                     # tempResultsOther = df.reindex(columns=['mean', 0, 1, 2, 3, 4])
+                    tempResultsOther = self.currentResults.reindex(columns=['ActTime', 'RiseTime', 'TimeToPeak',
+                                                                            'Tri'])
 
                 if not self.checkBoxOther.isChecked() and not self.checkBoxAPDs.isChecked():
                     print('* No results columns chosen!')
@@ -1711,6 +1717,7 @@ class WindowExport(QWidget, Ui_WidgetExport):
                         mean_SD_index = [s + '_SD' for s in mean_SD.index]
                         # mean_SD.index = mean_SD_index
                         # Interleave lists of means and SDs
+                        # TODO change col interleave to a new row for SDs
                         mean_combo_list = [np.nan] * (2 * len(mean))
                         mean_combo_index = [np.nan] * (2 * len(mean))
                         mean_combo_list[::2] = mean
@@ -1740,7 +1747,6 @@ class WindowExport(QWidget, Ui_WidgetExport):
                 tempResults = pd.concat([tempResultsProps, tempResults], axis=1)
 
                 # Check if analysis Paramaters are needed
-                # TODO included individual/mean
                 if self.checkBoxParameters.isChecked():
                     print('* Using Parameters')
                     tempResultsParams = pd.DataFrame(np.zeros(shape=(len(tempResults.index), 6)),
