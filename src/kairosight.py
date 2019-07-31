@@ -140,6 +140,9 @@ class MDIWindow(QMainWindow, Ui_MDIMainWindow):
         else:
             self.statusBar().showMessage('No analyzed ROIs with results to export!')
 
+    def status_print(self, text):
+        self.statusBar().showMessage('Opened ' + text)
+
 
 class WindowTiff(QWidget, Ui_WidgetTiff):
     """Customization for Ui_WidgetTiff subwindow for an MDI"""
@@ -1025,6 +1028,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def __init__(self, parent=None, w_list=None):
         # initialization of the superclass
         super(WindowAnalyze, self).__init__(parent)
+        self.MainWindow = parent
         print('Creating WidgetAnalyze')
         self.windowList = w_list
         self.currentFileName = ''
@@ -1350,8 +1354,13 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
             if self.groupBoxFilter.isChecked():
                 fs = 1 / (self.currentWindow.dt / 1000)
                 Wn = (self.filterFreqSpinBox.value() / (fs / 2))
-                [b, a] = sig.butter(5, Wn)
-                roi_data_mean_filter = sig.filtfilt(b, a, roi_data_mean_filter)
+                try:
+                    [b, a] = sig.butter(5, Wn)
+                    roi_data_mean_filter = sig.filtfilt(b, a, roi_data_mean_filter)
+                except:
+                    exctype, exvalue = sys.exc_info()[:2]
+                    self.MainWindow.status_print('FAILED filter, ' + str(exctype) + ' : ' + str(exvalue))
+                    traceback.print_exc()
             print('* ROI data Filtered')
 
             roi_data_mean_filter_detrend = np.copy(roi_data_mean_filter)
