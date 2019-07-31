@@ -21,7 +21,7 @@ from ui.KairoSightWidgetIsolate import Ui_WidgetIsolate
 from ui.KairoSightWidgetAnalyze import Ui_WidgetAnalyze
 from ui.KairoSightWidgetExport import Ui_WidgetExport
 from ui.signalwidget import SignalWidget
-from algorithms import tifopen, peak_detect, process
+from algorithms import tifopen, align, peak_detect, process
 
 
 class MDIWindow(QMainWindow, Ui_MDIMainWindow):
@@ -52,11 +52,11 @@ class MDIWindow(QMainWindow, Ui_MDIMainWindow):
         if file:
             self.statusBar().showMessage('Opening ' + file + ' ...')
             f_purepath = PurePath(file)
-            f_path = str(f_purepath.parent) + '/'
+            f_path = str(f_purepath.parent) + '\\'
             f_dir = f_purepath.parent.parts[-1]
             f_name = f_purepath.stem
             f_ext = f_purepath.suffix
-            f_display = f_path + ' ' + f_name + ' ' + f_ext
+            f_display = f_path + '\t' + f_name + ' ' + f_ext
             print('file (path name ext): ' + f_display)
             if f_ext is '.tif' or '.tiff':
                 # print('TIFF chosen')
@@ -728,28 +728,32 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         """Applies the split, currently only for one horizontal split"""
         try:
             print('\n*** Applying Split')
-            print('** Calculating split data arrays stacks')
             # Find the width and height of the color image
             im_size = self.image_full.shape
             print('* Original image size ' + str(im_size))
-            width = int(im_size[0] / 2)
-            height = im_size[1]
+            # width = int(im_size[0] / 2)
+            # height = im_size[1]
             frames = im_size[2]
 
+            width, height = self.roi_A.size()
+            width, height = int(width), int(height)
             # Extract the two channels from the gray scale image
             # and merge the two channels into one color image
-            im_color = np.zeros((width, height, frames, 2), dtype=np.uint16)
+            im_color = np.zeros((width, height, frames, 2), dtype=np.uint16, order='F')
             for i in range(0, 2):
-                im_color[:, :, :, i] = self.image_full[i * width:(i + 1) * width, :, :]
+                im_color[:, :, :, i] = self.image_full[i * width:(i + 1) * width, 0:height, :]
+
+            if self.alignCheckBox.isChecked():
+                print('** Aligning stacks, assumes differences are translational with no rotation')
+                im_color[..., 1] = align.align_stacks(im_color[..., 0], im_color[..., 1])
+                print('** ... ')
 
             print('** Reshape/refill video_data, and update stack data')
-            self.currentWindow.video_data = np.zeros((width, height, frames, 2), dtype=np.uint16)
+            self.currentWindow.video_data = np.zeros((width, height, frames, 2), dtype=np.uint16, order='F')
             for i in range(0, 2):
                 self.currentWindow.video_data[..., i] = im_color[..., i]
             self.currentWindow.addSignal()
             self.currentWindow.updateVideo()
-            print('** Image registration using first frame ')
-            print('** ... ')
             self.close()
         except Exception:
             traceback.print_exc()
