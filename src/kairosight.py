@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
+from pathlib import Path
 import traceback
 import numpy as np
 import pandas as pd
@@ -50,30 +51,44 @@ class MDIWindow(QMainWindow, Ui_MDIMainWindow):
             file, mask = QFileDialog.getOpenFileName(self, 'Open a .tif/.tiff stack')
 
         if file:
-            self.statusBar().showMessage('Opening ' + file + ' ...')
+            self.status_print('Opening ' + file + ' ...')
             f_purepath = PurePath(file)
-            f_path = str(f_purepath.parent) + '\\'
+            f_prefix = str(f_purepath.parent) + '\\'
             f_dir = f_purepath.parent.parts[-1]
             f_name = f_purepath.stem
             f_ext = f_purepath.suffix
-            f_display = f_path + '\t' + f_name + ' ' + f_ext
+            f_display = f_prefix + '\t' + f_name + ' ' + f_ext
             print('file (path name ext): ' + f_display)
-            if f_ext is '.tif' or '.tiff':
-                # print('TIFF chosen')
+            try:
+                if f_ext == '.pcoraw':
+                    # Change .pcoraw files to .tif?
+                    # os.rename(file, f_name + '.tif')
+                    p = Path(file)
+                    p.rename(p.with_suffix('.tif'))
+                    print('* .pcoraw covnerted to a .tif')
+                    # Use a QFileDialog to get the new filepath
+                    file, mask = QFileDialog.getOpenFileName(self, 'Open a .tif/.tiff stack')
+                    self.status_print('Opening ' + file + ' ...')
+                    f_purepath = PurePath(file)
+                    f_prefix = str(f_purepath.parent) + '\\'
+                    f_dir = f_purepath.parent.parts[-1]
+                    f_name = f_purepath.stem
+                    f_ext = f_purepath.suffix
+                    f_display = f_prefix + '\t' + f_name + ' ' + f_ext
+                    print('file (path name ext): ' + f_display)
                 # Create QMdiSubWindow with Ui_WidgetTiff
-                try:
-                    sub = WindowTiff(parent=self, f_path=f_path, f_dir=f_dir, f_name=f_name, f_ext=f_ext)
-                    sub.setObjectName(str(file))
-                    sub.setWindowTitle('TIFF View: ' + f_display)
-                    # Add and connect QMdiSubWindow to MDI
-                    self.mdiArea.addSubWindow(sub)
-                    # print('"sub" added to MDI')
-                    sub.show()
-                    self.statusBar().showMessage('Opened ' + file)
-                except Exception:
-                    traceback.print_exc()
-                    ex_type, ex_value, ex_traceback = sys.exc_info()
-                    self.statusBar().showMessage('Failed to open, ' + file + ' : ' + str(ex_type))
+                sub = WindowTiff(parent=self, f_prefix=f_prefix, f_dir=f_dir, f_name=f_name, f_ext=f_ext)
+                sub.setObjectName(str(file))
+                sub.setWindowTitle('TIFF View: ' + f_display)
+                # Add and connect QMdiSubWindow to MDI
+                self.mdiArea.addSubWindow(sub)
+                # print('"sub" added to MDI')
+                sub.show()
+                self.statusBar().showMessage('Opened ' + file)
+            except Exception:
+                exctype, exvalue = sys.exc_info()[:2]
+                self.MainWindow.status_print('FAILED to open, ' + str(exctype) + ' : ' + str(exvalue))
+                traceback.print_exc()
         else:
             print('path is None')
             self.statusBar().showMessage('Open cancelled')
@@ -141,7 +156,7 @@ class MDIWindow(QMainWindow, Ui_MDIMainWindow):
             self.statusBar().showMessage('No analyzed ROIs with results to export!')
 
     def status_print(self, text):
-        self.statusBar().showMessage('Opened ' + text)
+        self.statusBar().showMessage(text)
 
 
 class WindowTiff(QWidget, Ui_WidgetTiff):
@@ -150,7 +165,7 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
     INDEX_R, TYPE_R, POSITION, SIZE = range(4)
     INDEX_A, ROI, TYPE_A, ROI_CALC, FRAMES, FILTER, DETREND, PEAKS = range(8)
 
-    def __init__(self, parent=None, f_path=None, f_dir=None, f_name=None, f_ext=None):
+    def __init__(self, parent=None, f_prefix=None, f_dir=None, f_name=None, f_ext=None):
         # Initialization of the superclass
         super(WindowTiff, self).__init__(parent)
         self.MainWindow = parent
@@ -164,12 +179,12 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
         self.horizontalScrollBar.valueChanged['int'].connect(self.updateVideo)
 
         # Load the video file
-        self.video_path = f_path
+        self.video_prefix = f_prefix
         self.video_dir = f_dir
         self.video_name = f_name
         self.video_ext = f_ext
         print('* Opening video:', self.video_dir, ' / ', self.video_name, ' ', self.video_ext)
-        self.video_file, self.dt = tifopen.tifopen(self.video_path, self.video_name + self.video_ext)
+        self.video_file, self.dt = tifopen.tifopen(self.video_prefix, self.video_name + self.video_ext)
         # print('tifopen finished')
         # get video properties
         self.video_shape = self.video_file.shape
@@ -437,7 +452,6 @@ class WindowTiff(QWidget, Ui_WidgetTiff):
             self.pushButtonSignalAdd.setEnabled(False)
         except Exception:
             traceback.print_exc()
-        print('** Split video complete')
 
     def reduceVideo(self):
         """Reduce the number of signals/videos after splitting"""
@@ -614,6 +628,7 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
     def __init__(self, parent=None):
         # initialization of the superclass
         super(WindowSplit, self).__init__(parent)
+        self.MainWindow = parent
 
         print('Creating WidgetSplit')
         self.currentWindow = parent
@@ -630,23 +645,32 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
 
         print('WidgetSplit UI setup...')
         self.setupUi(self)
+        try:
+            self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
 
-        self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
+            self.originXSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+            self.originYSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+            self.heightSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+            self.heightSpinBoxSignalA.valueChanged.connect(self.updateParameters)
 
-        self.originXSpinBoxSignalA.valueChanged.connect(self.updateParameters)
-        self.originYSpinBoxSignalA.valueChanged.connect(self.updateParameters)
-        self.heightSpinBoxSignalA.valueChanged.connect(self.updateParameters)
-        self.heightSpinBoxSignalA.valueChanged.connect(self.updateParameters)
+            self.originXSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+            self.originYSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+            self.heightSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+            self.heightSpinBoxSignalB.valueChanged.connect(self.updateParameters)
 
-        self.originXSpinBoxSignalB.valueChanged.connect(self.updateParameters)
-        self.originYSpinBoxSignalB.valueChanged.connect(self.updateParameters)
-        self.heightSpinBoxSignalB.valueChanged.connect(self.updateParameters)
-        self.heightSpinBoxSignalB.valueChanged.connect(self.updateParameters)
+            # self.roi_A.sigRegionChanged.connect(self.updatePreviewImage)
+            # self.roi_A.sigRegionChangeFinished.connect(lambda: self.updateParameters(self.roi_preview))
+            self.roi_A.sigRegionChangeStarted.connect(lambda: self.readROIs(roi=self.roi_A))
+            self.roi_B.sigRegionChangeStarted.connect(lambda: self.readROIs(roi=self.roi_B))
 
-        self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
-        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
-        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applySplit)
-        self.loadDefaults()
+            self.lockDimensionsCheckBox.stateChanged.connect(self.updateParameters)
+            self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.loadDefaults)
+            self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.applySplit)
+            self.loadDefaults()
+        except:
+            exctype, exvalue = sys.exc_info()[:2]
+            self.MainWindow.status_print('FAILED WidgetSplit setup, ' + str(exctype) + ' : ' + str(exvalue))
+            traceback.print_exc()
 
         print('WidgetSplit ready')
 
@@ -674,7 +698,7 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         """Populate Split parameter inputs with default values"""
         print('** Loading defaults')
         w, h = int(self.currentWindow.width / 2), int(self.currentWindow.height)
-        w_A, h_A = 384, int(self.currentWindow.height)
+        w_A, h_A = w, h
         x_A, y_A = 0, 0
         x_B, y_B = w_A + (w - w_A), y_A
         # Populate fields with default values
@@ -689,43 +713,77 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
         self.lockDimensionsCheckBox.setChecked(True)
         self.updateParameters()
 
+    def readROIs(self, roi):
+        print('** Reading a ROI state')
+        roi_state = roi.getState()
+        x, y = str(int(roi_state['pos'].x())), str(int(roi_state['pos'].y()))
+        w, h = int(roi_state['size'])
+        if roi is self.roi_A:
+            # Populate fields with roi's new values
+            self.originXSpinBoxSignalA.setValue(x)
+            self.originYSpinBoxSignalA.setValue(y)
+            self.widthSpinBoxSignalA.setValue(w)
+            self.heightSpinBoxSignalA.setValue(h)
+
+        if roi is self.roi_B:
+            # Populate fields with roi's new values
+            self.originXSpinBoxSignalA.setValue(x)
+            self.originYSpinBoxSignalA.setValue(y)
+            self.widthSpinBoxSignalA.setValue(w)
+            self.heightSpinBoxSignalA.setValue(h)
+        self.updateParameters()
+
+
     def updateParameters(self):
         """Update Split parameter inputs and UI elements"""
         print('** Updating parameters')
-        x_A, y_A = self.originXSpinBoxSignalA.value(), self.originYSpinBoxSignalA.value()
-        w_A, h_A = self.widthSpinBoxSignalA.value(), self.heightSpinBoxSignalA.value()
-        x_B, y_B = self.originXSpinBoxSignalB.value(), self.originYSpinBoxSignalB.value()
-        w_B, h_B = self.widthSpinBoxSignalB.value(), self.heightSpinBoxSignalB.value()
-        # r = int(roi_state['size'][0])
-        # print("Updating roi params with: ", x, ' ', y, ' ', r)
-        # Populate fields with passed values
-        if self.lockDimensionsCheckBox.isChecked():
-            self.widthSpinBoxSignalB.setValue(w_A)
-            self.widthSpinBoxSignalB.setEnabled(False)
-            self.heightSpinBoxSignalB.setValue(h_A)
-            self.heightSpinBoxSignalB.setEnabled(False)
-        else:
-            # self.widthSpinBoxSignalB.setValue(w_B)
-            self.widthSpinBoxSignalB.setEnabled(True)
-            # self.heightSpinBoxSignalB.setValue(h_B)
-            self.heightSpinBoxSignalB.setEnabled(True)
-        self.updateROIs()
+        try:
+            print('* trying')
+            x_A, y_A = self.originXSpinBoxSignalA.value(), self.originYSpinBoxSignalA.value()
+            w_A, h_A = self.widthSpinBoxSignalA.value(), self.heightSpinBoxSignalA.value()
+            x_B, y_B = self.originXSpinBoxSignalB.value(), self.originYSpinBoxSignalB.value()
+            w_B, h_B = self.widthSpinBoxSignalB.value(), self.heightSpinBoxSignalB.value()
+            # r = int(roi_state['size'][0])
+            # print("Updating roi params with: ", x, ' ', y, ' ', r)
+            # Populate fields with passed values
+            if self.lockDimensionsCheckBox.isChecked():
+                self.widthSpinBoxSignalB.setValue(w_A)
+                self.widthSpinBoxSignalB.setEnabled(False)
+                self.heightSpinBoxSignalB.setValue(h_A)
+                self.heightSpinBoxSignalB.setEnabled(False)
+            else:
+                # self.widthSpinBoxSignalB.setValue(w_B)
+                self.widthSpinBoxSignalB.setEnabled(True)
+                # self.heightSpinBoxSignalB.setValue(h_B)
+                self.heightSpinBoxSignalB.setEnabled(True)
+            self.updateROIs()
+        except:
+            exctype, exvalue = sys.exc_info()[:2]
+            self.MainWindow.status_print('FAILED filter, ' + str(exctype) + ' : ' + str(exvalue))
+            traceback.print_exc()
 
     def updateROIs(self):
         """Update Split ROIs based on parameters"""
-        x_A, y_A = self.originXSpinBoxSignalA.value(), self.originYSpinBoxSignalA.value()
-        w_A, h_A = self.widthSpinBoxSignalA.value(), self.heightSpinBoxSignalA.value()
-        x_B, y_B = self.originXSpinBoxSignalB.value(), self.originYSpinBoxSignalB.value()
-        w_B, h_B = self.widthSpinBoxSignalB.value(), self.heightSpinBoxSignalB.value()
-        self.roi_A.setPos([x_A, y_A])
-        self.roi_A.setSize([w_A, h_A])
-        self.roi_B.setPos([x_B, y_B])
-        self.roi_B.setSize([w_B, h_B])
+        print('** Updating ROIs')
+        try:
+            x_A, y_A = self.originXSpinBoxSignalA.value(), self.originYSpinBoxSignalA.value()
+            w_A, h_A = self.widthSpinBoxSignalA.value(), self.heightSpinBoxSignalA.value()
+            x_B, y_B = self.originXSpinBoxSignalB.value(), self.originYSpinBoxSignalB.value()
+            w_B, h_B = self.widthSpinBoxSignalB.value(), self.heightSpinBoxSignalB.value()
+            self.roi_A.setPos([x_A, y_A])
+            self.roi_A.setSize([w_A, h_A])
+            self.roi_B.setPos([x_B, y_B])
+            self.roi_B.setSize([w_B, h_B])
+        except:
+            exctype, exvalue = sys.exc_info()[:2]
+            self.MainWindow.status_print('FAILED filter, ' + str(exctype) + ' : ' + str(exvalue))
+            traceback.print_exc()
 
     def applySplit(self):
         """Applies the split, currently only for one horizontal split"""
         try:
             print('\n*** Applying Split')
+            # self.MainWindow.status_print('Splitting video ...')
             # Find the width and height of the color image
             im_size = self.image_full.shape
             print('* Original image size ' + str(im_size))
@@ -754,12 +812,15 @@ class WindowSplit(QWidget, Ui_WidgetSplit):
             self.currentWindow.updateVideo()
             self.close()
         except Exception:
+            exctype, exvalue = sys.exc_info()[:2]
+            self.MainWindow.status_print('FAILED filter, ' + str(exctype) + ' : ' + str(exvalue))
             traceback.print_exc()
 
 
 class WindowIsolate(QWidget, Ui_WidgetIsolate):
     """Customization for Ui_WidgetIsolate subwindow for an MDI"""
 
+    # TODO REDO roi_preview to use updatePreviewPlot
     # TODO FIX crash when applying to two sources
     # TODO move *NEW* combobox items to the ends, rather than the beginnings
 
@@ -899,7 +960,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
                     # Draw region on current tiff window's plot
                     print('* checkBoxChangedPreview_3')
                     self.currentPlot.addItem(self.roi_preview)
-                    self.roi_preview.sigRegionChanged.connect(self.updatePreviewImage)
+                    self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewImage)
                     self.roi_preview.sigRegionChangeFinished.connect(lambda: self.updateParameters(self.roi_preview))
                     # self.roi_preview.sigRegionChanged.connect(lambda: self.updateParameters(self.roi_preview))
                     # self.roi_preview.sigRegionChangeFinished.connect(self.updatePreviewPlot)
@@ -964,7 +1025,9 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
             # Calculate conditioned ROI data across all frames
             print('* Calculating ROI mean')
             roi_data = self.currentWindow.getRoiStack(self.roi_preview)
-            roi_data_mean = np.zeros(self.currentWindow.frames)
+            # Calculate normalized mean data
+            roi_data_mean = np.zeros(len(roi_data))
+            # roi_data_mean = np.zeros(self.currentWindow.frames)
             for idx, frame in enumerate(roi_data):
                 roi_data_mean[idx] = np.nanmean(frame)
             roi_data_mean_norm = np.copy(roi_data_mean)
@@ -1482,13 +1545,14 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         """Apply Process tab selections"""
         # TODO Change datatable to mirror Morgan's Sleeping Bear excel sheet
         print('\n*** Applying Process, All Results')
+        self.analysis_preview['RESULTS'] = None
         self.progressBar.setValue(80)
         [num_peaks, t0_locs, up_locs, peak_locs, base_locs, max_vel, peak_thresh] = self.peak_results
         print('** Processing ', num_peaks, ' peaks above ', peak_thresh)
         print('** analysis_preview: ', self.analysis_preview)
         print('** PROCESS is gone, I am the captain now')
 
-        per_base = 80
+        per_base = 80   # XX% for CaDXX/APDXX
         F0 = np.nanmean((self.condition_results[base_locs[1]:t0_locs[0]]))
         # for idx in num_peaks:
         #     F0[idx] = np.nanmean((self.condition_results[base_locs[idx-1]:t0_locs[idx-1]]))
@@ -1499,6 +1563,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         try:
             self.process_results = process.process(self.condition_results, self.currentWindow.dt,
                                                    t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe)
+
             self.analysis_preview['RESULTS'] = self.process_results
             print('* Process results calculated')
 
@@ -1708,6 +1773,7 @@ class WindowExport(QWidget, Ui_WidgetExport):
                 if self.radioButtonMean.isChecked():
                     print('* Using Mean results')
                     mean = tempResults.mean(axis=0)
+                    mean = mean.to_frame().transpose()
                     mean_SD = pd.Series()
                     mean_combo = pd.Series()
                     self.checkBoxSD.setEnabled(True)
@@ -1718,19 +1784,22 @@ class WindowExport(QWidget, Ui_WidgetExport):
                         # mean_SD.index = mean_SD_index
                         # Interleave lists of means and SDs
                         # TODO change col interleave to a new row for SDs
-                        mean_combo_list = [np.nan] * (2 * len(mean))
-                        mean_combo_index = [np.nan] * (2 * len(mean))
-                        mean_combo_list[::2] = mean
-                        mean_combo_index[::2] = mean_SD.index
-                        mean_combo_list[1::2] = mean_SD
-                        mean_combo_index[1::2] = mean_SD_index
-                        mean_combo = pd.Series(mean_combo_list)
-                        mean_combo.index = mean_combo_index
+                        mean_combo = mean.append(mean_SD, ignore_index=True)
+
+                        # mean_combo_list = [np.nan] * (2 * len(mean))
+                        # mean_combo_index = [np.nan] * (2 * len(mean))
+                        # mean_combo_list[::2] = mean
+                        # mean_combo_index[::2] = mean_SD.index
+                        # mean_combo_list[1::2] = mean_SD
+                        # mean_combo_index[1::2] = mean_SD_index
+                        # mean_combo = pd.Series(mean_combo_list)
+                        # mean_combo.index = mean_combo_index
                         # mean_combo = pd.Series([val for pair in zip(mean, mean_SD) for val in pair])
                     else:
                         mean_combo = mean
                     # tempResults.loc[0] = mean_combo
-                    tempResults = mean_combo.to_frame().transpose()
+                    # tempResults = mean_combo.to_frame().transpose()
+                    tempResults = mean_combo
                 else:
                     print('* Using Individual results')
                     self.checkBoxSD.setEnabled(False)

@@ -74,7 +74,7 @@ class Ui_MDIMainWindow(object):
 
     def retranslateUi(self, MDIMainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MDIMainWindow.setWindowTitle(_translate("MDIMainWindow", "MVP1"))
+        MDIMainWindow.setWindowTitle(_translate("MDIMainWindow", "KairoSight"))
         self.menuOpen.setTitle(_translate("MDIMainWindow", "1) Open"))
         self.menuIsolate.setTitle(_translate("MDIMainWindow", "2) Isolate"))
         self.menuAnalyze.setTitle(_translate("MDIMainWindow", "3) Analyze"))
