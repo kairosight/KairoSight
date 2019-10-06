@@ -38,8 +38,8 @@ class TestModelVm(unittest.TestCase):
 
     def test_model_ideal(self):
         # Test ideal model Vm data
-        data, time = model_vm(t=500, t0=50, fps=500, f0=2000, f_peak=250)
-        self.assertEqual(data.size, time.size)     # data and time arrays returned as a tuple
+        time, data = model_vm(t=500, t0=50, fps=1000, f0=2000, f_peak=250)
+        self.assertEqual(time.size, data.size)     # data and time arrays returned as a tuple
 
 
 # Example tests

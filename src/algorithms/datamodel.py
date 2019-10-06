@@ -61,11 +61,16 @@ def model_vm(t=500, t0=50, fps=1000, f0=0, f_peak=10):
 
     # Initialize a single OAP array
     # Depolarization phase
-    model_dep_t = round(20 / FRAME_T)   # 20 ms long
-    model_dep = np.full(model_dep_t, f0 + f_peak)
-    # Early repolarization phase
+    model_dep_t = round(10 / FRAME_T)   # 10 ms long
+    model_dep = np.full(model_dep_t, f0)
+    for i in range(0, model_dep_t):
+        model_dep[i] = f0 + (f_peak * np.exp(-((i - model_dep_t)**2)))
+    # Early repolarization phase (20%)
     model_rep1_t = round(5 / FRAME_T)   # 5 ms long
-    model_rep1 = np.full(model_rep1_t, f0 + int((f_peak / 2)))
+    m_rep1 = - (f_peak - (f_peak * 0.8)) / 5     # slope of this phase
+    model_rep1 = np.full(model_rep1_t, f0)
+    for i in range(0, model_rep1_t):
+        model_rep1[i] = ((m_rep1 * i) + f_peak + f0)
     # Late repolarization phase
     model_rep2_t = round(25 / FRAME_T)   # 25 ms long
     model_rep2 = np.full(model_rep2_t, f0 + int((f_peak / 3)))
