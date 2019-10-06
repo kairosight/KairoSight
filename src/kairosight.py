@@ -1555,7 +1555,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         per_base = 80   # XX% for CaDXX/APDXX
         F0 = np.nanmean((self.condition_results[base_locs[1]:t0_locs[0]]))
         # for idx in num_peaks:
-        #     F0[idx] = np.nanmean((self.condition_results[base_locs[idx-1]:t0_locs[idx-1]]))
+        #     f0[idx] = np.nanmean((self.condition_results[base_locs[idx-1]:t0_locs[idx-1]]))
         if 'Voltage' in self.analysis_preview['TYPE']:
             probe = 1
         else:
