@@ -17,6 +17,8 @@ def calculate_snr(signal, t_noise, t_peak):
        -------
        snr : float
            The Signal-to-Noise ratio of the given data
+       snr_sd : float
+           The standard deviation of the percent error array
        data_noise : ndarray
            The array of peak values used in the calculation
        data_peak : ndarray
@@ -42,7 +44,7 @@ def calculate_error(ideal, modified):
            An array of percent error
        error_mean : float
            The mean value of the percent error array
-       error_var : float
-           The variance of the percent error array
+       error_sd : float
+           The standard deviation of the percent error array
        """
     # Check parameters
