@@ -1,5 +1,5 @@
 import unittest
-from algorithms.evaluate_signal import calculate_snr, calculate_error
+from util.evaluate_signal import calculate_snr, calculate_error
 
 class TestEvaluateSNR(unittest.TestCase):
     def test_params(self):

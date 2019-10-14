@@ -1,6 +1,7 @@
 import numpy as np
 
-def calculate_snr(signal, t_noise, t_peak):
+
+def calculate_snr(signal, i_noise, i_peak):
     """Calculate the Signal-to-Noise ratio of an array,
     defined as the ratio of the Peak-Peak amplitude to the population standard deviation of the noise.
 
@@ -17,11 +18,11 @@ def calculate_snr(signal, t_noise, t_peak):
        -------
        snr : float
            The Signal-to-Noise ratio of the given data
-       snr_sd : float
-           The standard deviation of the percent error array
-       data_noise : ndarray
-           The array of peak values used in the calculation
+       noise_sd : float
+           The standard deviation of the noise
        data_peak : ndarray
+           The array of peak values used in the calculation
+       data_noise : ndarray
            The array of peak values used in the calculation
        """
     # Check parameters

@@ -1,5 +1,5 @@
 import unittest
-from algorithms.datamodel import model_transients, circle_area
+from util.datamodel import model_transients, circle_area
 from math import pi
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
