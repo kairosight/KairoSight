@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def calculate_F_F0(signal, i_F0, invert=False):
+def calculate_FF0(signal, i_F0, invert=False):
     """Normalize a fluorescence signal against a resting fluorescence,
     i.e. F / F0
 
