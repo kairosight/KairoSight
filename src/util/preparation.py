@@ -3,8 +3,8 @@ from imageio import volread, get_reader
 # import numpy as np
 
 
-def load_single(source, meta=None):
-    """Load images from a file containing one signal source or channel
+def open_single(source, meta=None):
+    """Open images from a file containing one signal source or channel
 
        Parameters
        ----------
