@@ -26,6 +26,11 @@ def calculate_snr(signal, i_noise, i_peak):
            The array of peak values used in the calculation
        """
     # Check parameters
+    if type(signal) not in [int, float]:
+        raise TypeError("Signal type must either be 'int' or 'float'")
+
+
+    # return snr, noise_sd, data_peak, data_noise
 
 
 def calculate_error(ideal, modified):

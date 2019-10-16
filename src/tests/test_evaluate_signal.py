@@ -10,15 +10,14 @@ class TestEvaluateSNR(unittest.TestCase):
         self.assertRaises(TypeError, calculate_snr, signal=True, i_noise=(0, 10), i_peak=(40, 50))
         self.assertRaises(TypeError, calculate_snr, signal=3+5j, i_noise=(0, 10), i_peak=(40, 50))
         self.assertRaises(TypeError, calculate_snr, signal='radius', i_noise=(0, 10), i_peak=(40, 50))
+        self.assertRaises(TypeError, calculate_snr, i_noise='radius')
+        self.assertRaises(TypeError, calculate_snr, i_noise=True)
+        self.assertRaises(TypeError, calculate_snr, i_noise=3 + 5j)
         self.assertRaises(TypeError, calculate_snr, i_peak='radius')
         self.assertRaises(TypeError, calculate_snr, i_peak=True)
         self.assertRaises(TypeError, calculate_snr, i_peak=3+5j)
-        self.assertRaises(TypeError, calculate_snr, t='radius')
-        self.assertRaises(TypeError, calculate_snr, t=True)
-        self.assertRaises(TypeError, calculate_snr, t=3+5j)
 
         time_ca, signal = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
-
         # Make sure parameters are valid, and valid errors are raised when necessary
         self.assertRaises(ValueError, calculate_snr, signal=True, i_noise=(0, 10), i_peak=(40, 50))
         self.assertRaises(ValueError, calculate_snr, signal, i_noise=(0, 15), i_peak=(40, 45)) # range used should be 10
@@ -31,9 +30,10 @@ class TestEvaluateSNR(unittest.TestCase):
         self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[2], np.ndarray)  # peak values
         self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[3], np.ndarray)  # peak values
 
-        # self.assertIsInstance(calculate_snr(source=self.file_single1)[0], np.ndarray)
-        # self.assertIsInstance(calculate_snr(source=self.file_single1)[1], dict)
-
+       # self.assertIsInstance(calculate_snr(source=self.file_single1)[0], float)
+       # self.assertIsInstance(calculate_snr(source=self.file_single1)[1], float)
+       # self.assertIsInstance(calculate_snr(source=self.file_single1)[2], np.ndarray)
+       # self.assertIsInstance(calculate_snr(source=self.file_single1)[3], np.ndarray)
 
 class TestEvaluateError(unittest.TestCase):
     def test_params(self):
@@ -53,11 +53,15 @@ class TestEvaluateError(unittest.TestCase):
         self.assertIsInstance(calculate_error(ideal, modified)[0], np.ndarray)  # array of error
         self.assertIsInstance(calculate_error(ideal, modified)[1], float)  # mean value of error array
         self.assertIsInstance(calculate_error(ideal, modified)[2], float)  # sd of error array
+
         # Test returned error array
         self.assertGreaterEqual(calculate_error(ideal, modified)[0].all, 0)  # no negative values
         self.assertEqual(calculate_error(ideal, modified)[1].size, calculate_error(ideal, modified)[2].size) # ideal and modified the same size
 
-        #  self.assertEqual(calculate_error(ideal, modified)[1].mean())  # mean of percent array found properly
+        # self.assertEqual(calculate_error(ideal, modified)[1].mean())  # mean of percent array found properly
+        # self.assertIsInstance(calculate_error(source=self.file_single1)[0], np.ndarray)
+        # self.assertIsInstance(calculate_error(source=self.file_single1)[1], float)
+        # self.assertIsInstance(calculate_error(source=self.file_single1)[2], float)
 
 if __name__ == '__main__':
     unittest.main()
