@@ -53,7 +53,7 @@ class TestEvaluateError(unittest.TestCase):
         self.assertIsInstance(calculate_error(ideal, modified)[0], np.ndarray)  # array of error
         self.assertIsInstance(calculate_error(ideal, modified)[1], float)  # mean value of error array
         self.assertIsInstance(calculate_error(ideal, modified)[2], float)  # sd of error array
-        # Test returned error array  
+        # Test returned error array
         self.assertGreaterEqual(calculate_error(ideal, modified)[0].all, 0)  # no negative values
         self.assertEqual(calculate_error(ideal, modified)[1].size, calculate_error(ideal, modified)[2].size) # ideal and modified the same size
 
