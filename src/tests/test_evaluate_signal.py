@@ -7,9 +7,11 @@ class TestEvaluateSNR(unittest.TestCase):
         self.assertRaises(ValueError, calculate_snr, t=-2)     # no negative total times
 
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, calculate_snr, signal=True, t_noise=(0, 10), )
+        self.assertRaises(TypeError, calculate_snr, signal=True, t_noise=(0, 10), t_peak=(50, 60))
         self.assertRaises(TypeError, calculate_snr, signal=True)
         self.assertRaises(TypeError, calculate_snr, t='radius')
+
+         
 
 
 class TestEvaluateError(unittest.TestCase):
