@@ -24,11 +24,10 @@ class TestEvaluateSNR(unittest.TestCase):
     def test_results(self):
         time_ca, signal = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
         # Make sure files are opened and read correctly
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[0], float)
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[1], float)
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[2], np.ndarray)
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[3], np.ndarray)
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[4], np.ndarray)
+        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[0], float)  # snr
+        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[1], float)  # sd of noise
+        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[2], np.ndarray)  # peak values
+        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[3], np.ndarray)  # peak values
 
         # self.assertIsInstance(calculate_snr(source=self.file_single1)[0], np.ndarray)
         # self.assertIsInstance(calculate_snr(source=self.file_single1)[1], dict)
