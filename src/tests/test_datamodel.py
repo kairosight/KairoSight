@@ -49,8 +49,8 @@ class TestModelTransients(unittest.TestCase):
 
     def test_model_plot_single(self):
         # Test ideal model Vm and Ca single transient data
-        time_vm, data_vm = model_transients(f_0=2000, f_amp=250, noise=5)
-        time_ca, data_ca = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
+        time_vm, data_vm = model_transients(f_0=2000, f_amp=250)
+        time_ca, data_ca = model_transients(model_type='Ca', f_0=1000, f_amp=250)
         self.assertEqual(time_vm.size, data_vm.size)     # data and time arrays returned as a tuple
 
         # Build a figure to plot model data
