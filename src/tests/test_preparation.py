@@ -21,8 +21,8 @@ class TestPrepOpen(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, open_single, source=250)
-        self.assertRaises(TypeError, open_single, source='data/02-250_Vm', meta=True)
-        # Make sure parameters are valid, and valid errors are raised when necessary
+        self.assertRaises(TypeError, open_single, source=self.file_single2, meta=True)
+        # Make valid errors are raised when parameters are invalid
         self.assertRaises(FileNotFoundError, open_single, source=self.tests)
         self.assertRaises(FileNotFoundError, open_single, source=self.file_single1_wrong)
         self.assertRaises(FileNotFoundError, open_single, source=self.file_single1, meta=self.file_meta_wrong)
