@@ -2,6 +2,8 @@ import unittest
 from util.datamodel import model_transients, model_stack, circle_area
 from math import pi
 import numpy as np
+import cv2
+from imageio import volwrite
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
@@ -147,20 +149,30 @@ class TestModelStack(unittest.TestCase):
         # Make sure parameters are valid, and valid errors are raised when necessary
         self.assertRaises(ValueError, model_stack, model_type='voltage')     # proper model type
         self.assertRaises(ValueError, model_stack, t=-2)     # no negative total times
-        self.assertRaises(ValueError, model_stack, t=99)     # total time at least 100 ms long
+        self.assertRaises(ValueError, model_stack, t=450)     # total time at least 500 ms long
 
     def test_results(self):
         # Make sure model results are valid
         self.assertEqual(len(model_stack(t=1000)), 2)      # time and data arrays returned as a tuple
-        self.assertEqual(model_stack(t=1000)[0].size, model_stack(t=1000)[1].size)    # time and data same size
+        self.assertEqual(model_stack(t=1000)[0].size, model_stack(t=1000)[1].shape[0])    # time and data same size
         # Test the returned time array
         self.assertEqual(model_stack(t=1000)[0].size, 1000)      # length is correct
         self.assertGreaterEqual(model_stack(t=1000)[0].all(), 0)     # no negative times
         self.assertLess(model_stack(t=1000)[0].all(), 1000)     # no times >= total time parameter
         # Test the returned data array
-        self.assertEqual(model_stack(t=1000)[1].size, 1000)      # length is correct
+        self.assertEqual(model_stack(t=1000)[1].shape[0], 1000)      # length is correct
+        self.assertEqual(model_stack(t=1000)[1].shape, (1000, 50, 50))    # dimensions (T, W, H)
+        self.assertEqual(model_stack(t=1000, size=(100, 100))[1].shape, (1000, 100, 100))    # dimensions (T, W, H)
         self.assertGreaterEqual(model_stack(t=1000)[1].all(), 0)     # no negative values
         self.assertLess(model_stack(t=1000)[1].all(), 2 ** 16)     # no values >= 16-bit max
+
+    def test_tiff(self):
+        # Make sure this stack is similar to a 16-bit .tif/.tiff
+        time_vm, data_vm = model_stack(t=1000)
+        volwrite('test_tif1_vm.tif', data_vm)
+
+        time_ca, data_ca = model_stack(model_type='Ca', t=1000)
+        volwrite('test_tif1_ca.tif', data_ca)
 
 
 # Example tests

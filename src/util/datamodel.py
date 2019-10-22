@@ -187,8 +187,8 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
     return model_time, model_data.astype(int)
 
 
-def model_stack(model_type='Vm', size=(10, 10), t=500):
-    """Create a stack (3-D array, XYT) of model 16-bit optical data of either a
+def model_stack(model_type='Vm', size=(50, 50), t=500):
+    """Create a stack (3-D array, TXY) of model 16-bit optical data of either a
     murine action potential (OAP) or a murine calcium transient (OCT).
 
        Parameters
@@ -217,9 +217,12 @@ def model_stack(model_type='Vm', size=(10, 10), t=500):
     pixel_time, pixel_data = model_transients(model_type=model_type, t=t, f_0=2000, f_amp=250, num=5)
 
     # Initialize full model arrays
+    FRAMES = pixel_data.size
     model_time = pixel_time
-    model_size = (size[0], size[1], pixel_data.size)
-    model_data = np.full(model_size, pixel_data, dtype=np.uint16)      # data array, default value is f_0
+    model_size = (FRAMES, size[0], size[1])
+    model_data = np.empty(model_size, dtype=np.uint16)      # data array, default value is f_0
+    for i_frame in range(0, FRAMES):
+        model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame])
 
     return model_time, model_data
 
