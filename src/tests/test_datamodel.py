@@ -1,6 +1,7 @@
 import unittest
-from util.datamodel import model_transients, model_images, circle_area
+from util.datamodel import model_transients, model_stack, circle_area
 from math import pi
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
@@ -23,6 +24,7 @@ def plot_test():
 class TestModelTransients(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
+        self.assertRaises(TypeError, model_transients, model_type=True)
         self.assertRaises(TypeError, model_transients, t=3 + 5j)
         self.assertRaises(TypeError, model_transients, t=True)
         self.assertRaises(TypeError, model_transients, t='radius')
@@ -30,6 +32,7 @@ class TestModelTransients(unittest.TestCase):
         self.assertRaises(TypeError, model_transients, t=250, t0=20, fps=50.3, f_0=1.5, f_amp=10.4)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
+        self.assertRaises(ValueError, model_transients, model_type='voltage')     # proper model type
         self.assertRaises(ValueError, model_transients, t=-2)     # no negative total times
         self.assertRaises(ValueError, model_transients, t=99)     # total time at least 100 ms long
         self.assertRaises(ValueError, model_transients, t=150, t0=150)       # start time < than total time
@@ -46,7 +49,7 @@ class TestModelTransients(unittest.TestCase):
 
     def test_results(self):
         # Make sure model results are valid
-        self.assertEqual(len(model_transients(t=150)), 2)      # time and data arrays returned as a tuple
+        self.assertEqual(len(model_transients()), 2)      # time and data arrays returned as a tuple
         self.assertEqual(model_transients(t=1000)[0].size, model_transients(t=1000)[1].size)    # time and data same size
         # Test the returned time array
         self.assertEqual(model_transients(t=150)[0].size, 150)      # length is correct
@@ -54,6 +57,7 @@ class TestModelTransients(unittest.TestCase):
         self.assertGreaterEqual(model_transients(t=100)[0].all(), 0)     # no negative times
         self.assertLess(model_transients(t=200)[0].all(), 200)     # no times >= total time parameter
         # Test the returned data array
+        self.assertTrue(model_transients(noise=5)[1].dtype in [int])  # data values returned as ints
         self.assertEqual(model_transients(t=150)[1].size, 150)      # length is correct
         self.assertEqual(model_transients(t=1000, t0=10, fps=223)[1].size, 223)     # length is correct with odd fps
         self.assertGreaterEqual(model_transients(t=100)[1].all(), 0)     # no negative values
@@ -79,7 +83,7 @@ class TestModelTransients(unittest.TestCase):
         ax_dual_fps.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=False)
         fig_dual_fps.show()
 
-    def test_plot_cl(self):
+    def test_plot_multi(self):
         # Test model Vm multi transient data, at different Cycle Lengths
         num = 4
         time_vm_1, data_vm_1 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=50)
@@ -91,9 +95,9 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_vm_1, = ax_dual_fps.plot(time_vm_1, -(data_vm_1-2000), '#D0D0D0', marker=, label='Vm, CL: 50')
-        plot_vm_2, = ax_dual_fps.plot(time_vm_2, -(data_vm_2-2000), '#808080', marker=, label='Ca, CL: 100')
-        plot_vm_3, = ax_dual_fps.plot(time_vm_3, -(data_vm_3-2000), '#606060', marker=, label='Ca, CL: 150')
+        plot_vm_1, = ax_dual_fps.plot(time_vm_1, -(data_vm_1-2000), '#D0D0D0', marker='1', label='Vm, CL: 50')
+        plot_vm_2, = ax_dual_fps.plot(time_vm_2, -(data_vm_2-2000), '#808080', marker='+', label='Ca, CL: 100')
+        plot_vm_3, = ax_dual_fps.plot(time_vm_3, -(data_vm_3-2000), '#606060', marker='2', label='Ca, CL: 150')
         plot_baseline = ax_dual_fps.axhline(color='gray', linestyle='--', label='baseline')
         ax_dual_fps.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=False)
         fig_dual_fps.show()
@@ -133,14 +137,30 @@ class TestModelTransients(unittest.TestCase):
         fig_dual_multi.show()
 
 
-#
-# class TestModelIamges(unittest.TestCase):
-#     def test_params(self):
-#         # Make sure type errors are raised when necessary
-#
-#
-#     def test_results(self):
-#         # Make sure model results are valid
+class TestModelStack(unittest.TestCase):
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        self.assertRaises(TypeError, model_stack, model_type=True)
+        self.assertRaises(TypeError, model_stack, size=20)
+        self.assertRaises(TypeError, model_stack, t=True)
+        # Make sure model results are valid
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        self.assertRaises(ValueError, model_stack, model_type='voltage')     # proper model type
+        self.assertRaises(ValueError, model_stack, t=-2)     # no negative total times
+        self.assertRaises(ValueError, model_stack, t=99)     # total time at least 100 ms long
+
+    def test_results(self):
+        # Make sure model results are valid
+        self.assertEqual(len(model_stack(t=1000)), 2)      # time and data arrays returned as a tuple
+        self.assertEqual(model_stack(t=1000)[0].size, model_stack(t=1000)[1].size)    # time and data same size
+        # Test the returned time array
+        self.assertEqual(model_stack(t=1000)[0].size, 1000)      # length is correct
+        self.assertGreaterEqual(model_stack(t=1000)[0].all(), 0)     # no negative times
+        self.assertLess(model_stack(t=1000)[0].all(), 1000)     # no times >= total time parameter
+        # Test the returned data array
+        self.assertEqual(model_stack(t=1000)[1].size, 1000)      # length is correct
+        self.assertGreaterEqual(model_stack(t=1000)[1].all(), 0)     # no negative values
+        self.assertLess(model_stack(t=1000)[1].all(), 2 ** 16)     # no values >= 16-bit max
 
 
 # Example tests

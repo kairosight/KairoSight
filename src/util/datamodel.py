@@ -2,7 +2,7 @@ from math import pi, floor
 import numpy as np
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, noise=0, num=1, cl=100):
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100, noise=0, num=1, cl=100):
     """Create a 2-D array of model 16-bit optical data of either a
     murine action potential (OAP) or a murine calcium transient (OCT).
 
@@ -19,7 +19,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
        f_0 : int
            Baseline fluorescence value in counts, default is 100
        f_amp : int
-           Amplitude of the OAP in counts, default is 10.
+           Amplitude of the OAP in counts, default is 100.
            Can be negative, e.g. cell depolarization with fast voltage dyes
        noise : int
            Magnitude of gaussian noise, as a percentage of f_peak, default is 0
@@ -31,7 +31,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
        Returns
        -------
        model_time : ndarray
-           An array of timestamps corresponding to model_data
+           An array of timestamps (ms) corresponding to the model_data
        model_data : ndarray
            An array of model 16-bit OAP data
        """
@@ -39,6 +39,8 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
     MIN_TOTAL_T = 100   # Minimum transient length (ms)
     # Check parameters
     if model_type not in ['Vm', 'Ca']:
+        if type(model_type) not in [str]:
+            raise TypeError('Model type must be a string, \'Vm\' or \'Ca\' ')
         raise ValueError("The model type must either be 'Vm' or 'Ca'")
     if (type(t) or type(t0)) not in [int, float]:
         raise TypeError('All time parameters must be a non-negative real number')
@@ -79,7 +81,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
 
     # Initialize full model arrays
     model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)     # time array
-    model_data = np.full(int(FPMS * t), f_0, dtype=np.int)      # data array, default value is f_0
+    model_data = np.full(int(FPMS * t), f_0, dtype=np.uint16)      # data array, default value is f_0
     if not np.equal(model_time.size, model_data.size):
         raise ArithmeticError('Lengths of time and data arrays not equal!')
 
@@ -114,10 +116,10 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
         # model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
         tauFall = 10
         model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave down, using tauFall
-        model_rep2 = model_rep2.astype(int, copy=False)
+        model_rep2 = model_rep2.astype(np.uint16, copy=False)
         # Pad the end with 50 ms of baseline
         model_rep2Pad_frames = floor(50 / FRAME_T)
-        model_rep2Pad = np.full(model_rep2Pad_frames, f_0, dtype=np.int)
+        model_rep2Pad = np.full(model_rep2Pad_frames, f_0, dtype=np.uint16)
         model_rep2 = np.concatenate((model_rep2, model_rep2Pad), axis=None)
 
     else:
@@ -154,7 +156,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
         # model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
         tauFall = 30
         model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave up, using tauFall
-        model_rep2 = model_rep2.astype(int, copy=False)
+        model_rep2 = model_rep2.astype(np.uint16, copy=False)
 
     # Assemble the transient
     model_tran = np.concatenate((model_dep, model_rep1, model_rep2), axis=None)
@@ -167,7 +169,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
     else:
         # Pad the transient array
         tranPad_frames = floor((cl - 100) / FRAME_T)
-        tranPad = np.full(tranPad_frames, f_0, dtype=np.int)
+        tranPad = np.full(tranPad_frames, f_0, dtype=np.uint16)
         model_tran = np.concatenate((model_tran, tranPad), axis=None)
 
     # Assemble the train of transients
@@ -180,25 +182,23 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
 
     # Add gaussian noise, mean: 0, standard deviation: 10% of peak, length
     model_noise = np.random.normal(0, (noise/100) * f_amp, model_data.size)
-    model_data = model_data + model_noise
+    model_data = model_data + np.round(model_noise)
 
-    return model_time, model_data
+    return model_time, model_data.astype(int)
 
 
-def model_images(model_type='Vm', t=100, noise=0, num=1):
-    """Create a 3-D array of model 16-bit optical data of either a
+def model_stack(model_type='Vm', size=(10, 10), t=500):
+    """Create a stack (3-D array, XYT) of model 16-bit optical data of either a
     murine action potential (OAP) or a murine calcium transient (OCT).
 
        Parameters
        ----------
        model_type : str
            The type of transient: 'Vm' or 'Ca', default is 'Vm'
+       size : tuple
+           The width and height of the optical data. default is (10, 10)
        t : int, float
-           Length of array in milliseconds (ms), default is 100
-       noise : int
-           Magnitude of gaussian noise, as a percentage of f_peak, default is 0
-       num : int
-           Number of transients to generate, default is 1
+           Length of array in milliseconds (ms), default is 500
 
        Returns
        -------
@@ -208,6 +208,20 @@ def model_images(model_type='Vm', t=100, noise=0, num=1):
            An array of model 16-bit OAP data
        """
     # Constants
+    MIN_TOTAL_T = 500   # Minimum stack length (ms)
+    # Check parameters
+    if type(size) not in [tuple]:
+        raise TypeError('Image size must be a tuple, e.g. (20, 20)')
+
+    # Create a model transient array for each pixel
+    pixel_time, pixel_data = model_transients(model_type=model_type, t=t, f_0=2000, f_amp=250, num=5)
+
+    # Initialize full model arrays
+    model_time = pixel_time
+    model_size = (size[0], size[1], pixel_data.size)
+    model_data = np.full(model_size, pixel_data, dtype=np.uint16)      # data array, default value is f_0
+
+    return model_time, model_data
 
 
 # Code for example tests
