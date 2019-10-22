@@ -2,7 +2,7 @@ from math import pi, floor
 import numpy as np
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, noise=0, num=1):
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, noise=0, num=1, cl=100):
     """Create a 2-D array of model 16-bit optical data of either a
     murine action potential (OAP) or a murine calcium transient (OCT).
 
@@ -25,6 +25,8 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
            Magnitude of gaussian noise, as a percentage of f_peak, default is 0
        num : int
            Number of transients to generate, default is 1
+       cl : int
+           Time (ms) between transients aka Cycle Length, default is 100
 
        Returns
        -------
@@ -59,6 +61,8 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
     if num * MIN_TOTAL_T > t - t0:
         raise ValueError('Too many transients, {}, for the total time, {} ms with start time {} ms'
                          .format(num, t, t0))
+    if cl < 50:
+        raise ValueError('The Cycle Length must be > 50 ms')
 
     # Calculate important constants
     FPMS = fps / 1000
@@ -84,16 +88,17 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
         # Initialize a single OAP array (50 ms) + 50 ms to sync with Ca
         vm_amp = -f_amp
         # Depolarization phase
-        model_dep_period = 10  # 10 ms long
+        model_dep_period = 5  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
-        model_dep = np.full(model_dep_frames, f_0)
-        for i in range(0, model_dep_frames):
-            model_dep[i] = f_0 + (vm_amp * np.exp(-(((i - model_dep_frames) / 3) ** 2)))  # a simplified Gaussian function
-
-
+        # Generate high-fidelity data
+        model_dep_full = np.full(model_dep_period, f_0)
+        for i in range(0, model_dep_period):
+            model_dep_full[i] = f_0 + (vm_amp * np.exp(-(((i - model_dep_period) / 3) ** 2)))  # a simplified Gaussian
+        # Under-sample the high-fidelity data
+        model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to APD 20, aka 80% of peak)
-        model_rep1_period = 5  # 5 ms long
+        model_rep1_period = 5  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         apd_ratio = 0.8
         m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period     # slope of this phase
@@ -104,11 +109,13 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
         # Late repolarization phase
         model_rep2_period = 50 - model_dep_period - model_rep1_period  # remaining OAP time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
-        model_rep2_t = np.linspace(0, model_rep2_period, model_rep2_frames)
+        model_rep2_t = np.linspace(0, 50, model_rep2_frames)
         A, B, C = vm_amp * 0.8, (5 / m_rep1), f_0     # exponential decay parameters
-        model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
+        # model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
+        tauFall = 10
+        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave down, using tauFall
         model_rep2 = model_rep2.astype(int, copy=False)
-        # Pad end with 50 ms of baseline
+        # Pad the end with 50 ms of baseline
         model_rep2Pad_frames = floor(50 / FRAME_T)
         model_rep2Pad = np.full(model_rep2Pad_frames, f_0, dtype=np.int)
         model_rep2 = np.concatenate((model_rep2, model_rep2Pad), axis=None)
@@ -117,13 +124,12 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
         # With calcium dyes, depolarization transients have a positive deflection and return to baseline
         # Initialize a single OCT array (100 ms)
         # Depolarization phase
-        model_dep_period = 15  # XX ms long
+        model_dep_period = 10  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
-        model_dep = np.full(model_dep_frames, f_0)
-        model_dep_full = np.full(model_dep_period, f_0)
         # Generate high-fidelity data
+        model_dep_full = np.full(model_dep_period, f_0)
         for i in range(0, model_dep_period):
-            model_dep_full[i] = f_0 + (f_amp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian function
+            model_dep_full[i] = f_0 + (f_amp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
         model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
 
@@ -143,15 +149,34 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=10, 
         # Late repolarization phase
         model_rep2_period = 100 - model_dep_period - model_rep1_period  # remaining OAP time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
-        model_rep2_t = np.linspace(0, model_rep2_period, model_rep2_frames)
+        model_rep2_t = np.linspace(0, 100, model_rep2_frames)
         A, B, C = f_amp * cad_ratio, (0.8 / m_rep1), f_0     # exponential decay parameters
-        model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
+        # model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
+        tauFall = 30
+        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave up, using tauFall
         model_rep2 = model_rep2.astype(int, copy=False)
 
     # Assemble the transient
     model_tran = np.concatenate((model_dep, model_rep1, model_rep2), axis=None)
+
     # Assemble the start time and OAP(s) into the full array
-    model_data[FRAME_T0:FRAME_T0 + (num * model_tran.size)] = np.tile(model_tran, num)
+    cl_frames = floor(cl / FRAME_T)
+    if cl_frames < floor(100 / FRAME_T):
+        # Shorten the transient array
+        model_tran = model_tran[:cl]
+    else:
+        # Pad the transient array
+        tranPad_frames = floor((cl - 100) / FRAME_T)
+        tranPad = np.full(tranPad_frames, f_0, dtype=np.int)
+        model_tran = np.concatenate((model_tran, tranPad), axis=None)
+
+    # Assemble the train of transients
+    model_tran_train = np.tile(model_tran, num)
+    if model_tran_train.size > model_data.size - FRAME_T0:
+        # Shorten train array to fit into final data array
+        model_tran_train = model_tran_train[:model_data.size - FRAME_T0]
+
+    model_data[FRAME_T0:FRAME_T0 + model_tran_train.size] = model_tran_train
 
     # Add gaussian noise, mean: 0, standard deviation: 10% of peak, length
     model_noise = np.random.normal(0, (noise/100) * f_amp, model_data.size)

@@ -6,6 +6,20 @@ import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 
 
+def plot_test():
+    fig = plt.figure(figsize=(8, 5))  # _ x _ inch page
+    axis = fig.add_subplot(111)
+    axis.spines['right'].set_visible(False)
+    axis.spines['top'].set_visible(False)
+    axis.tick_params(axis='x', which='minor', length=3, bottom=True, top=True)
+    axis.tick_params(axis='x', which='major', length=8, bottom=True, top=False)
+    axis.xaxis.set_major_locator(plticker.MultipleLocator(25))
+    axis.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+    plt.rc('xtick', labelsize=fontsize2)
+    plt.rc('ytick', labelsize=fontsize2)
+    return fig, axis
+
+
 class TestModelTransients(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -28,6 +42,7 @@ class TestModelTransients(unittest.TestCase):
         # Multiple transients
         self.assertRaises(ValueError, model_transients, num=-1)  # no negative transients
         self.assertRaises(ValueError, model_transients, t=300, t0=50, num=3)  # not too many transients
+        self.assertRaises(ValueError, model_transients, t=300, t0=50, num=2, cl=49)  # minimum Cycle Length
 
     def test_results(self):
         # Make sure model results are valid
@@ -46,32 +61,41 @@ class TestModelTransients(unittest.TestCase):
         self.assertGreaterEqual(2000, model_transients(model_type='Vm', f_0=2000)[1].max())  # Vm amplitude handled properly
         self.assertLessEqual(2000, model_transients(model_type='Ca', f_0=2000)[1].min())  # Ca amplitude handled properly
 
-    plt.rc('xtick', labelsize=fontsize2)
-    plt.rc('ytick', labelsize=fontsize2)
-
     def test_plot_fps(self):
-        # Test model Vm and Ca single transient data, at different fps's
+        # Test model Ca single transient data, at different fps
         time_ca_1, data_ca_1 = model_transients(model_type='Ca', fps=250, f_0=1000, f_amp=250)
         time_ca_2, data_ca_2 = model_transients(model_type='Ca', fps=500, f_0=1000, f_amp=250)
         time_ca_3, data_ca_3 = model_transients(model_type='Ca', fps=1000, f_0=1000, f_amp=250)
 
         # Build a figure to plot model data
-        fig_dual_fps = plt.figure(figsize=(8, 5))  # _ x _ inch page
-        ax_dual_fps = fig_dual_fps.add_subplot(111)
-        ax_dual_fps.spines['right'].set_visible(False)
-        ax_dual_fps.spines['top'].set_visible(False)
-        ax_dual_fps.tick_params(axis='x', which='minor', length=3, bottom=True, top=True)
-        ax_dual_fps.tick_params(axis='x', which='major', length=8, bottom=True, top=False)
-        ax_dual_fps.xaxis.set_major_locator(plticker.MultipleLocator(25))
-        ax_dual_fps.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+        fig_dual_fps, ax_dual_fps = plot_test()
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_ca_1, = ax_dual_fps.plot(time_ca_1, data_ca_1-1000, '#D0D0D0', marker='+', label='Ca')
-        plot_ca_2, = ax_dual_fps.plot(time_ca_2, data_ca_2-1000, '#808080', marker='+', label='Ca')
-        plot_ca_3, = ax_dual_fps.plot(time_ca_3, data_ca_3-1000, '#606060', marker='+', label='Ca')
+        plot_ca_1, = ax_dual_fps.plot(time_ca_1, data_ca_1-1000, '#D0D0D0', marker='1', label='Ca, fps: 250')
+        plot_ca_2, = ax_dual_fps.plot(time_ca_2, data_ca_2-1000, '#808080', marker='+', label='Ca, fps: 500')
+        plot_ca_3, = ax_dual_fps.plot(time_ca_3, data_ca_3-1000, '#606060', marker='2', label='Ca, fps: 1000')
         plot_baseline = ax_dual_fps.axhline(color='gray', linestyle='--', label='baseline')
+        ax_dual_fps.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=False)
+        fig_dual_fps.show()
 
+    def test_plot_cl(self):
+        # Test model Vm multi transient data, at different Cycle Lengths
+        num = 4
+        time_vm_1, data_vm_1 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=50)
+        time_vm_2, data_vm_2 = model_transients(t=500, f_0=2000, f_amp=250, num=num)
+        time_vm_3, data_vm_3 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=150)
+
+        # Build a figure to plot model data
+        fig_dual_fps, ax_dual_fps = plot_test()
+
+        # Plot aligned model data
+        # ax.set_ylim([1500, 2500])
+        plot_vm_1, = ax_dual_fps.plot(time_vm_1, -(data_vm_1-2000), '#D0D0D0', marker=, label='Vm, CL: 50')
+        plot_vm_2, = ax_dual_fps.plot(time_vm_2, -(data_vm_2-2000), '#808080', marker=, label='Ca, CL: 100')
+        plot_vm_3, = ax_dual_fps.plot(time_vm_3, -(data_vm_3-2000), '#606060', marker=, label='Ca, CL: 150')
+        plot_baseline = ax_dual_fps.axhline(color='gray', linestyle='--', label='baseline')
+        ax_dual_fps.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=False)
         fig_dual_fps.show()
 
     def test_plot_dual(self):
@@ -81,14 +105,7 @@ class TestModelTransients(unittest.TestCase):
         self.assertEqual(time_vm.size, data_vm.size)     # data and time arrays returned as a tuple
 
         # Build a figure to plot model data
-        fig_dual = plt.figure(figsize=(8, 5))  # _ x _ inch page
-        ax_dual = fig_dual.add_subplot(111)
-        ax_dual.spines['right'].set_visible(False)
-        ax_dual.spines['top'].set_visible(False)
-        ax_dual.tick_params(axis='x', which='minor', length=3, bottom=True, top=True)
-        ax_dual.tick_params(axis='x', which='major', length=8, bottom=True, top=False)
-        ax_dual.xaxis.set_major_locator(plticker.MultipleLocator(25))
-        ax_dual.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+        fig_dual, ax_dual = plot_test()
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
@@ -101,18 +118,11 @@ class TestModelTransients(unittest.TestCase):
     def test_plot_dual_multi(self):
         # Test model Vm and Ca multi-transient data, with noise
         num = 4
-        time_vm, data_vm = model_transients(t=500, t0=25, num=num, f_0=2000, f_amp=250, noise=2)
-        time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, num=num, f_0=1000, f_amp=250, noise=2)
+        time_vm, data_vm = model_transients(t=500, t0=25, f_0=2000, f_amp=250, noise=2, num=num)
+        time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, f_0=1000, f_amp=250, noise=2, num=num)
 
         # Build a figure to plot model data
-        fig_dual_multi = plt.figure(figsize=(8, 5))  # _ x _ inch page
-        ax_dual_multi = fig_dual_multi.add_subplot(111)
-        ax_dual_multi.spines['right'].set_visible(False)
-        ax_dual_multi.spines['top'].set_visible(False)
-        ax_dual_multi.tick_params(axis='x', which='minor', length=3, bottom=True, top=True)
-        ax_dual_multi.tick_params(axis='x', which='major', length=8, bottom=True, top=False)
-        ax_dual_multi.xaxis.set_major_locator(plticker.MultipleLocator(25))
-        ax_dual_multi.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+        fig_dual_multi , ax_dual_multi = plot_test()
 
         # Plot aligned model data
         # ax_dual_multi.set_ylim([1500, 2500])
@@ -121,6 +131,7 @@ class TestModelTransients(unittest.TestCase):
         plot_baseline = ax_dual_multi.axhline(color='gray', linestyle='--', label='baseline')
 
         fig_dual_multi.show()
+
 
 #
 # class TestModelIamges(unittest.TestCase):
