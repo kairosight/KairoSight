@@ -1,8 +1,8 @@
 import unittest
+import time
 from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area
 from math import pi
-import numpy as np
-import cv2
+from scipy.signal import find_peaks
 from imageio import volwrite
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
@@ -31,7 +31,8 @@ class TestModelTransients(unittest.TestCase):
         self.assertRaises(TypeError, model_transients, t=True)
         self.assertRaises(TypeError, model_transients, t='radius')
         # Some parameters must be an int
-        self.assertRaises(TypeError, model_transients, t=250, t0=20, fps=50.3, f_0=1.5, f_amp=10.4)
+        self.assertRaises(TypeError, model_transients, t=250.5, t0=20.5, fps=50.3, f_0=1.5, f_amp=10.4)
+        self.assertRaises(TypeError, model_transients, num=True)  # num must be an int or 'full'
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         self.assertRaises(ValueError, model_transients, model_type='voltage')     # proper model type
@@ -46,6 +47,7 @@ class TestModelTransients(unittest.TestCase):
         self.assertRaises(ValueError, model_transients, f_0=0, f_amp=20)   # no amplitude < 0, especially Vm
         # Multiple transients
         self.assertRaises(ValueError, model_transients, num=-1)  # no negative transients
+        self.assertRaises(ValueError, model_transients, num='5')  # if a string, must be 'full'
         self.assertRaises(ValueError, model_transients, t=300, t0=50, num=3)  # not too many transients
         self.assertRaises(ValueError, model_transients, t=300, t0=50, num=2, cl=49)  # minimum Cycle Length
 
@@ -66,6 +68,24 @@ class TestModelTransients(unittest.TestCase):
         self.assertLess(model_transients(t=100)[1].all(), 2 ** 16)     # no values >= 16-bit max
         self.assertGreaterEqual(2000, model_transients(model_type='Vm', f_0=2000)[1].max())  # Vm amplitude handled properly
         self.assertLessEqual(2000, model_transients(model_type='Ca', f_0=2000)[1].min())  # Ca amplitude handled properly
+
+        # Test multiple transient generation
+        num = 4
+        peak_min_height = 50
+
+        time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=250, num=num)
+        data_vm = (-(data_vm - 2000)) + 2000
+        peaks_vm, _ = find_peaks(data_vm, height=peak_min_height)
+        self.assertEqual(peaks_vm.size, num)      # detected peaks matches number of generated transients
+
+        time_ca, data_ca = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num=num)
+        peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height)
+        self.assertEqual(peaks_ca.size, num)      # detected peaks matches number of generated transients
+
+        # time_ca_full, data_ca_full = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num='full')
+        time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f_0=1000, f_amp=250, num='full')
+        peaks_ca, _ = find_peaks(data_ca_full, height=1000 + peak_min_height)
+        self.assertEqual(peaks_ca.size, int(5000 / 100))      # detected peaks matches calculated transients for 'full'
 
     def test_plot_fps(self):
         # Test model Ca single transient data, at different fps
@@ -142,49 +162,89 @@ class TestModelTransients(unittest.TestCase):
 class TestModelStack(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, model_stack, model_type=True)
-        self.assertRaises(TypeError, model_stack, size=20)
-        self.assertRaises(TypeError, model_stack, t=True)
+        self.assertRaises(TypeError, model_stack, size=20)  # size must be a tuple, e.g. (100, 50)
         # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, model_stack, model_type='voltage')     # proper model type
-        self.assertRaises(ValueError, model_stack, t=-2)     # no negative total times
-        self.assertRaises(ValueError, model_stack, t=450)     # total time at least 500 ms long
+        self.assertRaises(ValueError, model_stack, size=(20, 5))     # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack, size=(5, 20))     # no size > (10, 10)
 
     def test_results(self):
         # Make sure model results are valid
         self.assertEqual(len(model_stack(t=1000)), 2)      # time and data arrays returned as a tuple
-        self.assertEqual(model_stack(t=1000)[0].size, model_stack(t=1000)[1].shape[0])    # time and data same size
+        stack_time, stack_data = model_stack(t=1000)
+        self.assertEqual(stack_time.size, stack_data.shape[0])    # time and data same size
+
         # Test the returned time array
-        self.assertEqual(model_stack(t=1000)[0].size, 1000)      # length is correct
-        self.assertGreaterEqual(model_stack(t=1000)[0].all(), 0)     # no negative times
-        self.assertLess(model_stack(t=1000)[0].all(), 1000)     # no times >= total time parameter
+        self.assertEqual(stack_time.size, 1000)      # length is correct
+        self.assertGreaterEqual(stack_time.all(), 0)     # no negative times
+        self.assertLess(stack_time.all(), 1000)     # no times >= total time parameter
+
         # Test the returned data array
-        self.assertEqual(model_stack(t=1000)[1].shape[0], 1000)      # length is correct
-        self.assertEqual(model_stack(t=1000)[1].shape, (1000, 100, 50))    # dimensions (T, H, W)
-        self.assertEqual(model_stack(t=1000, size=(100, 100))[1].shape, (1000, 100, 100))    # dimensions (T, H, W)
-        self.assertGreaterEqual(model_stack(t=1000)[1].all(), 0)     # no negative values
-        self.assertLess(model_stack(t=1000)[1].all(), 2 ** 16)     # no values >= 16-bit max
+        self.assertEqual(stack_data.shape[0], 1000)      # length is correct
+        self.assertEqual(stack_data.shape, (1000, 100, 50))    # default dimensions (T, Y, X)
+        self.assertGreaterEqual(stack_data.all(), 0)     # no negative values
+        self.assertLess(stack_data.all(), 2 ** 16)     # no values >= 16-bit max
+        stackSize_time, stackSize_data = model_stack(t=1000, size=(100, 100))
+        self.assertEqual(stackSize_data.shape, (1000, 100, 100))    # dimensions (T, Y, X)
 
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
         time_vm, data_vm = model_stack(t=1000)
-        volwrite('test_tif1_vm.tif', data_vm)
+        volwrite('ModelStack_vm.tif', data_vm)
 
         time_ca, data_ca = model_stack(model_type='Ca', t=1000)
-        volwrite('test_tif1_ca.tif', data_ca)
+        volwrite('ModelStack_ca.tif', data_ca)
 
 
 class TestModelStackPropagation(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, model_stack_propagation, model_type=True)
-        self.assertRaises(TypeError, model_stack_propagation, size=20)
-        self.assertRaises(TypeError, model_stack_propagation, t=True)
+        self.assertRaises(TypeError, model_stack_propagation, size=20)  # size must be a tuple, e.g. (100, 50)
         self.assertRaises(TypeError, model_stack_propagation, cv='50')
         # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, model_stack_propagation, model_type='voltage')     # proper model type
-        self.assertRaises(ValueError, model_stack_propagation, t=-2)     # no negative total times
-        self.assertRaises(ValueError, model_stack_propagation, t=450)     # total time at least 500 ms long
+        self.assertRaises(ValueError, model_stack_propagation, size=(20, 5))     # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack_propagation, size=(5, 20))     # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack_propagation, cv=4)     # no cv > 5
+
+    def test_results(self):
+        # Make sure model results are valid
+        self.assertEqual(len(model_stack_propagation(t=1000)), 2)  # time and data arrays returned as a tuple
+        stack_time, stack_data = model_stack_propagation(t=1000)
+        self.assertEqual(stack_time.size, stack_data.shape[0])
+
+        # Test the returned time array
+        self.assertEqual(stack_time.size, 1000)  # length is correct
+        self.assertGreaterEqual(stack_time.all(), 0)  # no negative times
+        self.assertLess(stack_time.all(), 1000)  # no times >= total time parameter
+
+        # Test the returned data array
+        self.assertEqual(stack_data.shape[0], 1000)  # length is correct
+        self.assertEqual(stack_data.shape, (1000, 100, 50))  # default dimensions (T, Y, X)
+        self.assertGreaterEqual(stack_data.all(), 0)  # no negative values
+        self.assertLess(stack_data.all(), 2 ** 16)  # no values >= 16-bit max
+        stackSize_time, stackSize_data = model_stack_propagation(t=1000, size=(100, 100))
+        self.assertEqual(stackSize_data.shape, (1000, 100, 100))  # dimensions (T, Y, X)
+
+    def test_tiff(self):
+        # Make sure this stack is similar to a 16-bit .tif/.tiff
+        start = time.process_time()
+        time_vm, data_vm = model_stack_propagation(t=1000)
+        end = time.process_time()
+        print('Timing, test_tiff, Vm : ', end - start)
+        volwrite('ModelStackPropagation_vm.tif', data_vm)
+
+        time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000)
+        volwrite('ModelStackPropagation_ca.tif', data_ca)
+
+    def test_tiff_noise(self):
+        # Make sure this stack is similar to a 16-bit .tif/.tiff
+        start = time.process_time()
+        time_vm, data_vm = model_stack_propagation(t=1000, noise=5, num='full')
+        end = time.process_time()
+        print('Timing, test_tiff_noise, Vm : ', end - start)
+        volwrite('ModelStackPropagation_vm.tif', data_vm)
+
+        time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000, noise=10, num='full')
+        volwrite('ModelStackPropagation_ca.tif', data_ca)
 
 
 # Example tests
