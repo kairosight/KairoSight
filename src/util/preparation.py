@@ -4,7 +4,7 @@ from imageio import volread, get_reader
 
 
 def open_single(source, meta=None):
-    """Open images from a file containing one signal source or channel
+    """Open images from a file containing one signal source or channel.
 
        Parameters
        ----------
@@ -47,3 +47,61 @@ def open_single(source, meta=None):
         meta = stack_meta
     return stack, meta
 
+
+def crop(stack_in,  d_x, d_y):
+    """Crop a stack (3-D array, TYX) of grayscale optical data.
+
+       Parameters
+       ----------
+       stack_in : ndarray
+           A 3-D array (T, Y, X) of optical data
+       d_x : int
+           Amount of pixels to remove from the input's width.
+           If < 0, crop from the maximal width
+       d_y : int
+           Amount of pixels to remove from the input's height.
+           If < 0, crop from the maximal height
+
+       Returns
+       -------
+       stack_out : ndarray
+           A cropped 3-D array (T, Y, X) of optical data
+       """
+    pass
+
+
+def mask_generate(stack_in, thresh_type='Otsu_global'):
+    """Generate a mask for a stack (3-D array, TYX) of grayscale optical data
+    using a binary threshold algorithm (histogram-based or local).
+
+       Parameters
+       ----------
+       stack_in : ndarray
+           A 3-D array (T, Y, X) of optical data
+       thresh_type : str
+           The type of thresholding algorithm to use
+
+       Returns
+       -------
+       mask : ndarray
+           A binary 2D array generated from the threshold algorithm
+       """
+    pass
+
+
+def mask_apply(stack_in, mask):
+    """Apply a binary mask to segment a stack (3-D array, TYX) of grayscale optical data.
+
+       Parameters
+       ----------
+       stack_in : ndarray
+           A 3-D array (T, Y, X) of optical data
+       mask : ndarray
+           A binary 2D array
+
+       Returns
+       -------
+       stack_out : ndarray
+           A masked 3-D array (T, Y, X) of optical data
+       """
+    pass
