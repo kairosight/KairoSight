@@ -1,4 +1,4 @@
-from math import pi, floor
+from math import pi, floor, sqrt
 import numpy as np
 
 
@@ -187,7 +187,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
     return model_time, model_data.astype(int)
 
 
-def model_stack(model_type='Vm', size=(50, 50), t=500):
+def model_stack(model_type='Vm', size=(100, 50), t=500):
     """Create a stack (3-D array, TXY) of model 16-bit optical data of either a
     murine action potential (OAP) or a murine calcium transient (OCT).
 
@@ -196,7 +196,7 @@ def model_stack(model_type='Vm', size=(50, 50), t=500):
        model_type : str
            The type of transient: 'Vm' or 'Ca', default is 'Vm'
        size : tuple
-           The width and height of the optical data. default is (10, 10)
+           The height and width of the optical data. default is (100, 50)
        t : int, float
            Length of array in milliseconds (ms), default is 500
 
@@ -222,9 +222,69 @@ def model_stack(model_type='Vm', size=(50, 50), t=500):
     model_size = (FRAMES, size[0], size[1])
     model_data = np.empty(model_size, dtype=np.uint16)      # data array, default value is f_0
     for i_frame in range(0, FRAMES):
+        # Set every pixel value in that of the model transient
         model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame])
 
     return model_time, model_data
+
+
+def model_stack_propagation(model_type='Vm', size=(100, 50), t=500, cv=50):
+    """Create a stack (3-D array, TXY) of propagating model 16-bit optical data of either a
+    murine action potential (OAP) or a murine calcium transient (OCT).
+
+       Parameters
+       ----------
+       model_type : str
+           The type of transient: 'Vm' or 'Ca', default is 'Vm'
+       size : tuple
+           The height and width of the optical data. default is (100, 50)
+       t : int, float
+           Length of array in milliseconds (ms), default is 500
+       cv : int,
+           Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 50
+
+       Returns
+       -------
+       model_time : ndarray
+           An array of timestamps corresponding to model_data
+       model_data : ndarray
+           An array of model 16-bit OAP data
+       """
+    # Constants
+    MIN_TOTAL_T = 500   # Minimum stack length (ms)
+    # Check parameters
+    if type(size) not in [tuple]:
+        raise TypeError('Image size must be a tuple, e.g. (20, 20)')
+
+    # Calculations for propagation timing
+    # Dimensions of model data (px)
+    HEIGHT, WIDTH = size
+    # Allocate space for the Activation Map
+    act_map = np.zeros(shape=(HEIGHT, WIDTH))
+    # Spatial resolution (cm/px)
+    resolution = 0.005  # 4 cm / 200 px
+    # resolution = 0.0149  # pig video resolution
+
+    # Convert conduction velocity from cm/s to px/s
+    conduction_v_px = cv / resolution
+    # # Convert dimensions to cm
+    # HEIGHT = HEIGHT * resolution
+    # WIDTH = WIDTH * resolution
+
+    # Generate an isotropic activation map, radiating from the center
+    origin_x, origin_y = WIDTH / 2, HEIGHT / 2
+    # Assign an activation time to each pixel
+    for ix, iy in np.ndindex(act_map.shape):
+        # Compute the distance from the center (cm)
+        d = sqrt((abs(origin_x - ix) ** 2 + abs((origin_y - iy) ** 2)))
+        # Assign the time associated with that distance from the point of activation
+        act_map[ix, iy] = d / conduction_v_px
+        # Convert time from s to ms
+        act_map[ix, iy] = act_map[ix, iy] * 1000
+    print('Isotropic act. map generated. CV = ', cv, ' cm/s')
+
+    # Create a model transient array for each pixel
+    pixel_time, pixel_data = model_transients(model_type=model_type, t=t, f_0=2000, f_amp=250, num=5)
 
 
 # Code for example tests

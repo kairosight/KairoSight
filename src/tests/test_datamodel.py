@@ -1,5 +1,5 @@
 import unittest
-from util.datamodel import model_transients, model_stack, circle_area
+from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area
 from math import pi
 import numpy as np
 import cv2
@@ -128,7 +128,7 @@ class TestModelTransients(unittest.TestCase):
         time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, f_0=1000, f_amp=250, noise=2, num=num)
 
         # Build a figure to plot model data
-        fig_dual_multi , ax_dual_multi = plot_test()
+        fig_dual_multi, ax_dual_multi = plot_test()
 
         # Plot aligned model data
         # ax_dual_multi.set_ylim([1500, 2500])
@@ -145,7 +145,6 @@ class TestModelStack(unittest.TestCase):
         self.assertRaises(TypeError, model_stack, model_type=True)
         self.assertRaises(TypeError, model_stack, size=20)
         self.assertRaises(TypeError, model_stack, t=True)
-        # Make sure model results are valid
         # Make sure parameters are valid, and valid errors are raised when necessary
         self.assertRaises(ValueError, model_stack, model_type='voltage')     # proper model type
         self.assertRaises(ValueError, model_stack, t=-2)     # no negative total times
@@ -161,8 +160,8 @@ class TestModelStack(unittest.TestCase):
         self.assertLess(model_stack(t=1000)[0].all(), 1000)     # no times >= total time parameter
         # Test the returned data array
         self.assertEqual(model_stack(t=1000)[1].shape[0], 1000)      # length is correct
-        self.assertEqual(model_stack(t=1000)[1].shape, (1000, 50, 50))    # dimensions (T, W, H)
-        self.assertEqual(model_stack(t=1000, size=(100, 100))[1].shape, (1000, 100, 100))    # dimensions (T, W, H)
+        self.assertEqual(model_stack(t=1000)[1].shape, (1000, 100, 50))    # dimensions (T, H, W)
+        self.assertEqual(model_stack(t=1000, size=(100, 100))[1].shape, (1000, 100, 100))    # dimensions (T, H, W)
         self.assertGreaterEqual(model_stack(t=1000)[1].all(), 0)     # no negative values
         self.assertLess(model_stack(t=1000)[1].all(), 2 ** 16)     # no values >= 16-bit max
 
@@ -173,6 +172,19 @@ class TestModelStack(unittest.TestCase):
 
         time_ca, data_ca = model_stack(model_type='Ca', t=1000)
         volwrite('test_tif1_ca.tif', data_ca)
+
+
+class TestModelStackPropagation(unittest.TestCase):
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        self.assertRaises(TypeError, model_stack_propagation, model_type=True)
+        self.assertRaises(TypeError, model_stack_propagation, size=20)
+        self.assertRaises(TypeError, model_stack_propagation, t=True)
+        self.assertRaises(TypeError, model_stack_propagation, cv='50')
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        self.assertRaises(ValueError, model_stack_propagation, model_type='voltage')     # proper model type
+        self.assertRaises(ValueError, model_stack_propagation, t=-2)     # no negative total times
+        self.assertRaises(ValueError, model_stack_propagation, t=450)     # total time at least 500 ms long
 
 
 # Example tests
