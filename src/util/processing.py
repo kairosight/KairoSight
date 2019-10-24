@@ -57,13 +57,13 @@ def filter_spatial(stack_in, filter_type):
     pass
 
 
-def filter_temporal(stack_in, filter_type):
-    """Temporally filter a stack (3-D array, TYX) of grayscale optical data.
+def filter_temporal(signal, filter_type):
+    """Temporally filter an array of optical data.
 
        Parameters
        ----------
-       stack_in : ndarray
-            A 3-D array (T, Y, X) of optical data
+       signal : ndarray
+            The array of data to be evaluated
        filter_type : str
            The type of filter algorithm to use
 
@@ -75,14 +75,13 @@ def filter_temporal(stack_in, filter_type):
     pass
 
 
-def drift_remove(signal_in, poly_order):
-    """Remove drift from a signal array of grayscale optical data
-    using a polynomial fit.
+def drift_remove(signal, poly_order):
+    """Remove drift from an array of optical data using a polynomial fit.
 
        Parameters
        ----------
-       signal_in : ndarray
-            The array of data to be processed
+       signal : ndarray
+            The array of data to be evaluated
        poly_order : int
             The order of the polynomial to fit to
 
@@ -127,19 +126,24 @@ def snr_signal(signal, i_noise, i_peak):
        -------
        snr : float
             The Signal-to-Noise ratio of the given data
-       sd_peak : float
-            The standard deviation of the peak values
        sd_noise : float
             The standard deviation of the noise values
-       data_peak : ndarray
-            The array of peak values used in the calculation
+       sd_peak : float
+            The standard deviation of the peak values
        data_noise : ndarray
             The array of noise values used in the calculation
+       data_peak : ndarray
+            The array of peak values used in the calculation
        """
     # Check parameters
-    if type(signal) not in [int, float]:
-        raise TypeError("Signal value type must either be 'int' or 'float'")
-    # return snr, noise_sd, data_peak, data_noise
+    if type(signal) is not np.ndarray:
+        raise TypeError('Signal value type must either be "int" or "float"')
+    if type(signal.dtype) not in [int, float]:
+        raise TypeError('Signal value type must either be "int" or "float"')
+    if (type(i_noise) or type(i_peak)) not in [tuple]:
+        raise TypeError('Index ranges must be tuples, e.g. (0, 10)')
+    if (type(i_noise.dtype) or type(i_peak.dtype)) not in [int]:
+        raise TypeError('Index range values types must be "int"')
 
 
 def snr_map(stack_in):
