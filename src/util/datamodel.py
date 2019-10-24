@@ -9,31 +9,31 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
        Parameters
        ----------
        model_type : str
-           The type of transient: 'Vm' or 'Ca', default is 'Vm'
+            The type of transient: 'Vm' or 'Ca', default is 'Vm'
        t : int, float
-           Length of array in milliseconds (ms), default is 100
+            Length of array in milliseconds (ms), default is 100
        t0 : int, float
-           Start time (ms) of first transient, default is 0
+            Start time (ms) of first transient, default is 0
        fps : int
-           Frame rate (frames per second) of optical data acquisition, default is 1000, min is 200
+            Frame rate (frames per second) of optical data acquisition, default is 1000, min is 200
        f_0 : int
-           Baseline fluorescence value in counts, default is 100
+            Baseline fluorescence value in counts, default is 100
        f_amp : int
-           Amplitude of the transient in counts, default is 100.
-           Can be negative, e.g. cell depolarization with fast voltage dyes
+            Amplitude of the transient in counts, default is 100.
+            Can be negative, e.g. cell depolarization with fast voltage dyes
        noise : int
-           Magnitude of gaussian noise, as a percentage of f_peak, default is 0
+            Magnitude of gaussian noise, as a percentage of f_peak, default is 0
        num : int or str
-           Number of transients to generate, default is 1. If 'full', calculate max num to fill array
+            Number of transients to generate, default is 1. If 'full', calculate max num to fill array
        cl : int
-           Time (ms) between transients aka Cycle Length, default is 100
+            Time (ms) between transients aka Cycle Length, default is 100
 
        Returns
        -------
        model_time : ndarray
-           An array of timestamps (ms) corresponding to the model_data
+            An array of timestamps (ms) corresponding to the model_data
        model_data : ndarray
-           An array of model 16-bit data
+            An array of model 16-bit data
        """
     # Constants
     MIN_TOTAL_T = 100   # Minimum transient length (ms)
@@ -203,19 +203,19 @@ def model_stack(size=(100, 50), **kwargs):
        Parameters
        ----------
        size : tuple
-           The height and width of the optical data. default is (100, 50)
+            The height and width of the optical data. default is (100, 50)
 
        Other Parameters
        ----------------
        **kwargs : `.model_transients`. parameter, optional
-           All parameters supported by `.model_transients`.
+            All parameters supported by `.model_transients`.
 
        Returns
        -------
        model_time : ndarray
-           An array of timestamps corresponding to model_data
+            An array of timestamps corresponding to model_data
        model_data : ndarray
-           A 3-D array (T, Y, X) of model 16-bit data
+            A 3-D array (T, Y, X) of model 16-bit data
        """
     # Constants
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
@@ -247,21 +247,21 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
        Parameters
        ----------
        size : tuple
-           The height and width (px) of the optical data. default is (100, 50)
+            The height and width (px) of the optical data. default is (100, 50)
        cv : int,
-           Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 10
+            Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 10
 
        Other Parameters
        ----------------
        **kwargs : `.model_transients`. parameter, optional
-           All parameters supported by `.model_transients`.
+            All parameters supported by `.model_transients`.
 
        Returns
        -------
        model_time : ndarray
-           An array of timestamps corresponding to model_data
+            An array of timestamps corresponding to model_data
        model_data : ndarray
-           A 3-D array (T, Y, X) of model 16-bit data
+            A 3-D array (T, Y, X) of model 16-bit data
        """
     # Constants
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)

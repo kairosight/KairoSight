@@ -9,16 +9,16 @@ def open_single(source, meta=None):
        Parameters
        ----------
        source : str
-           The full path to the file
+            The full path to the file
        meta : str, optional
-           The full path to a file containing metadata
+            The full path to a file containing metadata
 
        Returns
        -------
        image : ndarray
-           An array of normalized fluorescence data
+            An array of normalized fluorescence data
        meta : dict
-           A dict of metadata
+            A dict of metadata
        """
     # Check parameter types
     if type(source) not in [str]:
@@ -54,18 +54,18 @@ def crop(stack_in,  d_x, d_y):
        Parameters
        ----------
        stack_in : ndarray
-           A 3-D array (T, Y, X) of optical data
+            A 3-D array (T, Y, X) of optical data
        d_x : int
-           Amount of pixels to remove from the input's width.
-           If < 0, crop from the maximal width
+            Amount of pixels to remove from the input's width.
+            If < 0, crop from the maximal width
        d_y : int
-           Amount of pixels to remove from the input's height.
-           If < 0, crop from the maximal height
+            Amount of pixels to remove from the input's height.
+            If < 0, crop from the maximal height
 
        Returns
        -------
        stack_out : ndarray
-           A cropped 3-D array (T, Y, X) of optical data
+            A cropped 3-D array (T, Y, X) of optical data
        """
     pass
 
@@ -77,14 +77,14 @@ def mask_generate(stack_in, thresh_type='Otsu_global'):
        Parameters
        ----------
        stack_in : ndarray
-           A 3-D array (T, Y, X) of optical data
+            A 3-D array (T, Y, X) of optical data
        thresh_type : str
-           The type of thresholding algorithm to use
+            The type of thresholding algorithm to use
 
        Returns
        -------
        mask : ndarray
-           A binary 2D array generated from the threshold algorithm
+            A binary 2D array generated from the threshold algorithm
        """
     pass
 
@@ -95,13 +95,13 @@ def mask_apply(stack_in, mask):
        Parameters
        ----------
        stack_in : ndarray
-           A 3-D array (T, Y, X) of optical data
+            A 3-D array (T, Y, X) of optical data
        mask : ndarray
-           A binary 2D array
+            A binary 2D array
 
        Returns
        -------
        stack_out : ndarray
-           A masked 3-D array (T, Y, X) of optical data
+            A masked 3-D array (T, Y, X) of optical data
        """
     pass
