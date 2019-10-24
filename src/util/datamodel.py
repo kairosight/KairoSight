@@ -12,7 +12,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
             The type of transient: 'Vm' or 'Ca', default is 'Vm'
        t : int, float
             Length of array in milliseconds (ms), default is 100
-       t0 : int, float
+       t0 : int or float
             Start time (ms) of first transient, default is 0
        fps : int
             Frame rate (frames per second) of optical data acquisition, default is 1000, min is 200
@@ -33,21 +33,21 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
        model_time : ndarray
             An array of timestamps (ms) corresponding to the model_data
        model_data : ndarray
-            An array of model 16-bit data
+            An array of model data, dtype is int
        """
     # Constants
     MIN_TOTAL_T = 100   # Minimum transient length (ms)
     # Check parameters
     if model_type not in ['Vm', 'Ca']:
         if type(model_type) not in [str]:
-            raise TypeError('Model type must be a string, \'Vm\' or \'Ca\' ')
+            raise TypeError('Model type must be a string, "Vm" or "Ca" ')
         raise ValueError("The model type must either be 'Vm' or 'Ca'")
     if (type(t) or type(t0)) not in [int]:
         raise TypeError('All time parameters must be ints')
     if (type(fps) or type(f_0) or type(f_amp)) not in [int]:
         raise TypeError('All fps and fluorescent parameters must be ints')
     if type(num) not in [int, str]:
-        raise TypeError('Number of transients must be an int or \'full\'')
+        raise TypeError('Number of transients must be an int or "full"')
     if type(cl) not in [int]:
         raise TypeError('Cycle Lenth must be an int')
 
@@ -69,7 +69,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
                              .format(num, t, t0))
     else:
         if num is not 'full':
-            raise ValueError('If not an int, number of transients must be \'full\'')
+            raise ValueError('If not an int, number of transients must be ""full""')
 
     if cl < 50:
         raise ValueError('The Cycle Length must be > 50 ms')
@@ -215,7 +215,7 @@ def model_stack(size=(100, 50), **kwargs):
        model_time : ndarray
             An array of timestamps corresponding to model_data
        model_data : ndarray
-            A 3-D array (T, Y, X) of model 16-bit data
+            A 3-D array (T, Y, X) of model 16-bit data, dtype is int
        """
     # Constants
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
@@ -248,7 +248,7 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
        ----------
        size : tuple
             The height and width (px) of the optical data. default is (100, 50)
-       cv : int,
+       cv : int
             Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 10
 
        Other Parameters
@@ -261,7 +261,7 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
        model_time : ndarray
             An array of timestamps corresponding to model_data
        model_data : ndarray
-            A 3-D array (T, Y, X) of model 16-bit data
+            A 3-D array (T, Y, X) of model 16-bit data, dtype is int
        """
     # Constants
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)

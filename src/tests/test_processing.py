@@ -1,39 +1,35 @@
 import unittest
-from util.processing import calculate_snr, calculate_error
+from util.processing import snr_signal, calculate_error
 from util.datamodel import model_transients, circle_area
 import numpy as np
 
 
-class TestEvaluateSNR(unittest.TestCase):
+class TestSnrSignal(unittest.TestCase):
     def test_params(self):
+        time_ca, signal_ca = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
+        signal_float = np.full(100, 0.5)
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, calculate_snr, signal=True, i_noise=(0, 10), i_peak=(40, 50))
-        self.assertRaises(TypeError, calculate_snr, signal=3+5j, i_noise=(0, 10), i_peak=(40, 50))
-        self.assertRaises(TypeError, calculate_snr, signal='radius', i_noise=(0, 10), i_peak=(40, 50))
-        self.assertRaises(TypeError, calculate_snr, i_noise='radius')
-        self.assertRaises(TypeError, calculate_snr, i_noise=True)
-        self.assertRaises(TypeError, calculate_snr, i_noise=3 + 5j)
-        self.assertRaises(TypeError, calculate_snr, i_peak='radius')
-        self.assertRaises(TypeError, calculate_snr, i_peak=True)
-        self.assertRaises(TypeError, calculate_snr, i_peak=3+5j)
+        self.assertRaises(TypeError, snr_signal, signal=True, i_noise=(0, 10), i_peak=(40, 50))
+        self.assertRaises(TypeError, snr_signal, signal=signal_ca, i_noise=(0, 10), i_peak=(40, 50))
+        self.assertRaises(TypeError, snr_signal, signal=signal_ca, i_noise=(0, 10), i_peak=(40, 50))
+        self.assertRaises(TypeError, snr_signal, signal=signal_float, i_noise=(0, 10), i_peak=(40, 50))
 
-        time_ca, signal = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
         # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, calculate_snr, signal=True, i_noise=(0, 10), i_peak=(40, 50))
-        self.assertRaises(ValueError, calculate_snr, signal, i_noise=(0, 15), i_peak=(40, 45))  # range used should be 10
+        self.assertRaises(ValueError, snr_signal, signal=True, i_noise=(0, 10), i_peak=(40, 50))
+        self.assertRaises(ValueError, snr_signal, signal_ca, i_noise=(0, 15), i_peak=(40, 45))  # range used should be 10
 
     def test_results(self):
         time_ca, signal = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
         # Make sure files are opened and read correctly
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[0], float)  # snr
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[1], float)  # sd of noise
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[2], np.ndarray)  # peak values
-        self.assertIsInstance(calculate_snr(signal, i_noise=(1, 10), i_peak=(50, 60))[3], np.ndarray)  # peak values
+        self.assertIsInstance(snr_signal(signal, i_noise=(1, 10), i_peak=(50, 60))[0], float)  # snr
+        self.assertIsInstance(snr_signal(signal, i_noise=(1, 10), i_peak=(50, 60))[1], float)  # sd of noise
+        self.assertIsInstance(snr_signal(signal, i_noise=(1, 10), i_peak=(50, 60))[2], np.ndarray)  # peak values
+        self.assertIsInstance(snr_signal(signal, i_noise=(1, 10), i_peak=(50, 60))[3], np.ndarray)  # peak values
 
-        # self.assertIsInstance(calculate_snr(source=self.file_single1)[0], float)
-        # self.assertIsInstance(calculate_snr(source=self.file_single1)[1], float)
-        # self.assertIsInstance(calculate_snr(source=self.file_single1)[2], np.ndarray)
-        # self.assertIsInstance(calculate_snr(source=self.file_single1)[3], np.ndarray)
+        # self.assertIsInstance(snr_signal(source=self.file_single1)[0], float)
+        # self.assertIsInstance(snr_signal(source=self.file_single1)[1], float)
+        # self.assertIsInstance(snr_signal(source=self.file_single1)[2], np.ndarray)
+        # self.assertIsInstance(snr_signal(source=self.file_single1)[3], np.ndarray)
 
 
 class TestEvaluateError(unittest.TestCase):
