@@ -119,7 +119,7 @@ def calc_FF0(signal, i_F0, invert=False):
 
         Notes
         -----
-        Should not be performed on normalized or drift-removed data.
+        Should not be applied to normalized or drift-removed data.
        """
     # Check parameters
 

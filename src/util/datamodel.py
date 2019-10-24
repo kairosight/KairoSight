@@ -22,7 +22,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
             Amplitude of the transient in counts, default is 100.
             Can be negative, e.g. cell depolarization with fast voltage dyes
        noise : int
-            Magnitude of gaussian noise, as a percentage of f_peak, default is 0
+            Magnitude of gaussian noise, as a percentage of f_amp, default is 0
        num : int or str
             Number of transients to generate, default is 1. If 'full', calculate max num to fill array
        cl : int
@@ -42,9 +42,9 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
         if type(model_type) not in [str]:
             raise TypeError('Model type must be a string, "Vm" or "Ca" ')
         raise ValueError("The model type must either be 'Vm' or 'Ca'")
-    if (type(t) or type(t0)) not in [int]:
+    if (type(t) is not int) or (type(t0) is not int):
         raise TypeError('All time parameters must be ints')
-    if (type(fps) or type(f_0) or type(f_amp)) not in [int]:
+    if (type(fps) is not int) or (type(f_0) is not int) or (type(f_amp) is not int):
         raise TypeError('All fps and fluorescent parameters must be ints')
     if type(num) not in [int, str]:
         raise TypeError('Number of transients must be an int or "full"')
