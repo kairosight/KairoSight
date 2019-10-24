@@ -189,7 +189,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
 
     model_data[FRAME_T0:FRAME_T0 + model_tran_train.size] = model_tran_train
 
-    # Add gaussian noise, mean: 0, standard deviation: 10% of peak, length
+    # Add gaussian noise, mean: 0, standard deviation: noise% of peak, length
     model_noise = np.random.normal(0, (noise/100) * f_amp, model_data.size)
     model_data = model_data + np.round(model_noise)
 

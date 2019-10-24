@@ -1,4 +1,6 @@
 import numpy as np
+import statistics
+from scipy.signal import find_peaks
 
 
 def isolate_spatial(stack_in, roi):
@@ -109,7 +111,7 @@ def normalize_signal(signal_in):
     pass
 
 
-def snr_signal(signal, i_noise, i_peak):
+def snr_signal(signal):
     """Calculate the Signal-to-Noise ratio of a signal array,
     defined as the ratio of the Peak-Peak amplitude to the population standard deviation of the noise.
 
@@ -117,33 +119,74 @@ def snr_signal(signal, i_noise, i_peak):
        ----------
        signal : ndarray
             The array of data to be evaluated
-       i_noise : tuple
-            The range of indexes for noise data elements to be used in the calculation, e.g. (0, 10)
-       i_peak : tuple
-            The range of indexes for peak data elements to be used in the calculation, e.g. (50, 60)
 
        Returns
        -------
        snr : float
             The Signal-to-Noise ratio of the given data
-       sd_noise : float
-            The standard deviation of the noise values
+       peak_peak : float
+            The absolute difference between the RMSs of the peak and noise arrays
+       ratio_noise : float
+            The ratio between the ranges of noise and peak value(s)
        sd_peak : float
             The standard deviation of the peak values
-       data_noise : ndarray
-            The array of noise values used in the calculation
-       data_peak : ndarray
-            The array of peak values used in the calculation
+       # data_noise : ndarray
+       #      The array of noise values used in the calculation
+       # data_peak : ndarray
+       #      The array of peak values used in the calculation
+       ir_noise : ndarray
+            The indexes for noise data elements to be used in the calculation
+       ir_peak : ndarray
+            The indexes for signal data elements to be used in the calculation
+
+        Notes
+        -----
+        Must be applied to signals with upward deflections (Peak > noise).
+        Assumes max noise value < (peak / 5)
        """
     # Check parameters
     if type(signal) is not np.ndarray:
-        raise TypeError('Signal value type must either be "int" or "float"')
-    if type(signal.dtype) not in [int, float]:
-        raise TypeError('Signal value type must either be "int" or "float"')
-    if (type(i_noise) or type(i_peak)) not in [tuple]:
-        raise TypeError('Index ranges must be tuples, e.g. (0, 10)')
-    if (type(i_noise.dtype) or type(i_peak.dtype)) not in [int]:
-        raise TypeError('Index range values types must be "int"')
+        raise TypeError('Signal values must either be "int" or "float"')
+    if signal.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal):
+        raise ValueError('All signal values must be >= 0')
+
+    # Characterize the signal
+    signal_bounds = (signal.min(), signal.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+
+    # Calculate noise values
+    i_noise_count = 100  # number of samples to use for noise data
+    i_noise_peaks, _ = find_peaks(signal, height=(None, (signal_bounds[0] + signal_range/5)))
+    i_noise_calc = np.linspace(start=i_noise_peaks.max() - i_noise_count, stop=i_noise_peaks.max(),
+                               num=i_noise_count, endpoint=False).astype(int)
+    data_noise = signal[i_noise_peaks.max() - 10: i_noise_peaks.max()]
+    noise_bounds = (data_noise.min(), data_noise.max())
+    noise_range = noise_bounds[1] - noise_bounds[0]
+    noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
+    noise_mean = data_noise.mean()
+    if signal.mean() < noise_rms:
+        raise ValueError('Signal peaks seem to be < noise')
+
+    # Calculate peak values
+    i_peaks, _ = find_peaks(signal, prominence=(signal_range/2))
+    data_peak = signal[i_peaks[0] - 1: i_peaks[0] + 3]
+    peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
+    # Calculate Peak-Peak value
+    peak_peak = abs(peak_rms - noise_rms)
+
+    # Calculate SNR
+    noise_ratio = peak_peak / noise_range
+    noise_sd_pop = statistics.stdev(data_noise)
+    snr = peak_peak / noise_sd_pop
+
+    ratio_noise = noise_ratio
+    sd_noise = noise_sd_pop
+    ir_noise = i_noise_calc
+    ir_peak = i_peaks
+    return snr, peak_peak, ratio_noise, sd_noise, ir_noise, ir_peak
 
 
 def snr_map(stack_in):
