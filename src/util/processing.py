@@ -131,7 +131,7 @@ def normalize_signal(signal_in):
     pass
 
 
-def snr_signal(signal_in):
+def snr_signal(signal_in, noise_count=10):
     """Calculate the Signal-to-Noise ratio of a signal array,
     defined as the ratio of the Peak-Peak amplitude to the population standard deviation of the noise.
 
@@ -139,6 +139,8 @@ def snr_signal(signal_in):
        ----------
        signal_in : ndarray
             The array of data to be evaluated, dtyoe : int or float
+       noise_count : int
+            The number of noise values to be used in the calculation, default is 10
 
        Returns
        -------
@@ -155,41 +157,45 @@ def snr_signal(signal_in):
        sd_peak : float
             The standard deviation of the peak values
        ir_noise : ndarray
-            The indexes for noise data elements to be used in the calculation
+            The indexes of noise values used in the calculation
        ir_peak : ndarray
-            The indexes for signal data elements to be used in the calculation
+            The indexes of peak values used in the calculation
 
         Notes
         -----
         Must be applied to signals with upward deflections (Peak > noise).
         Assumes max noise value < (peak / 5)
+        Auto-detects noise section as the last noise_count values before the final noisy peak.
        """
     # Check parameters
     if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an ndarray')
+        raise TypeError('Signal data type must be an "ndarray"')
     if signal_in.dtype not in [int, float]:
         raise TypeError('Signal values must either be "int" or "float"')
+    if type(noise_count) is not int:
+        raise TypeError('Number of noise values to use must be an "int"')
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+    if noise_count >= len(signal_in):
+        raise ValueError('Number of noise values to use must ne < length of signal array')
 
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
     # Calculate noise values
-    i_noise_count = 200  # number of samples to use for noise data
     noise_height = signal_bounds[0] + signal_range/3    # assumes max noise/signal amps. of 1 / 3
     i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
-    # TODO : use i_noise_calc
-    i_noise_calc = np.linspace(start=i_noise_peaks.max() - i_noise_count, stop=i_noise_peaks.max(),
-                               num=i_noise_count).astype(int)
+    i_noise_calc = np.linspace(start=i_noise_peaks.max() - noise_count, stop=i_noise_peaks.max(),
+                               num=noise_count).astype(int)
+    if any(i < 0 for i in i_noise_calc):
+        raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
     data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]]
     noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
-    noise_sd_pop = statistics.stdev(data_noise)
+    noise_sd_pop = statistics.pstdev(data_noise)
     noise_bounds = (noise_rms - noise_sd_pop/2, noise_rms + noise_sd_pop/2)
     noise_range = noise_bounds[1] - noise_bounds[0]
-    noise_mean = data_noise.mean()
     if signal_in.mean() < noise_rms:
         raise ValueError('Signal peaks seem to be < noise')
 
@@ -199,7 +205,7 @@ def snr_signal(signal_in):
     # use the 3 values centered around the peak (1 before and 1 after)
     i_peaks_calc = np.linspace(start=i_peaks[0] - 1, stop=i_peaks[0] + 1, num=i_peak_count).astype(int)
     data_peak = signal_in[i_peaks_calc]
-    peak_sd_pop = statistics.stdev(data_peak)
+    peak_sd_pop = statistics.pstdev(data_peak)
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
     # Calculate Peak-Peak value
     peak_peak = abs(peak_rms - noise_rms)
@@ -211,8 +217,7 @@ def snr_signal(signal_in):
     sd_noise = noise_sd_pop
     sd_peak = peak_sd_pop
     ir_noise = i_noise_calc
-    # TODO : correct ir_peak (return entire array)
-    ir_peak = i_peaks
+    ir_peak = i_peaks_calc
     return snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak
 
 
