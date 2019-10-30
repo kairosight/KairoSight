@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def find_tran_peak(time, signal):
+def find_tran_peak(time, signal_in):
     """Find the time of the peak of a transient,
     defined as the maximum value
 
@@ -9,7 +9,7 @@ def find_tran_peak(time, signal):
        ----------
        time : ndarray
             The array of timestamps corresponding to the model_data
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
 
        Returns
@@ -19,7 +19,7 @@ def find_tran_peak(time, signal):
        """
 
 
-def find_tran_start(time, signal):
+def find_tran_start(time, signal_in):
     """Find the time of the start of a transient,
     defined as the 1st maximum of the 2nd derivative
 
@@ -27,7 +27,7 @@ def find_tran_start(time, signal):
        ----------
        time : ndarray
             The array of timestamps corresponding to the model_data
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
 
        Returns
@@ -37,7 +37,7 @@ def find_tran_start(time, signal):
        """
 
 
-def find_tran_upstroke(time, signal):
+def find_tran_upstroke(time, signal_in):
     """Find the time of the upstroke of a transient,
     defined as the 1st maximum of the 1st derivative
 
@@ -45,7 +45,7 @@ def find_tran_upstroke(time, signal):
        ----------
        time : ndarray
             A 3-D array (T, Y, X) of optical data
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
 
        Returns
@@ -56,7 +56,7 @@ def find_tran_upstroke(time, signal):
     pass
 
 
-def calc_tran_activation(time, signal):
+def calc_tran_activation(time, signal_in):
     """Calculate the time of the upstroke activation of a transient,
     defined as the midpoint (not limited by sampling rate) between the start and peak times
 
@@ -64,7 +64,7 @@ def calc_tran_activation(time, signal):
        ----------
        time : ndarray
             A 3-D array (T, Y, X) of optical data
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
 
        Returns
@@ -75,13 +75,13 @@ def calc_tran_activation(time, signal):
     pass
 
 
-def calc_FF0(signal, i_F0, invert=False):
+def calc_FF0(signal_in, i_F0, invert=False):
     """Normalize a fluorescence signal against a resting fluorescence,
     i.e. F_t / F0
 
        Parameters
        ----------
-       signal : ndarray
+       signal_in : ndarray
             The array of fluorescent data (F_t) to be normalized
        i_F0 : tuple
             The range of indexes for resting fluorescence data elements to be used in the calculation, e.g. (0, 10)
@@ -90,7 +90,7 @@ def calc_FF0(signal, i_F0, invert=False):
 
        Returns
        -------
-       F_F0 : ndarray
+       signal_FF0 : ndarray
             The array of normalized fluorescence data
        data_min : int
             The minimum value of the input signal
@@ -104,13 +104,13 @@ def calc_FF0(signal, i_F0, invert=False):
     # Check parameters
 
     # F / F0: (F_t - F0) / F0
-    F_t = signal
+    F_t = signal_in
     # Get max and min
     data_min, data_max = np.nanmin(F_t), np.nanmax(F_t)
     if invert:
-        F_0 = signal.max()
+        F_0 = signal_in.max()
     else:
-        F_0 = signal.min()
-    F_F0 = (F_t - F_0) / F_0
+        F_0 = signal_in.min()
+    signal_FF0 = (F_t - F_0) / F_0
 
-    return F_F0, data_min, data_max
+    return signal_FF0, data_min, data_max
