@@ -41,12 +41,12 @@ def isolate_temporal(stack_in, i_start, i_end):
     pass
 
 
-def isolate_transient(signal, i_start, i_end):
+def isolate_transient(signal_in, i_start, i_end):
     """Isolate a single transient from a signal array of optical data.
 
        Parameters
        ----------
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
        i_start : int
             Index or frame to start transient isolation
@@ -79,12 +79,12 @@ def filter_spatial(stack_in, filter_type):
     pass
 
 
-def filter_temporal(signal, filter_type):
+def filter_temporal(signal_in, filter_type):
     """Temporally filter an array of optical data.
 
        Parameters
        ----------
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
        filter_type : str
            The type of filter algorithm to use
@@ -97,12 +97,12 @@ def filter_temporal(signal, filter_type):
     pass
 
 
-def drift_remove(signal, poly_order):
+def drift_remove(signal_in, poly_order):
     """Remove drift from an array of optical data using a polynomial fit.
 
        Parameters
        ----------
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
        poly_order : int
             The order of the polynomial to fit to
@@ -131,13 +131,13 @@ def normalize_signal(signal_in):
     pass
 
 
-def snr_signal(signal):
+def snr_signal(signal_in):
     """Calculate the Signal-to-Noise ratio of a signal array,
     defined as the ratio of the Peak-Peak amplitude to the population standard deviation of the noise.
 
        Parameters
        ----------
-       signal : ndarray
+       signal_in : ndarray
             The array of data to be evaluated
 
        Returns
@@ -165,34 +165,34 @@ def snr_signal(signal):
         Assumes max noise value < (peak / 5)
        """
     # Check parameters
-    if type(signal) is not np.ndarray:
+    if type(signal_in) is not np.ndarray:
         raise TypeError('Signal values must either be "int" or "float"')
-    if signal.dtype not in [int, float]:
+    if signal_in.dtype not in [int, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    if any(v < 0 for v in signal):
+    if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
     # Characterize the signal
-    signal_bounds = (signal.min(), signal.max())
+    signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
     # Calculate noise values
     i_noise_count = 100  # number of samples to use for noise data
-    i_noise_peaks, _ = find_peaks(signal, height=(None, (signal_bounds[0] + signal_range/5)))
+    i_noise_peaks, _ = find_peaks(signal_in, height=(None, (signal_bounds[0] + signal_range/5)))
     i_noise_calc = np.linspace(start=i_noise_peaks.max() - i_noise_count, stop=i_noise_peaks.max(),
                                num=i_noise_count, endpoint=False).astype(int)
-    data_noise = signal[i_noise_peaks.max() - 10: i_noise_peaks.max()]
+    data_noise = signal_in[i_noise_peaks.max() - 10: i_noise_peaks.max()]
     noise_bounds = (data_noise.min(), data_noise.max())
     noise_range = noise_bounds[1] - noise_bounds[0]
     noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
     noise_mean = data_noise.mean()
-    if signal.mean() < noise_rms:
+    if signal_in.mean() < noise_rms:
         raise ValueError('Signal peaks seem to be < noise')
 
     # Calculate peak values
-    i_peaks, _ = find_peaks(signal, prominence=(signal_range/2))
-    data_peak = signal[i_peaks[0] - 1: i_peaks[0] + 3]
+    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
+    data_peak = signal_in[i_peaks[0] - 1: i_peaks[0] + 3]
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
     # Calculate Peak-Peak value
     peak_peak = abs(peak_rms - noise_rms)
