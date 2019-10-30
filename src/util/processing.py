@@ -138,22 +138,22 @@ def snr_signal(signal_in):
        Parameters
        ----------
        signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtyoe : int or float
 
        Returns
        -------
        snr : float
             The Signal-to-Noise ratio of the given data
+       rms_bounds : tuple
+            The RMSs of the peak and noise arrays, (noise_rms, peak_rms)
        peak_peak : float
             The absolute difference between the RMSs of the peak and noise arrays
        ratio_noise : float
             The ratio between the ranges of noise and peak value(s)
+       sd_noise : float
+            The standard deviation of the noise values
        sd_peak : float
             The standard deviation of the peak values
-       # data_noise : ndarray
-       #      The array of noise values used in the calculation
-       # data_peak : ndarray
-       #      The array of peak values used in the calculation
        ir_noise : ndarray
             The indexes for noise data elements to be used in the calculation
        ir_peak : ndarray
@@ -166,7 +166,7 @@ def snr_signal(signal_in):
        """
     # Check parameters
     if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal values must either be "int" or "float"')
+        raise TypeError('Signal data type must be an ndarray')
     if signal_in.dtype not in [int, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
@@ -178,35 +178,42 @@ def snr_signal(signal_in):
     signal_range = signal_bounds[1] - signal_bounds[0]
 
     # Calculate noise values
-    i_noise_count = 100  # number of samples to use for noise data
-    i_noise_peaks, _ = find_peaks(signal_in, height=(None, (signal_bounds[0] + signal_range/5)))
+    i_noise_count = 200  # number of samples to use for noise data
+    noise_height = signal_bounds[0] + signal_range/3    # assumes max noise/signal amps. of 1 / 3
+    i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
+    # TODO : use i_noise_calc
     i_noise_calc = np.linspace(start=i_noise_peaks.max() - i_noise_count, stop=i_noise_peaks.max(),
-                               num=i_noise_count, endpoint=False).astype(int)
-    data_noise = signal_in[i_noise_peaks.max() - 10: i_noise_peaks.max()]
-    noise_bounds = (data_noise.min(), data_noise.max())
-    noise_range = noise_bounds[1] - noise_bounds[0]
+                               num=i_noise_count).astype(int)
+    data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]]
     noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
+    noise_sd_pop = statistics.stdev(data_noise)
+    noise_bounds = (noise_rms - noise_sd_pop/2, noise_rms + noise_sd_pop/2)
+    noise_range = noise_bounds[1] - noise_bounds[0]
     noise_mean = data_noise.mean()
     if signal_in.mean() < noise_rms:
         raise ValueError('Signal peaks seem to be < noise')
 
     # Calculate peak values
+    i_peak_count = 3
     i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
-    data_peak = signal_in[i_peaks[0] - 1: i_peaks[0] + 3]
+    # use the 3 values centered around the peak (1 before and 1 after)
+    i_peaks_calc = np.linspace(start=i_peaks[0] - 1, stop=i_peaks[0] + 1, num=i_peak_count).astype(int)
+    data_peak = signal_in[i_peaks_calc]
+    peak_sd_pop = statistics.stdev(data_peak)
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
     # Calculate Peak-Peak value
     peak_peak = abs(peak_rms - noise_rms)
 
     # Calculate SNR
-    noise_ratio = peak_peak / noise_range
-    noise_sd_pop = statistics.stdev(data_noise)
     snr = peak_peak / noise_sd_pop
 
-    ratio_noise = noise_ratio
+    rms_bounds = (noise_rms, peak_rms)
     sd_noise = noise_sd_pop
+    sd_peak = peak_sd_pop
     ir_noise = i_noise_calc
+    # TODO : correct ir_peak (return entire array)
     ir_peak = i_peaks
-    return snr, peak_peak, ratio_noise, sd_noise, ir_noise, ir_peak
+    return snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak
 
 
 def snr_map(stack_in):

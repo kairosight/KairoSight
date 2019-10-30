@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 
 
 def plot_test():
@@ -26,36 +27,15 @@ class TestSnrSignal(unittest.TestCase):
         time_ca, signal_ca = model_transients(model_type='Ca', t=500, t0=20, f_0=1000, f_amp=250, noise=5)
         signal_badType = np.full(100, True)
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, snr_signal, signal=True)
-        self.assertRaises(TypeError, snr_signal, signal=signal_badType)
+        # signal_in : ndarray, dtyoe : int or float
+        self.assertRaises(TypeError, snr_signal, signal_in=True)
+        self.assertRaises(TypeError, snr_signal, signal_in=signal_badType)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
+        # signal_in : >=0
         signal_badValue = np.full(100, 10)
-        signal_badValue[20] = -5
-        self.assertRaises(ValueError, snr_signal, signal=signal_badValue)
-
-    def test_plot_algorithms(self):
-        # Make sure auto-detection of noise and peak regions is correct
-        signal_amp = 100
-        noise = 5   # as a % of the signal amplitude
-        time_ca, signal_ca = model_transients(model_type='Ca', t=500, t0=20, f_0=1000, f_amp=signal_amp, noise=noise)
-        index_min = int(np.argmin(signal_ca))
-        index_max = int(np.argmax(signal_ca))
-        snr, peak_peak, sd_noise, ratio_noise, ir_noise, ir_peak\
-            = snr_signal(signal_ca)
-        # Build a figure to plot model data
-        fig_dual, ax_dual = plot_test()
-
-        # Plot aligned model data
-        # ax.set_ylim([1500, 2500])
-        ax_dual.plot(time_ca, signal_ca, color='#D0D0D0', linestyle='None', marker='+', label='Ca')
-        ax_dual.plot(ir_noise, signal_ca[ir_noise], "x", color='r', markersize=2)
-        ax_dual.plot(ir_peak, signal_ca[ir_peak], "x", color='b', markersize=2)
-        # plot_baseline = ax_dual.axhline(color='gray', linestyle='--', label='baseline')
-
-        # TODO add legend/text to show SNR, noise_ratio, and true noise setting
-
-        fig_dual.show()
+        signal_badValue[20] = signal_badValue[20] + 20.5
+        self.assertRaises(ValueError, snr_signal, signal_in=signal_badValue)
 
     def test_results(self):
         # Make sure SNR results are correct
@@ -64,19 +44,62 @@ class TestSnrSignal(unittest.TestCase):
         time_ca, signal_ca = model_transients(model_type='Ca', t=500, t0=20, f_0=1000, f_amp=signal_amp, noise=noise)
         index_min = int(np.argmin(signal_ca))
         index_max = int(np.argmax(signal_ca))
-        snr, peak_peak, sd_noise, ratio_noise, ir_noise, ir_peak\
+        snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak\
             = snr_signal(signal_ca)
         self.assertIsInstance(snr, float)  # snr
+        self.assertIsInstance(rms_bounds, tuple)  # signal_range
         self.assertIsInstance(peak_peak, float)  # Peak to Peak value aka amplitude
         self.assertAlmostEqual(peak_peak, signal_amp, delta=signal_amp/noise)  # Peak to Peak value aka amplitude
-        self.assertIsInstance(sd_noise, float)  # sd of noise
 
-        self.assertAlmostEqual(ratio_noise, noise, delta=1)  # sd of noise
+        self.assertIsInstance(sd_noise, float)  # sd of noise
+        self.assertIsInstance(sd_peak, float)  # sd of peaks
+        self.assertAlmostEqual(sd_noise, noise, delta=1)  # noise ratio, as a % of the signal amplitude
+        self.assertIsInstance(ir_noise, np.ndarray)  # sd of peaks
+        self.assertIsInstance(ir_peak, np.ndarray)  # sd of peaks
 
         # self.assertIsInstance(data_noise, np.ndarray)  # noise values
         # self.assertLess(data_noise.max(), data_peak.max())
         # self.assertIsInstance(data_peak, np.ndarray)  # peak values
         # self.assertGreaterEqual(data_peak.min(), 1090)
+
+    def test_plot_single(self):
+        # Make sure auto-detection of noise and peak regions is correct
+        signal_F0 = 1000
+        signal_amp = 100
+        signal_time = 500
+        noise = 5   # as a % of the signal amplitude
+        time_ca, signal_ca = model_transients(model_type='Ca', t=signal_time, t0=20,
+                                              f_0=signal_F0, f_amp=signal_amp, noise=noise)
+        index_min = int(np.argmin(signal_ca))
+        index_max = int(np.argmax(signal_ca))
+        snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak\
+            = snr_signal(signal_ca)
+        # Build a figure to plot SNR signal data
+        fig_snr, ax_snr = plot_test()
+        ax_snr.set_ylim([signal_F0 - 25, signal_F0 + signal_amp + 25])
+
+        ax_snr.plot(time_ca, signal_ca, color=gray_light, linestyle='None', marker='+', label='Ca pixel data')
+        ax_snr.plot(ir_noise, signal_ca[ir_noise], "x", color='r', markersize=2, label='Noise')
+        ax_snr.plot(ir_peak, signal_ca[ir_peak], "x", color='b', markersize=2, label='Peak')
+        # ax_snr.plot_cutoff = ax_snr.axhline(y=1000+signal_amp/3, color=gray_light,
+        #                                       linestyle='--', label='Noise cutoff')
+
+        ax_snr.plot_rms_noise = ax_snr.axhline(y=rms_bounds[0],
+                                               color=gray_light, linestyle='--', label='Noise cutoff')
+        ax_snr.plot_rms_peak = ax_snr.axhline(y=rms_bounds[1],
+                                              color=gray_light, linestyle='--', label='Noise cutoff')
+
+        # TODO add legend/text to show SNR, noise_ratio, and true noise setting
+        ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_snr.text(0.78, 0.7, 'Noise true : {}'.format(noise),
+                    color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
+        ax_snr.text(0.78, 0.65, 'Noise calc : {}'.format(round(sd_noise, 5)),
+                    color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
+        ax_snr.text(0.78, 0.6, 'SNR : {}'.format(round(snr, 5)),
+                    color=gray_heavy, fontsize=fontsize2, transform=ax_snr.transAxes)
+        # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
+
+        fig_snr.show()
 
 
 class TestEvaluateError(unittest.TestCase):

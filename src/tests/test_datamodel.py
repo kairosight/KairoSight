@@ -7,6 +7,7 @@ from imageio import volwrite
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 
 
 def plot_test():
