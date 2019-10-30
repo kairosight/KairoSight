@@ -178,7 +178,7 @@ def snr_signal(signal_in, noise_count=10):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
     if noise_count >= len(signal_in):
-        raise ValueError('Number of noise values to use must ne < length of signal array')
+        raise ValueError('Number of noise values to use must be < length of signal array')
 
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
@@ -200,10 +200,10 @@ def snr_signal(signal_in, noise_count=10):
         raise ValueError('Signal peaks seem to be < noise')
 
     # Calculate peak values
-    i_peak_count = 3
+    i_peak_count = 1
     i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
-    # use the 3 values centered around the peak (1 before and 1 after)
-    i_peaks_calc = np.linspace(start=i_peaks[0] - 1, stop=i_peaks[0] + 1, num=i_peak_count).astype(int)
+    # use 2 values near the peak (peak and 1 after it)
+    i_peaks_calc = np.linspace(start=i_peaks[0], stop=i_peaks[0] + 1, num=i_peak_count).astype(int)
     data_peak = signal_in[i_peaks_calc]
     peak_sd_pop = statistics.pstdev(data_peak)
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))

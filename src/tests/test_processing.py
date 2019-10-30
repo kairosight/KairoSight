@@ -13,8 +13,8 @@ def plot_test():
     axis = fig.add_subplot(111)
     axis.spines['right'].set_visible(False)
     axis.spines['top'].set_visible(False)
-    axis.tick_params(axis='x', which='minor', length=3, bottom=True, top=True)
-    axis.tick_params(axis='x', which='major', length=8, bottom=True, top=True)
+    axis.tick_params(axis='x', which='minor', length=3, bottom=True)
+    axis.tick_params(axis='x', which='major', length=8, bottom=True)
     axis.xaxis.set_major_locator(plticker.MultipleLocator(25))
     axis.xaxis.set_minor_locator(plticker.MultipleLocator(5))
     plt.rc('xtick', labelsize=fontsize2)
@@ -57,10 +57,10 @@ def run_trials(self, trials_count):
     trials_sd_noise = np.empty(trials_count)
     results = {'sd_noise': {'mean': 0, 'sd': 0}}
     for trial in range(0, trials_count):
-        time_ca, signal_ca = model_transients(model_type='Ca',
+        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
                                               f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
         snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak\
-            = snr_signal(signal_ca)
+            = snr_signal(signal_ca, noise_count=self.noise_count)
         trials_sd_noise[trial] = sd_noise
     results['sd_noise']['mean'] = np.mean(trials_sd_noise)
     results['sd_noise']['sd'] = np.std(trials_sd_noise)
@@ -71,9 +71,11 @@ class TestSnrSignal(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
     signal_amp = 100
-    # signal_time = 500
+    signal_t0 = 20
+    signal_time = 500
     noise = 5  # as a % of the signal amplitude
-    time_ca, signal_ca = model_transients(model_type='Ca',
+    noise_count = 100
+    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
                                           f_0=signal_F0, f_amp=signal_amp, noise=noise)
 
     def test_params(self):
@@ -92,13 +94,13 @@ class TestSnrSignal(unittest.TestCase):
         signal_badValue[20] = signal_badValue[20] + 20.5
         self.assertRaises(ValueError, snr_signal, signal_in=signal_badValue)
         # i_noise : < t, > 0
-        self.assertRaises(ValueError, snr_signal, signal_in=self.signal_ca, noise_count=99)
+        self.assertRaises(ValueError, snr_signal, signal_in=self.signal_ca, noise_count=self.signal_time - 1)
         self.assertRaises(ValueError, snr_signal, signal_in=self.signal_ca, noise_count=-4)
 
     def test_results(self):
         # Make sure SNR results are correct
         snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak\
-            = snr_signal(self.signal_ca)
+            = snr_signal(self.signal_ca, noise_count=self.noise_count)
         self.assertIsInstance(snr, float)  # snr
         self.assertIsInstance(rms_bounds, tuple)  # signal_range
         self.assertIsInstance(peak_peak, float)  # Peak to Peak value aka amplitude
@@ -118,7 +120,7 @@ class TestSnrSignal(unittest.TestCase):
     def test_plot_single(self):
         # Make sure auto-detection of noise and peak regions is correct
         snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak\
-            = snr_signal(self.signal_ca)
+            = snr_signal(self.signal_ca, noise_count=self.noise_count)
 
         # Build a figure to plot SNR results
         fig_snr, ax_snr = plot_test()
@@ -168,7 +170,7 @@ class TestSnrSignal(unittest.TestCase):
         fig_stats, ax_sd_noise_bar = plot_stats_bars(labels)
         ax_sd_noise_bar.set_ylabel('Noise SD (Calculated)')
         ax_sd_noise_bar.set_xlabel('Calculation Trials')
-        ax_sd_noise_bar.set_ylim([0, 7])
+        ax_sd_noise_bar.set_ylim([3, 7])
         width = 1 / (len(results) + 1)
         for i in range(0, len(results)):
             x_tick = (1/len(results)) * i
@@ -184,7 +186,7 @@ class TestSnrSignal(unittest.TestCase):
         fig_stats_scatter, ax_sd_noise_scatter = plot_stats_scatter()
         ax_sd_noise_scatter.set_ylabel('Noise SD (Calculated)')
         ax_sd_noise_scatter.set_xlabel('Calculation Trials')
-        ax_sd_noise_scatter.set_ylim([0, 7])
+        ax_sd_noise_scatter.set_ylim([3, 7])
         for i in range(0, len(results)):
             ax_sd_noise_scatter.errorbar(trials[i], results[i]['sd_noise']['mean'],
                                          yerr=results[i]['sd_noise']['sd'], fmt="x",
