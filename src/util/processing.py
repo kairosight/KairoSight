@@ -41,6 +41,26 @@ def isolate_temporal(stack_in, i_start, i_end):
     pass
 
 
+def isolate_transient(signal, i_start, i_end):
+    """Isolate a single transient from a signal array of optical data.
+
+       Parameters
+       ----------
+       signal : ndarray
+            The array of data to be evaluated
+       i_start : int
+            Index or frame to start transient isolation
+       i_end : int
+            Index or frame to end transient isolation
+
+       Returns
+       -------
+       transient_out : ndarray
+            The isolated array of transient data
+       """
+    pass
+
+
 def filter_spatial(stack_in, filter_type):
     """Spatially filter a stack (3-D array, TYX) of grayscale optical data.
 
