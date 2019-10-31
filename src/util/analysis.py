@@ -13,8 +13,8 @@ def find_tran_peak(signal_in):
 
        Returns
        -------
-       i_peak : ndarray
-            The index within the time array corresponding to peak time
+       i_peak : int
+            The index of the signal array corresponding to it's peak
        """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -29,7 +29,12 @@ def find_tran_peak(signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
-    i_peak, _ = find_peaks(signal_in, prominence=(signal_range/2))
+    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
+
+    if len(i_peaks) > 1:
+        raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
+
+    i_peak = i_peaks[0].astype(int)
 
     return i_peak
 

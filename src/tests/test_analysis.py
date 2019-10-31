@@ -16,8 +16,8 @@ class TestPeak(unittest.TestCase):
                                           f_0=signal_F0, f_amp=signal_amp, noise=noise)
 
     def test_parameters(self):
-        signal_bad_type = np.full(100, True)
         # Make sure type errors are raised when necessary
+        signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
         self.assertRaises(TypeError, find_tran_peak, signal_in=True)
         self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
@@ -29,15 +29,18 @@ class TestPeak(unittest.TestCase):
         self.assertRaises(ValueError, find_tran_peak, signal_in=signal_bad_value)
 
     def test_results(self):
-        # Make sure results are correct
+        # Make sure result types are valid
         i_peak = find_tran_peak(self.signal_ca)
+        # i_peak : int
+        self.assertIsInstance(i_peak, np.int32)  # normalized signal
 
-        # i_peak : ndarray, dtyoe : int
-        self.assertIsInstance(i_peak, np.ndarray)  # normalized signal
+        # Make sure result values are valid
+        self.assertAlmostEqual(i_peak, self.signal_t0 + 10, delta=5)
 
 
 class TestAnalysisFF0(unittest.TestCase):
-    def test_something(self):
+    # TODO cleanup and finish
+    def test_parameters(self):
         self.assertEqual(True, True)
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, calc_FF0, signal=True, i_F0=(0, 10), invert=10)
