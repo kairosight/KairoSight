@@ -1,14 +1,13 @@
 import numpy as np
+from scipy.signal import find_peaks
 
 
-def find_tran_peak(time, signal_in):
+def find_tran_peak(signal_in):
     """Find the time of the peak of a transient,
     defined as the maximum value
 
        Parameters
        ----------
-       time : ndarray
-            The array of timestamps corresponding to the model_data
        signal_in : ndarray
             The array of data to be evaluated
 
@@ -17,6 +16,22 @@ def find_tran_peak(time, signal_in):
        i_peak : ndarray
             The index within the time array corresponding to peak time
        """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+
+    i_peak, _ = find_peaks(signal_in, prominence=(signal_range/2))
+
+    return i_peak
 
 
 def find_tran_start(time, signal_in):
