@@ -1,5 +1,5 @@
 import unittest
-from util.processing import snr_signal, calculate_error
+from util.processing import normalize_signal, snr_signal, calculate_error
 from util.datamodel import model_transients, circle_area
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,17 +54,73 @@ def plot_stats_scatter():
 
 def run_trials(self, trials_count):
     # Trial
+    trials_snr = np.empty(trials_count)
+    trials_peak_peak = np.empty(trials_count)
     trials_sd_noise = np.empty(trials_count)
-    results = {'sd_noise': {'mean': 0, 'sd': 0}}
+    results = {'snr': {'mean': 0, 'sd': 0},
+               'peak_peak': {'mean': 0, 'sd': 0},
+               'sd_noise': {'mean': 0, 'sd': 0}}
     for trial in range(0, trials_count):
         time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
                                               f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
         snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak\
             = snr_signal(signal_ca, noise_count=self.noise_count)
+        trials_snr[trial] = snr
+        trials_peak_peak[trial] = peak_peak
         trials_sd_noise[trial] = sd_noise
+    results['snr']['mean'] = np.mean(trials_snr)
+    results['snr']['sd'] = np.std(trials_snr)
+    results['peak_peak']['mean'] = np.mean(trials_peak_peak)
+    results['peak_peak']['sd'] = np.std(trials_peak_peak)
     results['sd_noise']['mean'] = np.mean(trials_sd_noise)
     results['sd_noise']['sd'] = np.std(trials_sd_noise)
     return results
+
+
+class TestNormalize(unittest.TestCase):
+    # Setup data to test with
+    signal_F0 = 1000
+    signal_amp = 100
+    signal_t0 = 20
+    signal_time = 500
+    noise = 5  # as a % of the signal amplitude
+    noise_count = 100
+    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+
+    def test_params(self):
+        signal_bad_type = np.full(100, True)
+        # Make sure type errors are raised when necessary
+        # signal_in : ndarray, dtyoe : int or float
+        self.assertRaises(TypeError, normalize_signal, signal_in=True)
+        self.assertRaises(TypeError, normalize_signal, signal_in=signal_bad_type)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # signal_in : >=0
+        signal_bad_value = np.full(100, 10)
+        signal_bad_value[20] = signal_bad_value[20] - 50
+        self.assertRaises(ValueError, normalize_signal, signal_in=signal_bad_value)
+
+    def test_results(self):
+        # Make sure results are correct
+        signal_norm = normalize_signal(self.signal_ca)
+
+        # signal_in : ndarray, dtyoe : int or float
+        self.assertIsInstance(signal_norm, np.ndarray)  # normalized signal
+
+    def test_plot_single(self):
+        # Make sure signal normalization is correct
+        signal_norm = normalize_signal(self.signal_ca)
+
+        # Build a figure to plot new signal
+        fig_norm, ax_norm = plot_test()
+        ax_norm.set_ylabel('Arbitrary Fluorescent Units')
+        ax_norm.set_xlabel('Time (ms)')
+
+        ax_norm.plot(self.time_ca, signal_norm, color=gray_light, linestyle='None', marker='+',
+                    label='Ca pixel data')
+
+        fig_norm.show()
 
 
 class TestSnrSignal(unittest.TestCase):
@@ -79,23 +135,28 @@ class TestSnrSignal(unittest.TestCase):
                                           f_0=signal_F0, f_amp=signal_amp, noise=noise)
 
     def test_params(self):
-        signal_badType = np.full(100, True)
+        signal_bad_type = np.full(100, True)
         # Make sure type errors are raised when necessary
         # signal_in : ndarray, dtyoe : int or float
         self.assertRaises(TypeError, snr_signal, signal_in=True)
-        self.assertRaises(TypeError, snr_signal, signal_in=signal_badType)
+        self.assertRaises(TypeError, snr_signal, signal_in=signal_bad_type)
         # i_noise : int, default is 10
         self.assertRaises(TypeError, snr_signal, signal_in=self.signal_ca, noise_count=True)
-        self.assertRaises(TypeError, snr_signal, signal_in=signal_badType, noise_count='500')
+        self.assertRaises(TypeError, snr_signal, signal_in=signal_bad_type, noise_count='500')
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # signal_in : >=0
-        signal_badValue = np.full(100, 10)
-        signal_badValue[20] = signal_badValue[20] + 20.5
-        self.assertRaises(ValueError, snr_signal, signal_in=signal_badValue)
+        signal_bad_value = np.full(100, 10)
+        signal_bad_value[20] = signal_bad_value[20] - 30
+        self.assertRaises(ValueError, snr_signal, signal_in=signal_bad_value)
         # i_noise : < t, > 0
         self.assertRaises(ValueError, snr_signal, signal_in=self.signal_ca, noise_count=self.signal_time - 1)
         self.assertRaises(ValueError, snr_signal, signal_in=self.signal_ca, noise_count=-4)
+
+        # Make sure difficult data is identified
+        signal_hard_value = np.full(100, 10)
+        signal_hard_value[20] = signal_hard_value[20] + 20.5
+        self.assertRaises(ArithmeticError, snr_signal, signal_in=signal_hard_value)
 
     def test_results(self):
         # Make sure SNR results are correct
@@ -111,11 +172,6 @@ class TestSnrSignal(unittest.TestCase):
         self.assertAlmostEqual(sd_noise, self.noise, delta=1)  # noise ratio, as a % of the signal amplitude
         self.assertIsInstance(ir_noise, np.ndarray)  # sd of peaks
         self.assertIsInstance(ir_peak, np.ndarray)  # sd of peaks
-
-        # self.assertIsInstance(data_noise, np.ndarray)  # noise values
-        # self.assertLess(data_noise.max(), data_peak.max())
-        # self.assertIsInstance(data_peak, np.ndarray)  # peak values
-        # self.assertGreaterEqual(data_peak.min(), 1090)
 
     def test_plot_single(self):
         # Make sure auto-detection of noise and peak regions is correct

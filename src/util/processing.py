@@ -126,9 +126,21 @@ def normalize_signal(signal_in):
        Returns
        -------
        signal_out : ndarray
-            A normalized signal array
+            A normalized signal array, dtype : float
        """
-    pass
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
+    xp = [signal_in.min(), signal_in.max()]
+    fp = [0, 1]
+    signal_out = np.interp(signal_in, xp, fp)
+    return signal_out
 
 
 def snr_signal(signal_in, noise_count=10):
@@ -187,6 +199,8 @@ def snr_signal(signal_in, noise_count=10):
     # Calculate noise values
     noise_height = signal_bounds[0] + signal_range/3    # assumes max noise/signal amps. of 1 / 3
     i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
+    if len(i_noise_peaks) == 0:
+        raise ArithmeticError('Difficulty detecting noise')
     i_noise_calc = np.linspace(start=i_noise_peaks.max() - noise_count, stop=i_noise_peaks.max(),
                                num=noise_count).astype(int)
     if any(i < 0 for i in i_noise_calc):
@@ -200,8 +214,9 @@ def snr_signal(signal_in, noise_count=10):
         raise ValueError('Signal peaks seem to be < noise')
 
     # Calculate peak values
-    i_peak_count = 1
+    i_peak_count = 2
     i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
+    # i_peaks = find_peaks_cwt(signal_in, np.arange(1,50))
     # use 2 values near the peak (peak and 1 after it)
     i_peaks_calc = np.linspace(start=i_peaks[0], stop=i_peaks[0] + 1, num=i_peak_count).astype(int)
     data_peak = signal_in[i_peaks_calc]
