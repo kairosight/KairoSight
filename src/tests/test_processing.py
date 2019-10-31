@@ -155,6 +155,7 @@ class TestSnrSignal(unittest.TestCase):
 
         # Make sure difficult data is identified
         signal_hard_value = np.full(100, 10)
+        # Noise section too flat for auto-detection
         signal_hard_value[20] = signal_hard_value[20] + 20.5
         self.assertRaises(ArithmeticError, snr_signal, signal_in=signal_hard_value)
 
@@ -172,6 +173,13 @@ class TestSnrSignal(unittest.TestCase):
         self.assertAlmostEqual(sd_noise, self.noise, delta=1)  # noise ratio, as a % of the signal amplitude
         self.assertIsInstance(ir_noise, np.ndarray)  # sd of peaks
         self.assertIsInstance(ir_peak, np.ndarray)  # sd of peaks
+
+        # Make sure a normalized signal (0.0 - 1.0) is handled properly
+        signal_norm = normalize_signal(self.signal_ca)
+        snr_norm, rms_bounds, peak_peak, sd_noise_norm, sd_peak, ir_noise, ir_peak =\
+            snr_signal(signal_norm, noise_count=self.noise_count)
+        self.assertAlmostEqual(snr_norm, snr, delta=1)  # snr
+        self.assertAlmostEqual(sd_noise_norm*self.signal_amp, sd_noise, delta=1)  # noise ratio, as a % of
 
     def test_plot_single(self):
         # Make sure auto-detection of noise and peak regions is correct
