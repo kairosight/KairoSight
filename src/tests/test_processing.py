@@ -116,7 +116,7 @@ class TestInvert(unittest.TestCase):
         self.assertAlmostEqual(signal_inv.max(), self.signal_F0, delta=self.noise*3)    #
 
     def test_plot_single(self):
-        # Make sure signal inversion is correct
+        # Make sure signal inversion looks correct
         signal_inv = invert_signal(self.signal_vm)
 
         # Build a figure to plot new signal
@@ -168,7 +168,7 @@ class TestNormalize(unittest.TestCase):
         self.assertIsInstance(signal_norm, np.ndarray)  # normalized signal
 
     def test_plot_single(self):
-        # Make sure signal normalization is correct
+        # Make sure signal normalization looks correct
         signal_norm = normalize_signal(self.signal_ca)
 
         # Build a figure to plot new signal
@@ -195,14 +195,14 @@ class TestSnrSignal(unittest.TestCase):
                                           f_0=signal_F0, f_amp=signal_amp, noise=noise)
 
     def test_params(self):
-        signal_bad_type = np.full(100, True)
         # Make sure type errors are raised when necessary
+        signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
         self.assertRaises(TypeError, calculate_snr, signal_in=True)
         self.assertRaises(TypeError, calculate_snr, signal_in=signal_bad_type)
-        # i_noise : int, default is 10
+        # noise_count : int, default is 10
         self.assertRaises(TypeError, calculate_snr, signal_in=self.signal_ca, noise_count=True)
-        self.assertRaises(TypeError, calculate_snr, signal_in=signal_bad_type, noise_count='500')
+        self.assertRaises(TypeError, calculate_snr, signal_in=self.signal_ca, noise_count='500')
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # signal_in : >=0
@@ -241,7 +241,7 @@ class TestSnrSignal(unittest.TestCase):
         self.assertAlmostEqual(sd_noise_norm*self.signal_amp, sd_noise, delta=1)  # noise ratio, as a % of
 
     def test_plot_single(self):
-        # Make sure auto-detection of noise and peak regions is correct
+        # Make sure auto-detection of noise and peak regions looks correct
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak\
             = calculate_snr(self.signal_ca, noise_count=self.noise_count)
 
@@ -322,33 +322,67 @@ class TestSnrSignal(unittest.TestCase):
         fig_stats_scatter.show()
 
 
-class TestEvaluateError(unittest.TestCase):
+class TestErrorSignal(unittest.TestCase):
+    # Setup data to test with
+    signal_F0 = 1000
+    signal_amp = 100
+    signal_t0 = 20
+    signal_time = 500
+    noise = 10  # as a % of the signal amplitude
+    noise_count = 100
+    time_ca, signal_ca_ideal = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+                                                f_0=signal_F0, f_amp=signal_amp)
+    time_ca_mod, signal_ca_mod = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+                                                  f_0=signal_F0, f_amp=signal_amp, noise=noise)
+
     def test_params(self):
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, calculate_error, ideal=True, modified=3+5j)
-        self.assertRaises(TypeError, calculate_error, ideal='radius', modified=True)
-        self.assertRaises(TypeError, calculate_error, ideal=3+5j, modified='radius')
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, calculate_error, ideal=-2, modified=-2)  # values should be positive
-        self.assertRaises(ValueError, calculate_error, ideal=1.3, modified=1.3)  # ideal and modified should be ints
+        signal_bad_type = np.full(100, True)
+        # ideal : ndarray, dtyoe : int or float
+        # modified : ndarray, dtyoe : int or float
+        self.assertRaises(TypeError, calculate_error, ideal=True, modified=self.signal_ca_mod)
+        self.assertRaises(TypeError, calculate_error, ideal=signal_bad_type, modified=self.signal_ca_mod)
+        self.assertRaises(TypeError, calculate_error, ideal=self.signal_ca_ideal, modified=True)
+        self.assertRaises(TypeError, calculate_error, ideal=self.signal_ca_ideal, modified=signal_bad_type)
 
     def test_results(self):
-        time_ca, ideal = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
-        time_ca, modified = model_transients(model_type='Ca', f_0=1000, f_amp=250, noise=5)
-        # Make sure files are opened and read correctly
-        self.assertIsInstance(calculate_error(ideal, modified)[0], np.ndarray)  # array of error
-        self.assertIsInstance(calculate_error(ideal, modified)[1], float)  # mean value of error array
-        self.assertIsInstance(calculate_error(ideal, modified)[2], float)  # sd of error array
+        # Make sure Error results are correct
+        error, error_mean, error_sd = calculate_error(self.signal_ca_ideal, self.signal_ca_mod)
+        self.assertIsInstance(error, np.ndarray)  # error
+        self.assertIsInstance(error_mean, float)  # error_mean
+        self.assertIsInstance(error_sd, float)  # error_sd
+        self.assertAlmostEqual(error.max(), self.noise / 3, delta=1)
 
-        # Test returned error array
-        self.assertGreaterEqual(calculate_error(ideal, modified)[0].all, 0)  # no negative values
-        self.assertEqual(calculate_error(ideal, modified)[1].size, calculate_error(ideal, modified)[2].size) # ideal and modified the same size
+    def test_plot(self):
+        # Make sure error calculation looks correct
+        error, error_mean, error_sd = calculate_error(self.signal_ca_ideal, self.signal_ca_mod)
+        # Build a figure to plot SNR results
+        fig_snr, ax_error_signal = plot_test()
+        ax_error_signal.set_ylabel('Arbitrary Fluorescent Units')
+        ax_error_signal.set_xlabel('Time (ms)')
 
-        # self.assertEqual(calculate_error(ideal, modified)[1].mean())  # mean of percent array found properly
-        # self.assertIsInstance(calculate_error(source=self.file_single1)[0], np.ndarray)
-        # self.assertIsInstance(calculate_error(source=self.file_single1)[1], float)
-        # self.assertIsInstance(calculate_error(source=self.file_single1)[2], float)
+        ax_error_signal.plot(self.time_ca, self.signal_ca_ideal, color=gray_light, linestyle='-',
+                             label='Ca, ideal')
+        ax_error_signal.plot(self.time_ca, self.signal_ca_mod, color=gray_med, linestyle='None', marker='+',
+                             label='Ca, {}% noise'.format(self.noise))
+        ax_error_signal.tick_params(axis='y', labelcolor=gray_med)
+
+        ax_error = ax_error_signal.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_error.set_ylabel('%')  # we already handled the x-label with ax1
+        ax_error.set_ylim([-10, 10])
+        # error_mapped = np.interp(error, [-100, 100],
+        #                          [self.signal_ca_mod.min(), self.signal_ca_mod.max()])
+        ax_error.plot(self.time_ca, error, color=gray_heavy, linestyle='-',
+                      label='% Error')
+        # ax_error.tick_params(axis='y', labelcolor=gray_heavy)
+
+        ax_error_signal.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_snr.show()
+    #     
+    # def test_stats(self):
+    #     # Calculate stats (means and variances) of results
+    #     # Error values
 
 
 if __name__ == '__main__':

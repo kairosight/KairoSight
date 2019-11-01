@@ -300,12 +300,25 @@ def calculate_error(ideal, modified):
         Returns
         -------
         error : ndarray
-             An array of percent error
+             An array of percent errors
         error_mean : float
              The mean value of the percent error array
         error_sd : float
              The standard deviation of the percent error array
         """
     # Check parameters
+    if type(ideal) is not np.ndarray:
+        raise TypeError('Ideal data type must be an "ndarray"')
+    if ideal.dtype not in [int, float]:
+        raise TypeError('Ideal values must either be "int" or "float"')
+    if type(modified) is not np.ndarray:
+        raise TypeError('Modified data type must be an "ndarray"')
+    if modified.dtype not in [int, float]:
+        raise TypeError('Modified values must either be "int" or "float"')
 
+    error = ((ideal - modified) / ideal) * 100
+    error_mean = error.mean()
+    error_sd = statistics.stdev(error)
+
+    return error, error_mean, error_sd
     pass
