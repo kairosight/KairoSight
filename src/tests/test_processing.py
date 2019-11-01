@@ -105,7 +105,7 @@ class TestNormalize(unittest.TestCase):
         # Make sure results are correct
         signal_norm = normalize_signal(self.signal_ca)
 
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_norm : ndarray, dtyoe : float
         self.assertIsInstance(signal_norm, np.ndarray)  # normalized signal
 
     def test_plot_single(self):
@@ -118,7 +118,7 @@ class TestNormalize(unittest.TestCase):
         ax_norm.set_xlabel('Time (ms)')
 
         ax_norm.plot(self.time_ca, signal_norm, color=gray_light, linestyle='None', marker='+',
-                    label='Ca pixel data')
+                    label='Ca, Normalized')
 
         fig_norm.show()
 
@@ -258,7 +258,7 @@ class TestSnrSignal(unittest.TestCase):
 
         ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.noise, color=gray_light,
                                                                         linestyle='--', label='Noise SD (actual)')
-        # ax_sd_noise_bar.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_sd_noise_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_stats_scatter.show()
 

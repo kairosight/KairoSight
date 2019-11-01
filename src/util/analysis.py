@@ -95,7 +95,7 @@ def calc_tran_activation(time, signal_in):
     pass
 
 
-def calc_FF0(signal_in, i_F0, invert=False):
+def calc_ff0(signal_in, invert=False):
     """Normalize a fluorescence signal against a resting fluorescence,
     i.e. F_t / F0
 
@@ -103,19 +103,13 @@ def calc_FF0(signal_in, i_F0, invert=False):
        ----------
        signal_in : ndarray
             The array of fluorescent data (F_t) to be normalized
-       i_F0 : tuple
-            The range of indexes for resting fluorescence data elements to be used in the calculation, e.g. (0, 10)
        invert : bool
             If True, expecting a resting fluorescence value greater than the signal, default is False
 
        Returns
        -------
-       signal_FF0 : ndarray
-            The array of normalized fluorescence data
-       data_min : int
-            The minimum value of the input signal
-       data_max : int
-            The maximum value of the input signal
+       signal_ff0 : ndarray
+            The array of F/F0 fluorescence data, dtype : float
 
         Notes
         -----
@@ -124,13 +118,11 @@ def calc_FF0(signal_in, i_F0, invert=False):
     # Check parameters
 
     # F / F0: (F_t - F0) / F0
-    F_t = signal_in
-    # Get max and min
-    data_min, data_max = np.nanmin(F_t), np.nanmax(F_t)
+    f_t = signal_in
     if invert:
-        F_0 = signal_in.max()
+        f_0 = signal_in.max()
     else:
-        F_0 = signal_in.min()
-    signal_FF0 = (F_t - F_0) / F_0
+        f_0 = signal_in.min()
+    signal_ff0 = (f_t - f_0) / f_0
 
-    return signal_FF0, data_min, data_max
+    return signal_ff0
