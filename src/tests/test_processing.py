@@ -1,5 +1,5 @@
 import unittest
-from util.processing import normalize_signal, snr_signal, calculate_error
+from util.processing import invert_signal, normalize_signal, snr_signal, calculate_error
 from util.datamodel import model_transients, circle_area
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,8 +15,6 @@ def plot_test():
     axis.spines['top'].set_visible(False)
     axis.tick_params(axis='x', which='minor', length=3, bottom=True)
     axis.tick_params(axis='x', which='major', length=8, bottom=True)
-    axis.xaxis.set_major_locator(plticker.MultipleLocator(25))
-    axis.xaxis.set_minor_locator(plticker.MultipleLocator(5))
     plt.rc('xtick', labelsize=fontsize2)
     plt.rc('ytick', labelsize=fontsize2)
     return fig, axis
@@ -77,6 +75,67 @@ def run_trials(self, trials_count):
     return results
 
 
+class TestInvert(unittest.TestCase):
+    # Setup data to test with
+    signal_F0 = 1000
+    signal_amp = 100
+    signal_t0 = 50
+    signal_time = 1000
+    signal_num = 5
+    noise = 2  # as a % of the signal amplitude
+    noise_count = 100
+    time_vm, signal_vm = model_transients(t0=signal_t0, t=signal_time,
+                                          f_0=signal_F0, f_amp=signal_amp,
+                                          noise=noise, num=signal_num)
+    # time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
+    #                                       f_0=signal_F0, f_amp=signal_amp,
+    #                                       noise=noise, num=signal_num)
+
+    def test_params(self):
+        signal_bad_type = np.full(100, True)
+        # Make sure type errors are raised when necessary
+        # signal_in : ndarray, dtyoe : int or float
+        self.assertRaises(TypeError, invert_signal, signal_in=True)
+        self.assertRaises(TypeError, invert_signal, signal_in=signal_bad_type)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # signal_in : >=0
+        signal_bad_value = np.full(100, 10)
+        signal_bad_value[20] = signal_bad_value[20] - 50
+        self.assertRaises(ValueError, invert_signal, signal_in=signal_bad_value)
+
+    def test_results(self):
+        # Make sure results are correct
+        signal_inv = invert_signal(self.signal_vm)
+
+        # signal_inv : ndarray
+        self.assertIsInstance(signal_inv, np.ndarray)  # inverted signal
+
+        # Make sure result values are valid
+        self.assertAlmostEqual(signal_inv.min(), self.signal_F0 - self.signal_amp, delta=self.noise*3)    #
+        self.assertAlmostEqual(signal_inv.max(), self.signal_F0, delta=self.noise*3)    #
+
+    def test_plot_single(self):
+        # Make sure signal inversion is correct
+        signal_inv = invert_signal(self.signal_vm)
+
+        # Build a figure to plot new signal
+        fig_inv, ax_inv = plot_test()
+        ax_inv.set_ylabel('Arbitrary Fluorescent Units')
+        ax_inv.set_xlabel('Time (ms)')
+
+        ax_inv.plot(self.time_vm, self.signal_vm, color=gray_light, linestyle='None', marker='+',
+                    label='Vm')
+        ax_inv.plot_vm_mean = ax_inv.axhline(y=self.signal_vm.mean(), color=gray_med, linestyle='-.')
+
+        ax_inv.plot(self.time_vm, signal_inv, color=gray_med, linestyle='None', marker='+',
+                    label='Vm, Inverted')
+        ax_inv.plot_vm_inv_mean = ax_inv.axhline(y=signal_inv.mean(), color=gray_med, linestyle='-.')
+
+        ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_inv.show()
+
+
 class TestNormalize(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
@@ -118,8 +177,9 @@ class TestNormalize(unittest.TestCase):
         ax_norm.set_xlabel('Time (ms)')
 
         ax_norm.plot(self.time_ca, signal_norm, color=gray_light, linestyle='None', marker='+',
-                    label='Ca, Normalized')
+                     label='Ca, Normalized')
 
+        ax_norm.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_norm.show()
 
 
@@ -166,7 +226,7 @@ class TestSnrSignal(unittest.TestCase):
         self.assertIsInstance(snr, float)  # snr
         self.assertIsInstance(rms_bounds, tuple)  # signal_range
         self.assertIsInstance(peak_peak, float)  # Peak to Peak value aka amplitude
-        self.assertAlmostEqual(peak_peak, self.signal_amp, delta=self.signal_amp/self.noise)
+        self.assertAlmostEqual(peak_peak, self.signal_amp, delta=self.noise*3)
 
         self.assertIsInstance(sd_noise, float)  # sd of noise
         self.assertIsInstance(sd_peak, float)  # sd of peaks
@@ -254,7 +314,7 @@ class TestSnrSignal(unittest.TestCase):
         for i in range(0, len(results)):
             ax_sd_noise_scatter.errorbar(trials[i], results[i]['sd_noise']['mean'],
                                          yerr=results[i]['sd_noise']['sd'], fmt="x",
-                                         label=labels[i], color=gray_heavy)
+                                         color=gray_heavy)
 
         ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.noise, color=gray_light,
                                                                         linestyle='--', label='Noise SD (actual)')

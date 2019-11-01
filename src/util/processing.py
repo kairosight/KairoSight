@@ -115,6 +115,39 @@ def drift_remove(signal_in, poly_order):
     pass
 
 
+def invert_signal(signal_in):
+    """Invert the values of a signal array.
+
+       Parameters
+       ----------
+       signal_in : ndarray
+            The array of data to be processed
+
+       Returns
+       -------
+       signal_inv : ndarray
+            The inverted signal array
+       """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
+    # calculate axis to rotate data around (middle value int or float)
+    axis = signal_in.min() + ((signal_in.max() - signal_in.min()) / 2)
+    if signal_in.dtype in [np.int32]:
+        axis = np.floor(axis).astype(int)
+
+    # rotate the data around it's central value
+    signal_inv = axis + (axis - signal_in)
+
+    return signal_inv
+
+
 def normalize_signal(signal_in):
     """Normalize the values of a signal array to range from 0 to 1.
 
@@ -125,8 +158,8 @@ def normalize_signal(signal_in):
 
        Returns
        -------
-       signal_out : ndarray
-            A normalized signal array, dtype : float
+       signal_norm : ndarray
+            The normalized signal array, dtype : float
        """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -140,6 +173,7 @@ def normalize_signal(signal_in):
     xp = [signal_in.min(), signal_in.max()]
     fp = [0, 1]
     signal_out = np.interp(signal_in, xp, fp)
+
     return signal_out
 
 

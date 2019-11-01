@@ -246,6 +246,8 @@ def calc_ff0(signal_in, invert=False):
             Should not be applied to normalized or drift-removed data.
         """
     # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
 
     # F / F0: (F_t - F0) / F0
     f_t = signal_in
