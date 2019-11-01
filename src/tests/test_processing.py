@@ -2,6 +2,7 @@ import unittest
 from util.processing import invert_signal, normalize_signal, calculate_snr, calculate_error
 from util.datamodel import model_transients, circle_area
 import numpy as np
+import statistics
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
@@ -43,8 +44,6 @@ def plot_stats_scatter():
     axis = fig.add_subplot(111)
     axis.spines['right'].set_visible(False)
     axis.spines['top'].set_visible(False)
-    axis.xaxis.set_major_locator(plticker.MultipleLocator(25))
-    axis.xaxis.set_minor_locator(plticker.MultipleLocator(5))
     plt.rc('xtick', labelsize=fontsize2)
     plt.rc('ytick', labelsize=fontsize2)
     return fig, axis
@@ -67,11 +66,11 @@ def run_trials(self, trials_count):
         trials_peak_peak[trial] = peak_peak
         trials_sd_noise[trial] = sd_noise
     results['snr']['mean'] = np.mean(trials_snr)
-    results['snr']['sd'] = np.std(trials_snr)
+    results['snr']['sd'] = statistics.stdev(trials_snr)
     results['peak_peak']['mean'] = np.mean(trials_peak_peak)
-    results['peak_peak']['sd'] = np.std(trials_peak_peak)
+    results['peak_peak']['sd'] = statistics.stdev(trials_peak_peak)
     results['sd_noise']['mean'] = np.mean(trials_sd_noise)
-    results['sd_noise']['sd'] = np.std(trials_sd_noise)
+    results['sd_noise']['sd'] = statistics.stdev(trials_sd_noise)
     return results
 
 
@@ -282,7 +281,7 @@ class TestSnrSignal(unittest.TestCase):
         # print('test_stats : sd_noise')
         # print('     Mean : {}'.format(trials1_sd_noise_mean))
         # print('     SD   : {}'.format(trials1_sd_noise_sd))
-        trials = [1, 5, 10, 25, 30, 50, 100, 150, 200]
+        trials = [5, 10, 25, 30, 50, 100, 150, 200]
         results = []
         for trial_count in trials:
             result = run_trials(self, trial_count)
@@ -313,7 +312,7 @@ class TestSnrSignal(unittest.TestCase):
         for i in range(0, len(results)):
             ax_sd_noise_scatter.errorbar(trials[i], results[i]['sd_noise']['mean'],
                                          yerr=results[i]['sd_noise']['sd'], fmt="x",
-                                         color=gray_heavy)
+                                         color=gray_heavy, lw=1, capsize=4, capthick=1.0)
 
         ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.noise, color=gray_light,
                                                                         linestyle='--', label='Noise SD (actual)')
@@ -351,7 +350,10 @@ class TestErrorSignal(unittest.TestCase):
         self.assertIsInstance(error, np.ndarray)  # error
         self.assertIsInstance(error_mean, float)  # error_mean
         self.assertIsInstance(error_sd, float)  # error_sd
+
         self.assertAlmostEqual(error.max(), self.noise / 3, delta=1)
+        self.assertAlmostEqual(error_mean, 0, delta=0.1)
+        self.assertAlmostEqual(error_sd, self.noise / 10, delta=1)  # error_sd
 
     def test_plot(self):
         # Make sure error calculation looks correct
@@ -379,10 +381,37 @@ class TestErrorSignal(unittest.TestCase):
         ax_error_signal.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_snr.show()
-    #     
-    # def test_stats(self):
-    #     # Calculate stats (means and variances) of results
-    #     # Error values
+
+    def test_stats(self):
+        # Calculate stats (means and variances) of results
+        # Error values at different noise values
+        noises = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        results = []
+        for noise in noises:
+            result = {'error': {'array': np.empty(10), 'mean': 0, 'sd': 0}}
+            time_ca_mod, signal_ca_mod = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
+                                                          f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                          noise=noise)
+            error, error_mean, error_sd = calculate_error(self.signal_ca_ideal, signal_ca_mod)
+            result['error']['array'] = error
+            result['error']['mean'] = error_mean
+            result['error']['sd'] = error_sd
+            results.append(result)
+
+        # Build a figure to plot stats comparison
+        fig_stats_scatter, ax_sd_noise_scatter = plot_stats_scatter()
+        ax_sd_noise_scatter.set_ylabel('% Error SD')
+        ax_sd_noise_scatter.set_xlabel('Noise SD of Signal')
+        ax_sd_noise_scatter.set_ylim([-10, 10])
+        for i in range(0, len(results)):
+            ax_sd_noise_scatter.errorbar(noises[i], results[i]['error']['mean'],
+                                         yerr=results[i]['error']['sd'], fmt="x",
+                                         color=gray_heavy, lw=1, capsize=4, capthick=1.0)
+
+        ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=0, color=gray_light, linestyle='--')
+        # ax_sd_noise_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_stats_scatter.show()
 
 
 if __name__ == '__main__':
