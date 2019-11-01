@@ -97,7 +97,7 @@ def filter_temporal(signal_in, filter_type):
     pass
 
 
-def drift_remove(signal_in, poly_order):
+def filter_drift(signal_in, poly_order):
     """Remove drift from an array of optical data using a polynomial fit.
 
        Parameters
@@ -177,9 +177,9 @@ def normalize_signal(signal_in):
     return signal_out
 
 
-def snr_signal(signal_in, noise_count=10):
+def calculate_snr(signal_in, noise_count=10):
     """Calculate the Signal-to-Noise ratio of a signal array,
-    defined as the ratio of the Peak-Peak amplitude to the population standard deviation of the noise.
+    defined as the ratio of the Peak-Peak amplitude to the sample standard deviation of the noise.
 
        Parameters
        ----------
@@ -200,12 +200,10 @@ def snr_signal(signal_in, noise_count=10):
             The ratio between the ranges of noise and peak value(s)
        sd_noise : float
             The standard deviation of the noise values
-       sd_peak : float
-            The standard deviation of the peak values
        ir_noise : ndarray
             The indexes of noise values used in the calculation
-       ir_peak : ndarray
-            The indexes of peak values used in the calculation
+       ir_peak : int
+            The index of peak values used in the calculation
 
         Notes
         -----
@@ -241,33 +239,33 @@ def snr_signal(signal_in, noise_count=10):
         raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
     data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]]
     noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
-    noise_sd_pop = statistics.pstdev(data_noise)
-    noise_bounds = (noise_rms - noise_sd_pop/2, noise_rms + noise_sd_pop/2)
+    noise_sd = statistics.stdev(data_noise)
+    noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
     noise_range = noise_bounds[1] - noise_bounds[0]
     if signal_in.mean() < noise_rms:
         raise ValueError('Signal peaks seem to be < noise')
 
-    # Calculate peak values
-    i_peak_count = 2
-    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
-    # i_peaks = find_peaks_cwt(signal_in, np.arange(1,50))
-    # use 2 values near the peak (peak and 1 after it)
-    i_peaks_calc = np.linspace(start=i_peaks[0], stop=i_peaks[0] + 1, num=i_peak_count).astype(int)
-    data_peak = signal_in[i_peaks_calc]
-    peak_sd_pop = statistics.pstdev(data_peak)
+    # Find indices of peak values, at least 10 samples apart
+    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
+    if len(i_peaks) == 0:
+        raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+    if len(i_peaks) > 1:
+        raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
+    i_peak_calc = i_peaks[0].astype(int)
+    data_peak = signal_in[i_peak_calc].astype(int)
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
+
     # Calculate Peak-Peak value
     peak_peak = abs(peak_rms - noise_rms)
 
     # Calculate SNR
-    snr = peak_peak / noise_sd_pop
+    snr = peak_peak / noise_sd
 
     rms_bounds = (noise_rms, peak_rms)
-    sd_noise = noise_sd_pop
-    sd_peak = peak_sd_pop
+    sd_noise = noise_sd
     ir_noise = i_noise_calc
-    ir_peak = i_peaks_calc
-    return snr, rms_bounds, peak_peak, sd_noise, sd_peak, ir_noise, ir_peak
+    ir_peak = i_peak_calc
+    return snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak
 
 
 def snr_map(stack_in):
