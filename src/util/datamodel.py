@@ -237,7 +237,7 @@ def model_stack(size=(100, 50), **kwargs):
         # Set every pixel value in that of the model transient
         model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame])
 
-    return model_time, model_data
+    return model_time, model_data.astype(int)
 
 
 def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
@@ -319,7 +319,7 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
         # Set every pixel's values to those of the offset model transient
         model_data[:, iy, ix] = pixel_data
 
-    return model_time, model_data
+    return model_time, model_data.astype(int)
 
 
 # Code for example tests

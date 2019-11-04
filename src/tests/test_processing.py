@@ -1,10 +1,13 @@
 import unittest
-from util.processing import invert_signal, normalize_signal, calculate_snr, calculate_error
-from util.datamodel import model_transients, circle_area
+from util.processing import invert_signal, normalize_signal, calculate_snr, map_snr, calculate_error
+from util.datamodel import model_transients, model_stack_propagation, circle_area
 import numpy as np
 import statistics
 import matplotlib.pyplot as plt
-import matplotlib.ticker as plticker
+import matplotlib.ticker as pltticker
+import matplotlib.colors as colors
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import util.ScientificColourMaps5 as SCMaps
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 
@@ -18,6 +21,26 @@ def plot_test():
     axis.tick_params(axis='x', which='major', length=8, bottom=True)
     plt.rc('xtick', labelsize=fontsize2)
     plt.rc('ytick', labelsize=fontsize2)
+    return fig, axis
+
+
+def plot_map(map):
+    fig = plt.figure(figsize=(8, 5))  # _ x _ inch page
+    axis = fig.add_subplot(111)
+    height, width, = map.shape[0], map.shape[1]  # X, Y flipped due to rotation
+    # x_crop, y_crop = [X_CROP[0], width - X_CROP[1]], [height - Y_CROP[0], Y_CROP[1]]
+    # axis.axis('off')
+    axis.spines['right'].set_visible(False)
+    axis.spines['left'].set_visible(False)
+    axis.spines['top'].set_visible(False)
+    axis.spines['bottom'].set_visible(False)
+    axis.set_yticks([])
+    axis.set_yticklabels([])
+    axis.set_xticks([])
+    axis.set_xticklabels([])
+    # axis.set_xlim(x_crop)
+    # axis.set_ylim(y_crop)
+
     return fig, axis
 
 
@@ -339,7 +362,6 @@ class TestSnrSignal(unittest.TestCase):
         results_error = []
         results_trials_snr = []
         for noise in noises:
-            # result_error = {'error': {'array': np.empty(10), 'mean': 0, 'sd': 0}}
             result = run_trials_snr(self, trial_count, noise)
             results_trials_snr.append(result)
 
@@ -376,6 +398,70 @@ class TestSnrSignal(unittest.TestCase):
         fig_error_scatter.show()
 
 
+class TestSnrMap(unittest.TestCase):
+    # Setup data to test with
+    signal_F0 = 1000
+    signal_amp = 100
+    signal_t0 = 20
+    signal_time = 500
+    noise = 5  # as a % of the signal amplitude
+    noise_count = 100
+    time_ca, stack_ca = model_stack_propagation(model_type='Ca', t0=signal_t0, t=signal_time,
+                                                f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    stack_ca_shape = stack_ca.shape
+    FRAMES = stack_ca_shape[0]
+    map_shape = (stack_ca_shape[1], stack_ca_shape[2])
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        # stack_in : ndarray, 3-D array
+        stack_bad_shape = np.empty(self.stack_ca_shape, dtype=np.uint16)
+        stack_bad_type = np.full(self.stack_ca_shape, True)
+        self.assertRaises(TypeError, map_snr, stack_in=True)
+        self.assertRaises(TypeError, map_snr, stack_in=stack_bad_shape)
+        self.assertRaises(TypeError, map_snr, stack_in=stack_bad_type)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # stack_in : >=0
+        stack_bad_value = np.full(self.stack_ca_shape, 10)
+        stack_bad_value[20] = stack_bad_value[20] - 30
+        self.assertRaises(ValueError, map_snr, stack_in=stack_bad_value)
+
+    def test_results(self):
+        # Make sure SNR Map results are correct
+        snr_map_ca = map_snr(self.stack_ca)
+        self.assertIsInstance(snr_map_ca, np.ndarray)  # snr map type
+        self.assertAlmostEqual(snr_map_ca.dtype, float)  # snr map dtype
+        self.assertEqual(snr_map_ca.shape, self.map_shape)  # snr map shape
+
+    def test_plot(self):
+        # Make sure SNR Map looks correct
+        snr_map_ca = map_snr(self.stack_ca)
+        cmap_snr = SCMaps.lajolla
+        actMapMax = 0
+        print('Activation Map max value:')
+        print(np.nanmax(snr_map_ca))
+        actMapMax = max(actMapMax, np.nanmax(snr_map_ca))
+        print('Activation Maps max value: ', actMapMax)
+        # Create normalization range for all activation maps (round up to nearest 10)
+        cmap_norm = colors.Normalize(vmin=0, vmax=round(actMapMax + 5.1, -1))
+        fig_snr_map, ax_snr_map = plot_map(snr_map_ca)
+        # Plot Activation Map
+        img_snr_ca = ax_snr_map.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
+        # Add colorbar (lower right of act. map)
+        ax_ins1 = inset_axes(ax_snr_map,
+                             width="5%", height="80%",  # % of parent_bbox width
+                             loc=5,
+                             bbox_to_anchor=(0, 0, 1, 1), bbox_transform=ax_snr_map.transAxes,
+                             borderpad=0)
+        cb1 = plt.colorbar(img_snr_ca, cax=ax_ins1, orientation="vertical")
+        cb1.set_label('SNR', fontsize=fontsize4)
+        cb1.ax.yaxis.set_major_locator(pltticker.LinearLocator(3))
+        cb1.ax.yaxis.set_minor_locator(pltticker.LinearLocator(5))
+        cb1.ax.tick_params(labelsize=fontsize4)
+        fig_snr_map.show()
+
+
 class TestErrorSignal(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
@@ -384,8 +470,8 @@ class TestErrorSignal(unittest.TestCase):
     signal_time = 500
     noise = 10  # as a % of the signal amplitude
     noise_count = 100
-    time_ca, signal_ca_ideal = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                                f_0=signal_F0, f_amp=signal_amp)
+    time_ca_ideal, signal_ca_ideal = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+                                                      f_0=signal_F0, f_amp=signal_amp)
     time_ca_mod, signal_ca_mod = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
                                                   f_0=signal_F0, f_amp=signal_amp, noise=noise)
 
@@ -420,9 +506,9 @@ class TestErrorSignal(unittest.TestCase):
         ax_error_signal.tick_params(axis='y', labelcolor=gray_med)
         ax_error_signal.set_xlabel('Time (ms)')
 
-        ax_error_signal.plot(self.time_ca, self.signal_ca_ideal, color=gray_light, linestyle='-',
+        ax_error_signal.plot(self.time_ca_ideal, self.signal_ca_ideal, color=gray_light, linestyle='-',
                              label='Ca, ideal')
-        ax_error_signal.plot(self.time_ca, self.signal_ca_mod, color=gray_med, linestyle='None', marker='+',
+        ax_error_signal.plot(self.time_ca_mod, self.signal_ca_mod, color=gray_med, linestyle='None', marker='+',
                              label='Ca, {}% noise'.format(self.noise))
 
         ax_error = ax_error_signal.twinx()  # instantiate a second axes that shares the same x-axis
@@ -430,7 +516,7 @@ class TestErrorSignal(unittest.TestCase):
         ax_error.set_ylim([-10, 10])
         # error_mapped = np.interp(error, [-100, 100],
         #                          [self.signal_ca_mod.min(), self.signal_ca_mod.max()])
-        ax_error.plot(self.time_ca, error, color=gray_heavy, linestyle='-',
+        ax_error.plot(self.time_ca_ideal, error, color=gray_heavy, linestyle='-',
                       label='% Error')
         # ax_error.tick_params(axis='y', labelcolor=gray_heavy)
 

@@ -242,8 +242,8 @@ def calculate_snr(signal_in, noise_count=10):
     noise_sd = statistics.stdev(data_noise)
     noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
     noise_range = noise_bounds[1] - noise_bounds[0]
-    if signal_in.mean() < noise_rms:
-        raise ValueError('Signal peaks seem to be < noise')
+    if signal_in.mean() < noise_bounds[0]:
+        raise ValueError('Signal mean (therefore peaks) seems to be < noise rms')
 
     # Find indices of peak values, at least 10 samples apart
     i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
@@ -268,22 +268,43 @@ def calculate_snr(signal_in, noise_count=10):
     return snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak
 
 
-def snr_map(stack_in):
-    """Generate a map of Signal-to-Noise ratios for signal arrays within a stack,
+def map_snr(stack_in, noise_count=10):
+    """Generate a map_out of Signal-to-Noise ratios for signal arrays within a stack,
     defined as the ratio of the Peak-Peak amplitude to the population standard deviation of the noise.
 
         Parameters
         ----------
         stack_in : ndarray
             A 3-D array (T, Y, X) of optical data
+        noise_count : int
+             The number of noise values to be used in the calculation, default is 10
 
         Returns
         -------
         map : ndarray
-             A 2-D array of Signal-to-Noise ratios
+             A 2-D array of Signal-to-Noise ratios, dtype : float
         """
     # Check parameters
-    pass
+    if type(stack_in) is not np.ndarray:
+        raise TypeError('Stack data type must be an "ndarray"')
+    if len(stack_in.shape) is not 3:
+        raise TypeError('Stack (stack_in) must be 3-D (T, X, Y)')
+    if stack_in.dtype not in [int, float]:
+        raise TypeError('Stack values must either be "int" or "float"')
+
+    if stack_in.min() < 0:
+        raise ValueError('All signal values must be >= 0')
+
+    map_shape = stack_in.shape[1:]
+    map_out = np.empty(map_shape)
+    # Assign an SNR to each pixel
+    for iy, ix in np.ndindex(map_shape):
+        pixel_data = stack_in[:, iy, ix]
+        pixel_snr, *rest = calculate_snr(pixel_data, noise_count)
+        # Set every pixel's values to those of the offset model transient
+        map_out[iy, ix] = pixel_snr
+
+    return map_out
 
 
 def calculate_error(ideal, modified):
