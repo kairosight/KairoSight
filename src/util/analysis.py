@@ -16,7 +16,14 @@ def find_tran_start(signal_in):
         i_start : int
             The index of the signal array corresponding to the start of the transient
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
 
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
 
 def find_tran_upstroke(signal_in):
     """Find the time of the upstroke of a transient,
@@ -32,6 +39,15 @@ def find_tran_upstroke(signal_in):
         i_upstroke : int
             The index of the signal array corresponding to the upstroke of the transient
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
     pass
 
 
@@ -49,6 +65,16 @@ def calc_tran_activation(signal_in):
         i_activation : int
             The index of the signal array corresponding to the activation of the transient
         """
+
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
     pass
 
 
@@ -256,7 +282,6 @@ def calc_ff0(signal_in, invert=False):
     signal_ff0 = (f_t - f_0) / f_0
 
     return signal_ff0
-
 
 def calc_phase(signal_in):
     """Convert a signal from its fluorescent value to its phase,

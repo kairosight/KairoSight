@@ -1,5 +1,6 @@
 import unittest
-from util.analysis import find_tran_peak, calc_ff0
+from util.analysis import find_tran_peak, calc_ff0, find_tran_start, find_tran_upstroke, calc_tran_activation, \
+    find_tran_downstroke, find_tran_end, find_tran_restoration
 from util.datamodel import model_transients
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,14 +36,52 @@ class TestPeak(unittest.TestCase):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
+        self.assertRaises(TypeError, find_tran_start, signal_in=True)
+        self.assertRaises(TypeError, find_tran_start, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, find_tran_start, signal_in='word')
+        self.assertRaises(TypeError, find_tran_start, signal_in=3j + 7)
+
+        self.assertRaises(TypeError, find_tran_upstroke, signal_in=True)
+        self.assertRaises(TypeError, find_tran_upstroke, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, find_tran_upstroke, signal_in='word')
+        self.assertRaises(TypeError, find_tran_upstroke, signal_in=3j + 7)
+
+        self.assertRaises(TypeError, calc_tran_activation, signal_in=True)
+        self.assertRaises(TypeError, calc_tran_activation, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, calc_tran_activation, signal_in='word')
+        self.assertRaises(TypeError, calc_tran_activation, signal_in=3j + 7)
+
         self.assertRaises(TypeError, find_tran_peak, signal_in=True)
         self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, find_tran_peak, signal_in='word')
+        self.assertRaises(TypeError, find_tran_peak, signal_in=3j+7)
+
+        self.assertRaises(TypeError, find_tran_downstroke, signal_in=True)
+        self.assertRaises(TypeError, find_tran_downstroke, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, find_tran_downstroke, signal_in='word')
+        self.assertRaises(TypeError, find_tran_downstroke, signal_in=3j + 7)
+
+        self.assertRaises(TypeError, find_tran_end, signal_in=True)
+        self.assertRaises(TypeError, find_tran_end, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, find_tran_end, signal_in='word')
+        self.assertRaises(TypeError, find_tran_end, signal_in=3j + 7)
+
+        self.assertRaises(TypeError, find_tran_restoration, signal_in=True)
+        self.assertRaises(TypeError, find_tran_restoration, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, find_tran_restoration, signal_in='word')
+        self.assertRaises(TypeError, find_tran_restoration, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # signal_in : >=0
         signal_bad_value = np.full(100, 10)
         signal_bad_value[20] = signal_bad_value[20] - 50
+        self.assertRaises(ValueError, find_tran_start, signal_in=signal_bad_value)
+        self.assertRaises(ValueError, find_tran_upstroke, signal_in=signal_bad_value)
         self.assertRaises(ValueError, find_tran_peak, signal_in=signal_bad_value)
+        self.assertRaises(ValueError, calc_tran_activation, signal_in=signal_bad_value)
+        self.assertRaises(ValueError, find_tran_downstroke, signal_in=signal_bad_value)
+        self.assertRaises(ValueError, find_tran_end, signal_in=signal_bad_value)
+        self.assertRaises(ValueError, find_tran_restoration, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
@@ -50,9 +89,38 @@ class TestPeak(unittest.TestCase):
         # i_peak : int
         self.assertIsInstance(i_peak, np.int32)  # index of peak
 
-        # Make sure result values are valid
-        self.assertAlmostEqual(i_peak, self.signal_t0 + 10, delta=5)    # time to peak of an OAP/OCT
+        # i_start : int
+        i_start = find_tran_start(self.signal_ca)
+        self.assertIsInstance(i_start, np.int32)  # index of start
 
+        # i_upstroke : int
+        i_upstroke = find_tran_upstroke(self.signal_ca)
+        self.assertIsInstance(i_upstroke, np.int32)
+
+        #  i_activation : int
+        i_activation = calc_tran_activation(self.signal_ca)
+        self.assertIsInstance(i_activation, np.int32)
+
+        #  i_downstroke : int
+        i_downstroke = find_tran_downstroke(self.signal_ca)
+        self.assertIsInstance(i_downstroke, np.int32)
+
+        #  i_end : int
+        i_end = find_tran_end(self.signal_ca)
+        self.assertIsInstance(i_end, np.int32)
+
+        #  i_restoration : int
+        i_restoration = find_tran_restoration(self.signal_ca)
+        self.assertIsInstance(i_restoration, np.int32)
+
+        #  Make sure result values are valid
+        self.assertAlmostEqual(i_peak, self.signal_t0 + 10, delta=5)    # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_start, self.signal_t0 + 10, delta=5)    # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_upstroke, self.signal_t0 + 10, delta=5)    # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_activation, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_downstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_end, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_restoration, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT  
 
 class TestAnalysisFF0(unittest.TestCase):
     # Setup data to test with
@@ -75,6 +143,15 @@ class TestAnalysisFF0(unittest.TestCase):
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int
         self.assertRaises(TypeError, calc_ff0, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, calc_ff0, signal_in=True)
+        self.assertRaises(TypeError, calc_ff0, signal_in='word')
+        self.assertRaises(TypeError, calc_ff0, signal_in=3j + 7)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # signal_in : >=0
+        signal_bad_value = np.full(100, 10)
+        signal_bad_value[20] = signal_bad_value[20] - 50
+        self.assertRaises(ValueError, calc_ff0, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
