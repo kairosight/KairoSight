@@ -316,7 +316,7 @@ def calculate_error(ideal, modified):
     if modified.dtype not in [int, float]:
         raise TypeError('Modified values must either be "int" or "float"')
 
-    error = ((ideal - modified) / ideal) * 100
+    error = ((ideal.astype(float) - modified.astype(float)) / ideal.astype(float)) * 100
     error_mean = error.mean()
     error_sd = statistics.stdev(error)
 
