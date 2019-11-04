@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_vm, color_ca = ['#FFD0D0', '#D0FFD0']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
 def plot_test():
@@ -141,8 +141,8 @@ class TestPeak(unittest.TestCase):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
-
         self.assertRaises(TypeError, find_tran_peak, signal_in=True)
+        self.assertRaises(TypeError, find_tran_peak, signal_in=5)
         self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
         self.assertRaises(TypeError, find_tran_peak, signal_in='word')
         self.assertRaises(TypeError, find_tran_peak, signal_in=3j+7)
@@ -404,6 +404,7 @@ class TestAnalysisFF0(unittest.TestCase):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int
+        self.assertRaises(TypeError, calc_ff0, signal_in=5)
         self.assertRaises(TypeError, calc_ff0, signal_in=signal_bad_type)
         self.assertRaises(TypeError, calc_ff0, signal_in=True)
         self.assertRaises(TypeError, calc_ff0, signal_in='word')
@@ -420,8 +421,8 @@ class TestAnalysisFF0(unittest.TestCase):
         signal_vm_ff0 = calc_ff0(self.signal_vm, invert=True)
         signal_ca_ff0 = calc_ff0(self.signal_ca)
         # signal_FF0 : ndarray, dtyoe : float
-        self.assertIsInstance(signal_ca_ff0, np.ndarray)  # index of peak
-        self.assertIsInstance(signal_ca_ff0[0], float)  # index of peak
+        self.assertIsInstance(signal_ca_ff0, np.ndarray)  # The array of F/F0 fluorescence data
+        self.assertIsInstance(signal_ca_ff0[0], float)  # dtyoe : float
 
         # Make sure result values are valid
         self.assertAlmostEqual(signal_ca_ff0.min(), signal_vm_ff0.max(), delta=0.01)    # Vm is a downward deflection
@@ -438,9 +439,8 @@ class TestAnalysisFF0(unittest.TestCase):
 
         ax_ff0.plot(self.time_vm, signal_vm_ff0, color=color_vm, linestyle='None', marker='+', label='Vm, F/F0')
         ax_ff0.plot(self.time_ca, signal_ca_ff0, color=color_ca, linestyle='None', marker='+', label='Ca, F/F0')
+
         ax_ff0.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-
-
         fig_ff0.show()
 
 
