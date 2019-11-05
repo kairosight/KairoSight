@@ -236,13 +236,9 @@ def calc_tran_tau(signal_in):
         raise TypeError('Signal data type must be an "ndarray"')
     if signal_in.dtype not in [int, float]:
         raise TypeError('Signal values must either be "int" or "float"')
-    if type(tau) is not float:
-        raise TypeError('Tau data type must be an "Float"')
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
-    if any(x < 30 or x > 90 for x in tau):
-        raise ValueError('All tau values must be between 30 and 90%')
 
 def calc_tran_di(signal_in):
     """Calculate the diastolic interval (DI) of a transient,

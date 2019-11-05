@@ -461,7 +461,7 @@ class TestPhase(unittest.TestCase):
                                           f_0=signal_F0, f_amp=signal_amp,
                                           noise=noise, num=signal_num)
 
-def test_parameters(self):
+    def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
