@@ -208,6 +208,7 @@ def calculate_snr(signal_in, noise_count=10):
         Notes
         -----
             Must be applied to signals with upward deflections (Peak > noise).
+            Assumes noise SD > 1, otherwise set to 0.5
             Assumes max noise value < (peak / 5)
             Auto-detects noise section as the last noise_count values before the final noisy peak.
         """
@@ -228,26 +229,28 @@ def calculate_snr(signal_in, noise_count=10):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
-    # Calculate noise values
+    # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
     noise_height = signal_bounds[0] + signal_range/3    # assumes max noise/signal amps. of 1 / 3
     i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
     if len(i_noise_peaks) == 0:
-        raise ArithmeticError('Difficulty detecting noise')
-    i_noise_calc = np.linspace(start=i_noise_peaks.max() - noise_count, stop=i_noise_peaks.max(),
+        i_noise_peaks = [len(signal_in)-1]
+    i_noise_calc = np.linspace(start=i_noise_peaks[-1] - noise_count, stop=i_noise_peaks[-1],
                                num=noise_count).astype(int)
     if any(i < 0 for i in i_noise_calc):
         raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
     data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]]
     noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
     noise_sd = statistics.stdev(data_noise)
+    if noise_sd == 0:
+        noise_sd = 0.5  # Noise data too flat to detect SD
     noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
     noise_range = noise_bounds[1] - noise_bounds[0]
-    if signal_in.mean() < noise_bounds[0]:
-        raise ValueError('Signal mean (therefore peaks) seems to be < noise rms')
+    if signal_bounds[1] < noise_rms:
+        raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
-    # Find indices of peak values, at least len(signal_in)/2 samples apart
+    # Find indices of peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
     # i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
-    i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/3, distance=len(signal_in)/2)
+    i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2, distance=len(signal_in)/2)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 1:
@@ -301,9 +304,9 @@ def map_snr(stack_in, noise_count=10):
     # Assign an SNR to each pixel
     for iy, ix in np.ndindex(map_shape):
         pixel_data = stack_in[:, iy, ix]
-        pixel_snr, *rest = calculate_snr(pixel_data, noise_count)
+        snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the SNR of the signal at that pixel
-        map_out[iy, ix] = pixel_snr
+        map_out[iy, ix] = snr
 
     return map_out
 

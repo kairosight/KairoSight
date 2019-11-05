@@ -250,7 +250,7 @@ def model_stack(size=(100, 50), **kwargs):
 
 
 # TODO add SNR, duration, Tau variation along propagation, to validate mapping
-def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
+def model_stack_propagation(size=(100, 50), cv=10, d_noise=0, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
     murine action potential (OAP) or a propagating murine calcium transient (OCT).
 
@@ -260,6 +260,8 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
             The height and width (px) of the optical data. default is (100, 50)
        cv : int
             Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 10
+       d_noise : int
+            Degree of Noise SD to vary along propagation, default is 0
 
        Other Parameters
        ----------------
@@ -277,6 +279,7 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
     MIN_CV = 5   # Minimum cv (cm/s)
+    DIV_NOISE = 5   # Divisions of noise variation within the frame (each is Height / DIV_NOISE)
     # Check parameters
     if type(size) not in [tuple]:
         raise TypeError('Image size must be a tuple, e.g. (20, 20)')
@@ -284,6 +287,27 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
         raise ValueError('The size (H, W) must be larger than {}'.format(MIN_SIZE))
     if cv < MIN_CV:
         raise ValueError('The Conduction Velocity must be larger than {}'.format(MIN_CV))
+
+    # Calculations for propagation timing
+    # Dimensions of model data (px)
+    HEIGHT, WIDTH = size
+    # Allocate space for the Activation Map
+    act_map = np.zeros(shape=(HEIGHT, WIDTH))
+    # Spatial resolution (cm/px)
+    resolution = 0.005  # 1 cm / 200 px
+    # resolution = 0.0149  # pig video resolution
+    # resolution = 0.01
+
+    # Convert conduction velocity from cm/s to px/s
+    conduction_v_px = cv / resolution
+    MIN_t = floor(MIN_CV / resolution)
+    if ('t' in kwargs) and (kwargs.get('t') < MIN_t):
+        raise ValueError('The total stack time must be larger than {}'.format(MIN_t))
+    t_propagation = floor(conduction_v_px)
+    kwargs['t'] = t_propagation
+    # If SNR varies, setup noise delta
+    if d_noise:
+        noise_delta = 0
 
     # Create a model transient array
     pixel_time, pixel_data = model_transients(**kwargs)
@@ -293,21 +317,6 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
     model_time = pixel_time
     model_size = (FRAMES, size[0], size[1])
     model_data = np.empty(model_size, dtype=np.uint16)      # data array, default value is f_0
-
-    # Calculations for propagation timing
-    # Dimensions of model data (px)
-    HEIGHT, WIDTH = size
-    # Allocate space for the Activation Map
-    act_map = np.zeros(shape=(HEIGHT, WIDTH))
-    # Spatial resolution (cm/px)
-    resolution = 0.005  # 4 cm / 200 px
-    # resolution = 0.0149  # pig video resolution
-
-    # Convert conduction velocity from cm/s to px/s
-    conduction_v_px = cv / resolution
-    # # Convert dimensions to cm
-    # HEIGHT = HEIGHT * resolution
-    # WIDTH = WIDTH * resolution
 
     # Generate an isotropic activation map, radiating from the center
     origin_x, origin_y = WIDTH / 2, HEIGHT / 2
@@ -319,11 +328,20 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
         act_time = d / conduction_v_px
         # Convert time from s to ms
         act_time = act_time * 1000
-        prop_offset = floor(act_time)
-        kwargs_new = kwargs.copy()
+        prop_delta = floor(act_time)
         if 't0' in kwargs:
-            prop_offset = prop_offset + kwargs.get('t0')
-        kwargs_new['t0'] = prop_offset
+            prop_delta = prop_delta + kwargs.get('t0')
+        if 'noise' in kwargs:
+            noise_offset = kwargs.get('noise')
+        kwargs_new = kwargs.copy()
+        if d_noise:
+            if iy % (HEIGHT / DIV_NOISE) == 0:  # at the border of a new division
+                noise_delta = (d_noise * iy / HEIGHT)
+            noise_offset = noise_offset + noise_delta   # add to the noise sd
+            kwargs_new['noise'] = noise_offset
+        kwargs_new['t0'] = prop_delta
+        kwargs_new['t'] = t_propagation
+
         # Create a model transient array for each pixel
         pixel_time, pixel_data = model_transients(**kwargs_new)
         # Set every pixel's values to those of the offset model transient

@@ -24,10 +24,10 @@ def plot_test():
     return fig, axis
 
 
-def plot_map(map):
+def plot_map(map_in):
     fig = plt.figure(figsize=(8, 5))  # _ x _ inch page
     axis = fig.add_subplot(111)
-    height, width, = map.shape[0], map.shape[1]  # X, Y flipped due to rotation
+    height, width, = map_in.shape[0], map_in.shape[1]  # X, Y flipped due to rotation
     # x_crop, y_crop = [X_CROP[0], width - X_CROP[1]], [height - Y_CROP[0], Y_CROP[1]]
     # axis.axis('off')
     axis.spines['right'].set_visible(False)
@@ -72,7 +72,7 @@ def plot_stats_scatter():
     return fig, axis
 
 
-def run_trials_snr(self, trials_count, noise=False):
+def run_trials_snr(self, trials_count, noise=0):
     # SNR Trials
     trials_snr = np.empty(trials_count)
     trials_peak_peak = np.empty(trials_count)
@@ -81,13 +81,8 @@ def run_trials_snr(self, trials_count, noise=False):
                'peak_peak': {'array': trials_peak_peak, 'mean': 0, 'sd': 0},
                'sd_noise': {'array': trials_sd_noise, 'mean': 0, 'sd': 0}}
     for trial in range(0, trials_count):
-        if type(noise) is not int:
-            time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
-                                              f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
-        else:
-            time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
+        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
                                               f_0=self.signal_F0, f_amp=self.signal_amp, noise=noise)
-
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak\
             = calculate_snr(signal_ca, noise_count=self.noise_count)
 
@@ -246,8 +241,8 @@ class TestSnrSignal(unittest.TestCase):
 
         # Make sure difficult data is identified
         signal_hard_value = np.full(100, 10)
-        # Noise section too flat for auto-detection
-        signal_hard_value[20] = signal_hard_value[20] + 20.5
+        # Peak section too flat for auto-detection
+        # signal_hard_value[20] = signal_hard_value[20] + 20.2
         self.assertRaises(ArithmeticError, calculate_snr, signal_in=signal_hard_value)
 
     def test_results(self):
@@ -317,7 +312,7 @@ class TestSnrSignal(unittest.TestCase):
         trials = [5, 10, 25, 30, 50, 100, 150, 200]
         results = []
         for trial_count in trials:
-            result = run_trials_snr(self, trial_count)
+            result = run_trials_snr(self, trial_count, self.noise)
             results.append(result)
 
         # Build a figure to plot stats comparison
@@ -359,7 +354,6 @@ class TestSnrSignal(unittest.TestCase):
         # Error values at different noise values
         noises = range(2, 10)
         trial_count = 20
-        results_error = []
         results_trials_snr = []
         for noise in noises:
             result = run_trials_snr(self, trial_count, noise)
@@ -399,15 +393,12 @@ class TestSnrSignal(unittest.TestCase):
 
 
 class TestSnrMap(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
+    # Setup data to test with, a propagating stack of varying SNR
+    f_amp = 200
+    noise = 5
+    d_noise = 5     # as a % of the signal amplitude
     noise_count = 100
-    time_ca, stack_ca = model_stack_propagation(model_type='Ca', t0=signal_t0, t=signal_time,
-                                                f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_amp=f_amp, noise=noise)
     stack_ca_shape = stack_ca.shape
     FRAMES = stack_ca_shape[0]
     map_shape = (stack_ca_shape[1], stack_ca_shape[2])
@@ -431,31 +422,36 @@ class TestSnrMap(unittest.TestCase):
         # Make sure SNR Map results are correct
         snr_map_ca = map_snr(self.stack_ca)
         self.assertIsInstance(snr_map_ca, np.ndarray)  # snr map type
-        self.assertAlmostEqual(snr_map_ca.dtype, float)  # snr map dtype
         self.assertEqual(snr_map_ca.shape, self.map_shape)  # snr map shape
 
     def test_plot(self):
         # Make sure SNR Map looks correct
         snr_map_ca = map_snr(self.stack_ca)
-        actMapMax = np.nanmax(snr_map_ca)
-        print('Activation Maps max value: ', actMapMax)
-        # Create normalization range for all activation maps (round up to nearest 10)
-        cmap_snr = SCMaps.lajolla
-        cmap_norm = colors.Normalize(vmin=0, vmax=round(actMapMax + 5.1, -1))
-        fig_snr_map, ax_snr_map = plot_map(snr_map_ca)
+        snr_map_max = np.nanmax(snr_map_ca)
+        snr_map_min = np.nanmin(snr_map_ca)
+        print('Activation Maps max value: ', snr_map_max)
+
         # Plot Activation Map
+        fig_snr_map, ax_snr_map = plot_map(snr_map_ca)
+        ax_snr_map.set_title('SNR')
+        # Create normalization range for map (round down and up to nearest 10)
+        cmap_snr = SCMaps.davos.reversed()
+        # cmap_norm = colors.Normalize(vmin=snr_map_min, vmax=snr_map_max)
+        cmap_norm = colors.Normalize(vmin=(round(snr_map_min, 1)), vmax=round(snr_map_max + 5.1, -1))
         img_snr_ca = ax_snr_map.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
+        ax_snr_map.set_ylabel('0.5 cm', fontsize=fontsize3)
+        ax_snr_map.set_xlabel('0.25 mm', fontsize=fontsize3)
         # Add colorbar (lower right of act. map)
         ax_ins1 = inset_axes(ax_snr_map,
                              width="5%", height="80%",  # % of parent_bbox width
                              loc=5,
-                             bbox_to_anchor=(0, 0, 1, 1), bbox_transform=ax_snr_map.transAxes,
+                             bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_snr_map.transAxes,
                              borderpad=0)
         cb1 = plt.colorbar(img_snr_ca, cax=ax_ins1, orientation="vertical")
-        cb1.set_label('SNR', fontsize=fontsize4)
-        cb1.ax.yaxis.set_major_locator(pltticker.LinearLocator(3))
-        cb1.ax.yaxis.set_minor_locator(pltticker.LinearLocator(5))
-        cb1.ax.tick_params(labelsize=fontsize4)
+        cb1.ax.set_xlabel('SNR', fontsize=fontsize3)
+        cb1.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
+        cb1.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb1.ax.tick_params(labelsize=fontsize3)
         fig_snr_map.show()
 
 

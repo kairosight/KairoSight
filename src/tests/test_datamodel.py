@@ -227,7 +227,6 @@ class TestModelStack(unittest.TestCase):
         # Test the returned time array
         self.assertEqual(stack_time.size, 1000)      # length is correct
         self.assertGreaterEqual(stack_time.all(), 0)     # no negative times
-        self.assertLess(stack_time.all(), 1000)     # no times >= total time parameter
 
         # Test the returned data array
         self.assertEqual(stack_data.shape[0], 1000)      # length is correct
@@ -255,51 +254,59 @@ class TestModelStackPropagation(unittest.TestCase):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack_propagation, size=20)  # size must be a tuple, e.g. (100, 50)
         self.assertRaises(TypeError, model_stack_propagation, cv='50')
+        self.assertRaises(TypeError, model_stack_propagation, snr='10')
         # Make sure parameters are valid, and valid errors are raised when necessary
         self.assertRaises(ValueError, model_stack_propagation, size=(20, 5))     # no size > (10, 10)
         self.assertRaises(ValueError, model_stack_propagation, size=(5, 20))     # no size > (10, 10)
         self.assertRaises(ValueError, model_stack_propagation, cv=4)     # no cv > 5
+        self.assertRaises(ValueError, model_stack_propagation, t=800)     # no t < 1000
 
     def test_results(self):
         # Make sure model results are valid
-        self.assertEqual(len(model_stack_propagation(t=1000)), 2)  # time and data arrays returned as a tuple
-        stack_time, stack_data = model_stack_propagation(t=1000)
+        self.assertEqual(len(model_stack_propagation()), 2)  # time and data arrays returned as a tuple
+        stack_time, stack_data = model_stack_propagation()
         self.assertEqual(stack_time.size, stack_data.shape[0])
 
         # Test the returned time array
-        self.assertEqual(stack_time.size, 1000)  # length is correct
+        self.assertEqual(stack_time.size, 2000)  # length is correct, default cv of 10 : t of 2000
         self.assertGreaterEqual(stack_time.all(), 0)  # no negative times
-        self.assertLess(stack_time.all(), 1000)  # no times >= total time parameter
 
         # Test the returned data array
-        self.assertEqual(stack_data.shape[0], 1000)  # length is correct
-        self.assertEqual(stack_data.shape, (1000, 100, 50))  # default dimensions (T, Y, X)
+        self.assertEqual(stack_data.shape, (2000, 100, 50))  # default dimensions (T, Y, X)
         self.assertGreaterEqual(stack_data.all(), 0)  # no negative values
         self.assertLess(stack_data.all(), 2 ** 16)  # no values >= 16-bit max
-        stackSize_time, stackSize_data = model_stack_propagation(t=1000, size=(100, 100))
-        self.assertEqual(stackSize_data.shape, (1000, 100, 100))  # dimensions (T, Y, X)
+        stackSize_time, stackSize_data = model_stack_propagation(size=(100, 100))
+        self.assertEqual(stackSize_data.shape, (2000, 100, 100))  # new dimensions (T, Y, X)
 
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
         start = time.process_time()
-        time_vm, data_vm = model_stack_propagation(t=1000, t0=50)
+        time_vm, data_vm = model_stack_propagation(t0=50)
         end = time.process_time()
         print('Timing, test_tiff, Vm : ', end - start)
         volwrite(self.tests + '/results/ModelStackPropagation_vm.tif', data_vm)
-
-        time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000, t0=50)
+        time_ca, data_ca = model_stack_propagation(model_type='Ca', t0=50)
         volwrite(self.tests + '/results/ModelStackPropagation_ca.tif', data_ca)
 
     def test_tiff_noise(self):
-        # Make sure this stack is similar to a 16-bit .tif/.tiff
+        # Make sure this stack is similar to a noisy 16-bit .tif/.tiff
         start = time.process_time()
-        time_vm, data_vm = model_stack_propagation(t=1000, noise=5, num='full')
+        time_vm, data_vm = model_stack_propagation(noise=5, num='full')
         end = time.process_time()
         print('Timing, test_tiff_noise, Vm : ', end - start)
         volwrite(self.tests + '/results/ModelStackPropagationNoise_vm.tif', data_vm)
-
-        time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000, noise=10, num='full')
+        time_ca, data_ca = model_stack_propagation(noise=5, model_type='Ca', num='full')
         volwrite(self.tests + '/results/ModelStackPropagationNoise_ca.tif', data_ca)
+
+    def test_tiff_snr(self):
+        # Make sure this stack is similar to a variably noisy 16-bit .tif/.tiff
+        start = time.process_time()
+        time_vm, data_vm = model_stack_propagation(d_noise=10, noise=5, num='full')
+        end = time.process_time()
+        print('Timing, test_tiff_snr, Vm : ', end - start)
+        volwrite(self.tests + '/results/ModelStackPropagationSNR_vm.tif', data_vm)
+        time_ca, data_ca = model_stack_propagation(model_type='Ca', d_noise=10, noise=5, num='full')
+        volwrite(self.tests + '/results/ModelStackPropagationSNR_ca.tif', data_ca)
 
 
 # Example tests
