@@ -245,8 +245,9 @@ def calculate_snr(signal_in, noise_count=10):
     if signal_in.mean() < noise_bounds[0]:
         raise ValueError('Signal mean (therefore peaks) seems to be < noise rms')
 
-    # Find indices of peak values, at least 10 samples apart
-    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
+    # Find indices of peak values, at least len(signal_in)/2 samples apart
+    # i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
+    i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/3, distance=len(signal_in)/2)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 1:
@@ -301,7 +302,7 @@ def map_snr(stack_in, noise_count=10):
     for iy, ix in np.ndindex(map_shape):
         pixel_data = stack_in[:, iy, ix]
         pixel_snr, *rest = calculate_snr(pixel_data, noise_count)
-        # Set every pixel's values to those of the offset model transient
+        # Set every pixel's values to the SNR of the signal at that pixel
         map_out[iy, ix] = pixel_snr
 
     return map_out

@@ -300,7 +300,7 @@ class TestSnrSignal(unittest.TestCase):
         ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_snr.text(0.65, 0.5, 'SNR (Noise SD, Actual) : {}'.format(self.noise),
                     color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
-        ax_snr.text(0.65, 0.45, 'SNR (Calculated, Noise SD) : {}'.format(round(sd_noise, 3)),
+        ax_snr.text(0.65, 0.45, 'SNR (Noise SD, Calculated) : {}'.format(round(sd_noise, 3)),
                     color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
         ax_snr.text(0.65, 0.4, 'SNR : {}'.format(round(snr, 5)),
                     color=gray_heavy, fontsize=fontsize2, transform=ax_snr.transAxes)
@@ -371,8 +371,8 @@ class TestSnrSignal(unittest.TestCase):
 
         # Build a figure to plot stats comparison
         fig_error_scatter, ax_snr_error_scatter = plot_stats_scatter()
-        ax_snr_error_scatter.set_title('SNR Accuracy vs Noise')
-        ax_snr_error_scatter.set_ylabel('SNR (Calculated, Noise SD)', color=gray_med)
+        ax_snr_error_scatter.set_title('SNR vs Noise Accuracy')
+        ax_snr_error_scatter.set_ylabel('SNR (Noise SD, Calculated)', color=gray_med)
         # ax_snr_error_scatter.set_ylabel('% Error of SNR Calculation')
         ax_snr_error_scatter.set_xlabel('SNR (Noise SD, , Actual)')
         ax_snr_error_scatter.set_ylim([0, noises[-1]+1])
@@ -385,7 +385,7 @@ class TestSnrSignal(unittest.TestCase):
                                           color=gray_heavy, lw=1, capsize=4, capthick=1.0)
 
         ax_error = ax_snr_error_scatter.twinx()  # instantiate a second axes that shares the same x-axis
-        ax_error.set_ylabel('% Error of Measured SNR')  # we already handled the x-label with ax1
+        ax_error.set_ylabel('% Error of SNR')  # we already handled the x-label with ax1
         ax_error.set_ylim([-2, 10])
         ax_error.plot(noises, error, color=gray_heavy, linestyle='-', label='% Error')
         # ax_error.tick_params(axis='y', labelcolor=gray_heavy)
@@ -437,13 +437,10 @@ class TestSnrMap(unittest.TestCase):
     def test_plot(self):
         # Make sure SNR Map looks correct
         snr_map_ca = map_snr(self.stack_ca)
-        cmap_snr = SCMaps.lajolla
-        actMapMax = 0
-        print('Activation Map max value:')
-        print(np.nanmax(snr_map_ca))
-        actMapMax = max(actMapMax, np.nanmax(snr_map_ca))
+        actMapMax = np.nanmax(snr_map_ca)
         print('Activation Maps max value: ', actMapMax)
         # Create normalization range for all activation maps (round up to nearest 10)
+        cmap_snr = SCMaps.lajolla
         cmap_norm = colors.Normalize(vmin=0, vmax=round(actMapMax + 5.1, -1))
         fig_snr_map, ax_snr_map = plot_map(snr_map_ca)
         # Plot Activation Map
