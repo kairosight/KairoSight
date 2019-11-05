@@ -1,6 +1,7 @@
 import unittest
 from util.analysis import find_tran_peak, calc_ff0, find_tran_start, find_tran_upstroke, calc_tran_activation, \
-    find_tran_downstroke, find_tran_end, find_tran_restoration, calc_tran_duration, calc_tran_tau, calc_tran_di
+    find_tran_downstroke, find_tran_end, find_tran_restoration, calc_tran_duration, calc_tran_tau, calc_tran_di, \
+    calc_phase
 from util.datamodel import model_transients
 import numpy as np
 import matplotlib.pyplot as plt
@@ -443,6 +444,48 @@ class TestAnalysisFF0(unittest.TestCase):
         ax_ff0.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_ff0.show()
 
+
+class TestPhase(unittest.TestCase):
+    # Setup data to test with
+    signal_F0 = 1000
+    signal_amp = 100
+    signal_t0 = 50
+    signal_time = 1000
+    signal_num = 5
+    noise = 2  # as a % of the signal amplitude
+    noise_count = 100
+    time_vm, signal_vm = model_transients(t0=signal_t0, t=signal_time,
+                                          f_0=signal_F0, f_amp=signal_amp,
+                                          noise=noise, num=signal_num)
+    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
+                                          f_0=signal_F0, f_amp=signal_amp,
+                                          noise=noise, num=signal_num)
+
+def test_parameters(self):
+        # Make sure type errors are raised when necessary
+        signal_bad_type = np.full(100, True)
+        # signal_in : ndarray, dtyoe : int or float
+        self.assertRaises(TypeError, calc_phase, signal_in=True)
+        self.assertRaises(TypeError,  calc_phase, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, calc_phase, signal_in='word')
+        self.assertRaises(TypeError,  calc_phase, signal_in=3j + 7)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # signal_in : >=0
+        signal_bad_value = np.full(100, 10)
+        signal_bad_value[20] = signal_bad_value[20] - 50
+        self.assertRaises(ValueError, calc_phase, signal_in=signal_bad_value)
+
+    def test_results(self):
+        # Make sure result types are valid
+        signal_vm_phase = calc_phase(self.signal_vm)
+        signal_ca_phase = calc_phase(self.signal_ca)
+        # signal_FF0 : ndarray, dtyoe : float
+        self.assertIsInstance(signal_ca_phase, np.ndarray)  # The array of phase
+        self.assertIsInstance(signal_ca_phase[0], float)  # dtyoe : float
+
+        # Make sure result values are valid
+        self.assertAlmostEqual(signal_ca_phase.min(), signal_vm_phase.max(), delta=0.01)
 
 if __name__ == '__main__':
     unittest.main()

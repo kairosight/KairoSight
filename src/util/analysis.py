@@ -129,6 +129,15 @@ def find_tran_downstroke(signal_in):
         i_downstroke : int
             The index of the signal array corresponding to the downstroke of the transient
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
     pass
 
 
@@ -146,7 +155,14 @@ def find_tran_end(signal_in):
         i_end : int
             The index of signal array corresponding to the end of the transient
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
 
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
 
 def find_tran_restoration(signal_in):
     """Find the time of the restoration of a transient,
@@ -162,7 +178,14 @@ def find_tran_restoration(signal_in):
         i_restoration : int
             The index of signal array corresponding to the restoration of the transient
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
 
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
 
 def calc_tran_duration(signal_in, percent=50):
     """Calculate the duration of a transient,
@@ -181,7 +204,18 @@ def calc_tran_duration(signal_in, percent=50):
         duration : int
             The % duration of the transient in number of indices
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+    if type(percent) is not int:
+        raise TypeError('Percent data type must be an "int"')
 
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+    if any(x < 0 or x >= 100 for x in percent):
+        raise ValueError('All signal values must be between 0-99%')
 
 def calc_tran_tau(signal_in):
     """Calculate the decay time constant (tau) of a transient,
@@ -197,7 +231,18 @@ def calc_tran_tau(signal_in):
         tau : float
             The decay time constant (tau) of the signal array corresponding to it's peak
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+    if type(tau) is not float:
+        raise TypeError('Tau data type must be an "Float"')
 
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+    if any(x < 30 or x > 90 for x in tau):
+        raise ValueError('All tau values must be between 30 and 90%')
 
 def calc_tran_di(signal_in):
     """Calculate the diastolic interval (DI) of a transient,
@@ -217,7 +262,14 @@ def calc_tran_di(signal_in):
         -----
             Should not be applied to signal data containing at least one transient.
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
 
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
 
 def map_tran_tau(stack_in):
     """Map the decay constant (tau) values for a stack of transient fluorescent data
@@ -299,3 +351,6 @@ def calc_phase(signal_in):
         signal_phase : ndarray
             The array of phase data (degrees radians), dtype : float
         """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
