@@ -26,22 +26,30 @@ def plot_test():
 
 def plot_map(map_in):
     fig = plt.figure(figsize=(8, 5))  # _ x _ inch page
-    axis = fig.add_subplot(111)
+    axis_img = fig.add_subplot(121)
+    axis_map = fig.add_subplot(122)
     height, width, = map_in.shape[0], map_in.shape[1]  # X, Y flipped due to rotation
     # x_crop, y_crop = [X_CROP[0], width - X_CROP[1]], [height - Y_CROP[0], Y_CROP[1]]
     # axis.axis('off')
-    axis.spines['right'].set_visible(False)
-    axis.spines['left'].set_visible(False)
-    axis.spines['top'].set_visible(False)
-    axis.spines['bottom'].set_visible(False)
-    axis.set_yticks([])
-    axis.set_yticklabels([])
-    axis.set_xticks([])
-    axis.set_xticklabels([])
+    axis_img.spines['right'].set_visible(False)
+    axis_img.spines['left'].set_visible(False)
+    axis_img.spines['top'].set_visible(False)
+    axis_img.spines['bottom'].set_visible(False)
+    axis_img.set_yticks([])
+    axis_img.set_yticklabels([])
+    axis_img.set_xticks([])
+    axis_img.set_xticklabels([])
+    axis_map.spines['right'].set_visible(False)
+    axis_map.spines['left'].set_visible(False)
+    axis_map.spines['top'].set_visible(False)
+    axis_map.spines['bottom'].set_visible(False)
+    axis_map.set_yticklabels([])
+    axis_map.set_xticks([])
+    axis_map.set_xticklabels([])
     # axis.set_xlim(x_crop)
     # axis.set_ylim(y_crop)
 
-    return fig, axis
+    return fig, axis_img, axis_map
 
 
 def plot_stats_bars(labels):
@@ -394,9 +402,9 @@ class TestSnrSignal(unittest.TestCase):
 
 class TestSnrMap(unittest.TestCase):
     # Setup data to test with, a propagating stack of varying SNR
-    f_amp = 200
+    f_amp = 100
     noise = 5
-    d_noise = 5     # as a % of the signal amplitude
+    d_noise = 10     # as a % of the signal amplitude
     noise_count = 100
     time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_amp=f_amp, noise=noise)
     stack_ca_shape = stack_ca.shape
@@ -427,32 +435,46 @@ class TestSnrMap(unittest.TestCase):
     def test_plot(self):
         # Make sure SNR Map looks correct
         snr_map_ca = map_snr(self.stack_ca)
-        snr_map_max = np.nanmax(snr_map_ca)
-        snr_map_min = np.nanmin(snr_map_ca)
-        print('Activation Maps max value: ', snr_map_max)
+        snr_max = np.nanmax(snr_map_ca)
+        snr_min = np.nanmin(snr_map_ca)
+        print('Activation Maps max value: ', snr_max)
 
         # Plot Activation Map
-        fig_snr_map, ax_snr_map = plot_map(snr_map_ca)
-        ax_snr_map.set_title('SNR')
+        fig_map_snr, ax_img_snr, ax_map_snr = plot_map(snr_map_ca)
         # Create normalization range for map (round down and up to nearest 10)
+        cimg_snr = SCMaps.grayC
+        img_snr_ca = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cimg_snr)
         cmap_snr = SCMaps.davos.reversed()
-        # cmap_norm = colors.Normalize(vmin=snr_map_min, vmax=snr_map_max)
-        cmap_norm = colors.Normalize(vmin=(round(snr_map_min, 1)), vmax=round(snr_map_max + 5.1, -1))
-        img_snr_ca = ax_snr_map.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
-        ax_snr_map.set_ylabel('0.5 cm', fontsize=fontsize3)
-        ax_snr_map.set_xlabel('0.25 mm', fontsize=fontsize3)
+        # cmap_norm = colors.Normalize(vmin=snr_min, vmax=snr_max)
+        cmap_norm = colors.Normalize(vmin=(np.floor(snr_min)), vmax=round(snr_max + 5.1, -1))
+        map_snr_ca = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
+        ax_img_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
+        ax_img_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
+        ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
+        ax_map_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
+        # Add colorbar (lower right of img)
+        ax_ins_img = inset_axes(ax_img_snr,
+                                width="5%", height="80%",
+                                loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
+                                borderpad=0)
         # Add colorbar (lower right of act. map)
-        ax_ins1 = inset_axes(ax_snr_map,
-                             width="5%", height="80%",  # % of parent_bbox width
-                             loc=5,
-                             bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_snr_map.transAxes,
-                             borderpad=0)
-        cb1 = plt.colorbar(img_snr_ca, cax=ax_ins1, orientation="vertical")
-        cb1.ax.set_xlabel('SNR', fontsize=fontsize3)
-        cb1.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
-        cb1.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
-        cb1.ax.tick_params(labelsize=fontsize3)
-        fig_snr_map.show()
+        ax_ins_map = inset_axes(ax_map_snr,
+                                width="5%", height="80%",
+                                loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
+                                borderpad=0)
+        cb_img = plt.colorbar(img_snr_ca, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('A.U.', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+        cb1_map = plt.colorbar(map_snr_ca, cax=ax_ins_map, orientation="vertical")
+        cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
+        cb1_map.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
+        cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb1_map.ax.tick_params(labelsize=fontsize3)
+        fig_map_snr.show()
 
 
 class TestErrorSignal(unittest.TestCase):

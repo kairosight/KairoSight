@@ -1,5 +1,7 @@
 from math import pi, floor, ceil, sqrt
 import numpy as np
+# Constants
+MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
 
 
 def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100, noise=0,
@@ -40,8 +42,6 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
        model_data : ndarray
             An array of model data, dtype is int
        """
-    # Constants
-    MIN_TOTAL_T = 100   # Minimum transient length (ms)
     # Check parameters
     if model_type not in ['Vm', 'Ca']:
         if type(model_type) not in [str]:
@@ -56,8 +56,8 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
     if type(cl) not in [int]:
         raise TypeError('Cycle Lenth must be an int')
 
-    if t < MIN_TOTAL_T:
-        raise ValueError('The time length (t) must be longer than {} ms '.format(MIN_TOTAL_T))
+    if t < MIN_TRAN_TOTAL_T:
+        raise ValueError('The time length {} must be longer than {} ms '.format(t, MIN_TRAN_TOTAL_T))
     if t0 >= t:
         raise ValueError('The start time (t0, {}) must be less than the time length (t, {})'.format(t0, t))
     if fps <= 200 or fps > 1000:
@@ -69,7 +69,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
     if type(num) not in [str]:
         if num <= 0:
             raise ValueError('The number of transients must be > 0')
-        if num * MIN_TOTAL_T > t - t0:
+        if num * MIN_TRAN_TOTAL_T > t - t0:
             raise ValueError('Too many transients, {}, for the total time, {} ms with start time {} ms'
                              .format(num, t, t0))
     else:
@@ -250,7 +250,7 @@ def model_stack(size=(100, 50), **kwargs):
 
 
 # TODO add SNR, duration, Tau variation along propagation, to validate mapping
-def model_stack_propagation(size=(100, 50), cv=10, d_noise=0, **kwargs):
+def model_stack_propagation(size=(100, 50), cv=20, d_noise=0, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
     murine action potential (OAP) or a propagating murine calcium transient (OCT).
 
@@ -259,7 +259,7 @@ def model_stack_propagation(size=(100, 50), cv=10, d_noise=0, **kwargs):
        size : tuple
             The height and width (px) of the optical data. default is (100, 50)
        cv : int
-            Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 10
+            Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 20
        d_noise : int
             Degree of Noise SD to vary along propagation, default is 0
 
@@ -278,7 +278,8 @@ def model_stack_propagation(size=(100, 50), cv=10, d_noise=0, **kwargs):
     # Constants
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
-    MIN_CV = 5   # Minimum cv (cm/s)
+    MIN_CV = 10   # Minimum cv (cm/s)
+    MAX_CV = 50   # Minimum cv (cm/s)
     DIV_NOISE = 5   # Divisions of noise variation within the frame (each is Height / DIV_NOISE)
     # Check parameters
     if type(size) not in [tuple]:
@@ -294,16 +295,26 @@ def model_stack_propagation(size=(100, 50), cv=10, d_noise=0, **kwargs):
     # Allocate space for the Activation Map
     act_map = np.zeros(shape=(HEIGHT, WIDTH))
     # Spatial resolution (cm/px)
-    resolution = 0.005  # 1 cm / 200 px
+    # resolution = 0.005  # 1 cm / 200 px
     # resolution = 0.0149  # pig video resolution
-    # resolution = 0.01
+    resolution = 0.01       # 1 cm / 100 px
+    HEIGHT_cm, WIDTH_cm = HEIGHT * resolution, WIDTH * resolution
 
     # Convert conduction velocity from cm/s to px/s
     conduction_v_px = cv / resolution
-    MIN_t = floor(MIN_CV / resolution)
-    if ('t' in kwargs) and (kwargs.get('t') < MIN_t):
-        raise ValueError('The total stack time must be larger than {}'.format(MIN_t))
-    t_propagation = floor(conduction_v_px)
+    MIN_CV_PX = MIN_CV / resolution
+    # Calculate minimum time needed for a single propagation
+    MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_CV * 1000)   # ms
+    if 't' in kwargs:
+        if kwargs.get('t') < MIN_t:
+            raise ValueError('The total stack time must be larger than {}'.format(MIN_t))
+        t_propagation = kwargs.get('t')
+    else:
+        t_propagation = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / cv * 1000)     # ms
+
+    if 't0' in kwargs:
+        t_propagation = t_propagation + kwargs.get('t0')
+
     kwargs['t'] = t_propagation
     # If SNR varies, setup noise delta
     if d_noise:
