@@ -54,7 +54,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
     if t < MIN_TOTAL_T:
         raise ValueError('The time length (t) must be longer than {} ms '.format(MIN_TOTAL_T))
     if t0 >= t:
-        raise ValueError('The start time (t0) must be less than the time length (t)')
+        raise ValueError('The start time (t0, {}) must be less than the time length (t, {})'.format(t0, t))
     if fps <= 200 or fps > 1000:
         raise ValueError('The fps must be > 200 or <= 1000')
     if f_amp < 0:
@@ -197,7 +197,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
 
 
 def model_stack(size=(100, 50), **kwargs):
-    """Create a stack (3-D array, TYX) of model 16-bit optical data of either a
+    """Create a stack (3-D array, TYX) of model 16-bit optical data of a
     murine action potential (OAP) or a murine calcium transient (OCT).
 
        Parameters
@@ -237,12 +237,12 @@ def model_stack(size=(100, 50), **kwargs):
         # Set every pixel value in that of the model transient
         model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame])
 
-    return model_time, model_data
+    return model_time, model_data.astype(int)
 
 
 def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
-    """Create a stack (3-D array, TYX) of propagating model 16-bit optical data of either a
-    murine action potential (OAP) or a murine calcium transient (OCT).
+    """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
+    murine action potential (OAP) or a propagating murine calcium transient (OCT).
 
        Parameters
        ----------
@@ -310,12 +310,16 @@ def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
         # Convert time from s to ms
         act_time = act_time * 1000
         prop_offset = floor(act_time)
+        kwargs_new = kwargs.copy()
+        if 't0' in kwargs:
+            prop_offset = prop_offset + kwargs.get('t0')
+        kwargs_new['t0'] = prop_offset
         # Create a model transient array for each pixel
-        pixel_time, pixel_data = model_transients(t0=prop_offset, **kwargs)
+        pixel_time, pixel_data = model_transients(**kwargs_new)
         # Set every pixel's values to those of the offset model transient
         model_data[:, iy, ix] = pixel_data
 
-    return model_time, model_data
+    return model_time, model_data.astype(int)
 
 
 # Code for example tests

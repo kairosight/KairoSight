@@ -1,7 +1,8 @@
 import unittest
 import time
-from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area
+from pathlib import Path
 from math import pi
+from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area
 from scipy.signal import find_peaks
 from imageio import volwrite
 import matplotlib.pyplot as plt
@@ -161,6 +162,10 @@ class TestModelTransients(unittest.TestCase):
 
 
 class TestModelStack(unittest.TestCase):
+    # File paths  and files needed for tests
+    cwd = Path.cwd()
+    tests = str(cwd)
+
     def test_params(self):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack, size=20)  # size must be a tuple, e.g. (100, 50)
@@ -197,6 +202,10 @@ class TestModelStack(unittest.TestCase):
 
 
 class TestModelStackPropagation(unittest.TestCase):
+    # File paths  and files needed for tests
+    cwd = Path.cwd()
+    tests = str(cwd)
+
     def test_params(self):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack_propagation, size=20)  # size must be a tuple, e.g. (100, 50)
@@ -228,13 +237,13 @@ class TestModelStackPropagation(unittest.TestCase):
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
         start = time.process_time()
-        time_vm, data_vm = model_stack_propagation(t=1000)
+        time_vm, data_vm = model_stack_propagation(t=1000, t0=50)
         end = time.process_time()
         print('Timing, test_tiff, Vm : ', end - start)
-        volwrite('ModelStackPropagation_vm.tif', data_vm)
+        volwrite(self.tests + '/results/ModelStackPropagation_vm.tif', data_vm)
 
-        time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000)
-        volwrite('ModelStackPropagation_ca.tif', data_ca)
+        time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000, t0=50)
+        volwrite(self.tests + '/results/ModelStackPropagation_ca.tif', data_ca)
 
     def test_tiff_noise(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
@@ -242,10 +251,10 @@ class TestModelStackPropagation(unittest.TestCase):
         time_vm, data_vm = model_stack_propagation(t=1000, noise=5, num='full')
         end = time.process_time()
         print('Timing, test_tiff_noise, Vm : ', end - start)
-        volwrite('ModelStackPropagation_vm.tif', data_vm)
+        volwrite(self.tests + '/results/ModelStackPropagationNoise_vm.tif', data_vm)
 
         time_ca, data_ca = model_stack_propagation(model_type='Ca', t=1000, noise=10, num='full')
-        volwrite('ModelStackPropagation_ca.tif', data_ca)
+        volwrite(self.tests + '/results/ModelStackPropagationNoise_ca.tif', data_ca)
 
 
 # Example tests
