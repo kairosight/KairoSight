@@ -2,7 +2,8 @@ from math import pi, floor, ceil, sqrt
 import numpy as np
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100, noise=0, num=1, cl=100):
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100, noise=0,
+                     num=1, cl=100, apd=None, cad=None):
     """Create a 2-D array of model 16-bit optical data of either
     murine action potentials (OAP) or a murine calcium transients (OCT).
 
@@ -27,6 +28,10 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
             Number of transients to generate, default is 1. If 'full', calculate max num to fill array
        cl : int
             Time (ms) between transients aka Cycle Length, default is 100
+       apd : dict
+            OAP duration times, e.g. APD20, default is {'20': 5}
+       cad : dict
+            OCT duration times, e.g. CAD40, default is {'40': 15}
 
        Returns
        -------
@@ -73,6 +78,10 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
 
     if cl < 50:
         raise ValueError('The Cycle Length must be > 50 ms')
+    if not apd:
+        apd = {'20': 5}
+    if not cad:
+        cad = {'40': 15}
 
     # Calculate important constants
     FPMS = fps / 1000
@@ -110,7 +119,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
         model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to APD 20, aka 80% of peak)
-        model_rep1_period = 5  # XX ms long
+        model_rep1_period = apd['20']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         apd_ratio = 0.8
         m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period     # slope of this phase
@@ -146,7 +155,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=200, f_amp=100,
         model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to CAD 40, aka 60% of peak)
-        model_rep1_period = 15  # XX ms long
+        model_rep1_period = cad['40']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         cad_ratio = 0.6
         m_rep1 = -(f_amp - (f_amp * cad_ratio)) / model_rep1_period     # slope of this phase
@@ -240,6 +249,7 @@ def model_stack(size=(100, 50), **kwargs):
     return model_time, model_data.astype(int)
 
 
+# TODO add SNR, duration, Tau variation along propagation, to validate mapping
 def model_stack_propagation(size=(100, 50), cv=10, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
     murine action potential (OAP) or a propagating murine calcium transient (OCT).

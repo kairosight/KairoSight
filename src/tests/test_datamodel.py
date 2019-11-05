@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
 def plot_test():
@@ -17,7 +18,7 @@ def plot_test():
     axis.spines['right'].set_visible(False)
     axis.spines['top'].set_visible(False)
     axis.tick_params(axis='x', which='minor', length=3, bottom=True, top=True)
-    axis.tick_params(axis='x', which='major', length=8, bottom=True, top=False)
+    axis.tick_params(axis='x', which='major', length=8, bottom=True, top=True)
     axis.xaxis.set_major_locator(plticker.MultipleLocator(25))
     axis.xaxis.set_minor_locator(plticker.MultipleLocator(5))
     plt.rc('xtick', labelsize=fontsize2)
@@ -72,10 +73,11 @@ class TestModelTransients(unittest.TestCase):
         self.assertLessEqual(2000, model_transients(model_type='Ca', f_0=2000)[1].min())  # Ca amplitude handled properly
 
         # Test multiple transient generation
+        f_amp = 250
         num = 4
-        peak_min_height = 50
+        peak_min_height = f_amp / 3
 
-        time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=250, num=num)
+        time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=f_amp, num=num)
         data_vm = (-(data_vm - 2000)) + 2000
         peaks_vm, _ = find_peaks(data_vm, height=peak_min_height)
         self.assertEqual(peaks_vm.size, num)      # detected peaks matches number of generated transients
@@ -97,15 +99,46 @@ class TestModelTransients(unittest.TestCase):
 
         # Build a figure to plot model data
         fig_dual_fps, ax_dual_fps = plot_test()
+        ax_dual_fps.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_dual_fps.set_xlabel('Time (ms)', color=gray_heavy)
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_ca_1, = ax_dual_fps.plot(time_ca_1, data_ca_1-1000, '#D0D0D0', marker='1', label='Ca, fps: 250')
-        plot_ca_2, = ax_dual_fps.plot(time_ca_2, data_ca_2-1000, '#808080', marker='+', label='Ca, fps: 500')
-        plot_ca_3, = ax_dual_fps.plot(time_ca_3, data_ca_3-1000, '#606060', marker='2', label='Ca, fps: 1000')
+        plot_ca_1, = ax_dual_fps.plot(time_ca_1, data_ca_1-1000, gray_light, marker='1', label='Ca, fps: 250')
+        plot_ca_2, = ax_dual_fps.plot(time_ca_2, data_ca_2-1000, gray_med, marker='+', label='Ca, fps: 500')
+        plot_ca_3, = ax_dual_fps.plot(time_ca_3, data_ca_3-1000, gray_heavy, marker='2', label='Ca, fps: 1000')
         plot_baseline = ax_dual_fps.axhline(color='gray', linestyle='--', label='baseline')
-        ax_dual_fps.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=False)
+        ax_dual_fps.legend(title='FPS Variations',
+                           loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        # ax_dual_fps.set_title('FPS Variations')
         fig_dual_fps.show()
+
+    def test_plot_duration(self):
+        # Test model Ca single transient data, at different CADs
+        time_vm_1, data_vm_1 = model_transients()
+        time_vm_2, data_vm_2 = model_transients(apd={'20': 15})
+        time_vm_3, data_vm_3 = model_transients(apd={'20': 25})
+        time_ca_1, data_ca_1 = model_transients(model_type='Ca')
+        time_ca_2, data_ca_2 = model_transients(model_type='Ca', cad={'40': 25})
+        time_ca_3, data_ca_3 = model_transients(model_type='Ca', cad={'40': 35})
+
+        # Build a figure to plot model data
+        fig_duration, ax_duration = plot_test()
+        ax_duration.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_duration.set_xlabel('Time (ms)', color=gray_heavy)
+
+        # Plot aligned model data
+        # ax.set_ylim([1500, 2500])
+        plot_ca_1, = ax_duration.plot(time_vm_1, -(data_vm_1-100), color_vm, marker='1', label='Vm, APD20: 5')
+        plot_ca_2, = ax_duration.plot(time_vm_2, -(data_vm_2-100), color_vm, marker='+', label='Vm, APD20: 15')
+        plot_ca_3, = ax_duration.plot(time_vm_3, -(data_vm_3-100), color_vm, marker='2', label='Vm, APD20: 25')
+        plot_ca_1, = ax_duration.plot(time_ca_1, data_ca_1-100, color_ca, marker='1', label='Ca, CAD40: 15')
+        plot_ca_2, = ax_duration.plot(time_ca_2, data_ca_2-100, color_ca, marker='+', label='Ca, CAD40: 25')
+        plot_ca_3, = ax_duration.plot(time_ca_3, data_ca_3-100, color_ca, marker='2', label='Ca, CAD40: 35')
+        plot_baseline = ax_duration.axhline(color='gray', linestyle='--', label='baseline')
+        ax_duration.legend(title='APD20 and CAD40 Variations',
+                           loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_duration.show()
 
     def test_plot_multi(self):
         # Test model Vm multi transient data, at different Cycle Lengths
@@ -115,16 +148,19 @@ class TestModelTransients(unittest.TestCase):
         time_vm_3, data_vm_3 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=150)
 
         # Build a figure to plot model data
-        fig_dual_fps, ax_dual_fps = plot_test()
+        fig_cyclelength, ax_cyclelength = plot_test()
+        ax_cyclelength.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_cyclelength.set_xlabel('Time (ms)', color=gray_heavy)
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_vm_1, = ax_dual_fps.plot(time_vm_1, -(data_vm_1-2000), '#D0D0D0', marker='1', label='Vm, CL: 50')
-        plot_vm_2, = ax_dual_fps.plot(time_vm_2, -(data_vm_2-2000), '#808080', marker='+', label='Ca, CL: 100')
-        plot_vm_3, = ax_dual_fps.plot(time_vm_3, -(data_vm_3-2000), '#606060', marker='2', label='Ca, CL: 150')
-        plot_baseline = ax_dual_fps.axhline(color='gray', linestyle='--', label='baseline')
-        ax_dual_fps.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=False)
-        fig_dual_fps.show()
+        plot_vm_1, = ax_cyclelength.plot(time_vm_1, -(data_vm_1-2000), gray_light, marker='1', label='Vm, CL: 50')
+        plot_vm_2, = ax_cyclelength.plot(time_vm_2, -(data_vm_2-2000), gray_med, marker='+', label='Ca, CL: 100')
+        plot_vm_3, = ax_cyclelength.plot(time_vm_3, -(data_vm_3-2000), gray_heavy, marker='2', label='Ca, CL: 150')
+        plot_baseline = ax_cyclelength.axhline(color='gray', linestyle='--', label='baseline')
+        ax_cyclelength.legend(title='Cycle Length Variations',
+                              loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_cyclelength.show()
 
     def test_plot_dual(self):
         # Test model Vm and Ca single transient data
@@ -134,12 +170,17 @@ class TestModelTransients(unittest.TestCase):
 
         # Build a figure to plot model data
         fig_dual, ax_dual = plot_test()
+        # ax_dual.set_title('Dual Vm and Ca transient')
+        ax_dual.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_dual.set_xlabel('Time (ms)', color=gray_heavy)
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
         plot_vm, = ax_dual.plot(time_vm, -(data_vm-2000), 'r+', label='Vm')
         plot_ca, = ax_dual.plot(time_ca, data_ca-1000, 'y+', label='Ca')
         plot_baseline = ax_dual.axhline(color='gray', linestyle='--', label='baseline')
+        ax_dual.legend(title='Dual Vm and Ca transient',
+                       loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_dual.show()
 
@@ -151,12 +192,16 @@ class TestModelTransients(unittest.TestCase):
 
         # Build a figure to plot model data
         fig_dual_multi, ax_dual_multi = plot_test()
+        ax_dual_multi.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_dual_multi.set_xlabel('Time (ms)', color=gray_heavy)
 
         # Plot aligned model data
         # ax_dual_multi.set_ylim([1500, 2500])
         plot_vm, = ax_dual_multi.plot(time_vm, -(data_vm-2000), 'r+', label='Vm')
         plot_ca, = ax_dual_multi.plot(time_ca, data_ca-1000, 'y+', label='Ca')
         plot_baseline = ax_dual_multi.axhline(color='gray', linestyle='--', label='baseline')
+        ax_dual_multi.legend(title='Dual Vm and Ca transients',
+                             loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_dual_multi.show()
 
@@ -195,10 +240,10 @@ class TestModelStack(unittest.TestCase):
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
         time_vm, data_vm = model_stack(t=1000)
-        volwrite('ModelStack_vm.tif', data_vm)
+        volwrite(self.tests + '/results/ModelStack_vm.tif', data_vm)
 
         time_ca, data_ca = model_stack(model_type='Ca', t=1000)
-        volwrite('ModelStack_ca.tif', data_ca)
+        volwrite(self.tests + '/results/ModelStack_ca.tif', data_ca)
 
 
 class TestModelStackPropagation(unittest.TestCase):
