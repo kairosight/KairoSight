@@ -1,6 +1,7 @@
 from math import pi, floor, ceil, sqrt
 import numpy as np
 # Constants
+FL_16BIT_MAX = 2 ** 16 - 1
 MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
 
 
@@ -62,16 +63,25 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
         raise ValueError('The start time (t0, {}) must be less than the time length (t, {})'.format(t0, t))
     if fps <= 200 or fps > 1000:
         raise ValueError('The fps must be > 200 or <= 1000')
+
     if f_amp < 0:
         raise ValueError('The amplitude must >=0')
+    if f_0 > FL_16BIT_MAX:
+        raise ValueError('The baseline fluorescence (f0) must be less than 2^16 - 1 (65535)')
+    if abs(f_amp) > FL_16BIT_MAX:
+        raise ValueError('The amplitude (f_amp) must be less than 2^16 - 1 (65535)')
+    if f_0 + f_amp > FL_16BIT_MAX:
+        raise ValueError('The peak (f_0 + f_amp) must be less than 2^16 - 1 (65535)')
+    if f_0 + f_amp + noise > FL_16BIT_MAX:
+        raise ValueError('Model data may overflow 16-bit limit: f_0:{}, f_amp:{}, noise:{}'.format(f_amp, f_0, noise))
     if model_type is 'Vm' and (f_0 - f_amp < 0):
         raise ValueError('Effective Vm amplitude is too negative')
+
     if type(num) not in [str]:
         if num <= 0:
             raise ValueError('The number of transients must be > 0')
         if num * MIN_TRAN_TOTAL_T > t - t0:
-            raise ValueError('Too many transients, {}, for the total time, {} ms with start time {} ms'
-                             .format(num, t, t0))
+            raise ValueError('Too many transients, {}, for total time, {} ms with start time {} ms'.format(num, t, t0))
     else:
         if num is not 'full':
             raise ValueError('If not an int, number of transients must be ""full""')
@@ -92,12 +102,6 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
     if num is 'full':
         num = ceil(FINAL_T / cl)
 
-    FL_COUNT_MAX = 2**16 - 1
-    if f_0 > FL_COUNT_MAX:
-        raise ValueError('The baseline fluorescence (f0) must be less than 2^16 - 1 (65535)')
-    if abs(f_amp) > FL_COUNT_MAX:
-        raise ValueError('The amplitude (f_peak) must be less than 2^16 - 1 (65535)')
-
     # Initialize full model arrays
     model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)     # time array
     model_data = np.full(int(FPMS * t), f_0, dtype=np.uint16)      # data array, default value is f_0
@@ -112,7 +116,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
         model_dep_period = 5  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
         # Generate high-fidelity data
-        model_dep_full = np.full(model_dep_period, f_0)
+        model_dep_full = np.full(model_dep_period, f_0, dtype=np.uint16)
         for i in range(0, model_dep_period):
             model_dep_full[i] = f_0 + (vm_amp * np.exp(-(((i - model_dep_period) / 3) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
@@ -123,7 +127,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         apd_ratio = 0.8
         m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period     # slope of this phase
-        model_rep1 = np.full(model_rep1_frames, f_0)
+        model_rep1 = np.full(model_rep1_frames, f_0, dtype=np.uint16)
         for i in range(0, model_rep1_frames):
             model_rep1[i] = ((m_rep1 * i) + vm_amp + f_0)    # linear
 
@@ -148,7 +152,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
         model_dep_period = 10  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
         # Generate high-fidelity data
-        model_dep_full = np.full(model_dep_period, f_0)
+        model_dep_full = np.full(model_dep_period, f_0, dtype=np.uint16)
         for i in range(0, model_dep_period):
             model_dep_full[i] = f_0 + (f_amp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
@@ -159,7 +163,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         cad_ratio = 0.6
         m_rep1 = -(f_amp - (f_amp * cad_ratio)) / model_rep1_period     # slope of this phase
-        model_rep1_full = np.full(model_rep1_period, f_0)
+        model_rep1_full = np.full(model_rep1_period, f_0, dtype=np.uint16)
         # Generate high-fidelity data
         for i in range(0, model_rep1_period):
             model_rep1_full[i] = ((m_rep1 * i) + f_amp + f_0)    # linear
@@ -202,7 +206,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
     model_noise = np.random.normal(0, (noise/100) * f_amp, model_data.size)
     model_data = model_data + np.round(model_noise)
 
-    return model_time, model_data.astype(int)
+    return model_time, model_data.astype(np.uint16)
 
 
 def model_stack(size=(100, 50), **kwargs):
@@ -244,13 +248,13 @@ def model_stack(size=(100, 50), **kwargs):
     model_data = np.empty(model_size, dtype=np.uint16)      # data array, default value is f_0
     for i_frame in range(0, FRAMES):
         # Set every pixel value in that of the model transient
-        model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame])
+        model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame], dtype=np.uint16)
 
-    return model_time, model_data.astype(int)
+    return model_time, model_data.astype(np.uint16)
 
 
 # TODO add SNR, duration, Tau variation along propagation, to validate mapping
-def model_stack_propagation(size=(100, 50), cv=20, d_noise=0, **kwargs):
+def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
     murine action potential (OAP) or a propagating murine calcium transient (OCT).
 
@@ -258,8 +262,8 @@ def model_stack_propagation(size=(100, 50), cv=20, d_noise=0, **kwargs):
        ----------
        size : tuple
             The height and width (px) of the optical data. default is (100, 50)
-       cv : int
-            Conduction velocity (cm/s) of propagating OAPs/OCTs, default is 20
+       velocity : int
+            Velocity (cm/s) of propagating OAPs/OCTs, default is 20
        d_noise : int
             Degree of Noise SD to vary along propagation, default is 0
 
@@ -278,39 +282,40 @@ def model_stack_propagation(size=(100, 50), cv=20, d_noise=0, **kwargs):
     # Constants
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
-    MIN_CV = 10   # Minimum cv (cm/s)
-    MAX_CV = 50   # Minimum cv (cm/s)
+    # Spatial resolution (cm/px)
+    # resolution = 0.005  # 1 cm / 200 px
+    # resolution = 0.0149  # pig video resolution
+    resolution = 0.01       # 1 cm / 100 px
+    MIN_VELOCITY = 10   # Minimum velocity (cm/s)
+    MAX_VELOCITY = 50   # Minimum velocity (cm/s)
     DIV_NOISE = 5   # Divisions of noise variation within the frame (each is Height / DIV_NOISE)
     # Check parameters
     if type(size) not in [tuple]:
         raise TypeError('Image size must be a tuple, e.g. (20, 20)')
     if (size[0] < MIN_SIZE[0]) or (size[1] < MIN_SIZE[1]):
         raise ValueError('The size (H, W) must be larger than {}'.format(MIN_SIZE))
-    if cv < MIN_CV:
-        raise ValueError('The Conduction Velocity must be larger than {}'.format(MIN_CV))
+    if velocity < MIN_VELOCITY:
+        raise ValueError('The velocity must be larger than {}'.format(MIN_VELOCITY))
 
     # Calculations for propagation timing
     # Dimensions of model data (px)
     HEIGHT, WIDTH = size
-    # Allocate space for the Activation Map
+    # Allocate space for the Activation Map used for propagation
     act_map = np.zeros(shape=(HEIGHT, WIDTH))
-    # Spatial resolution (cm/px)
-    # resolution = 0.005  # 1 cm / 200 px
-    # resolution = 0.0149  # pig video resolution
-    resolution = 0.01       # 1 cm / 100 px
     HEIGHT_cm, WIDTH_cm = HEIGHT * resolution, WIDTH * resolution
 
-    # Convert conduction velocity from cm/s to px/s
-    conduction_v_px = cv / resolution
-    MIN_CV_PX = MIN_CV / resolution
-    # Calculate minimum time needed for a single propagation
-    MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_CV * 1000)   # ms
+    # Calculate the absolute minimum time needed for a single propagation, assuming the max velocity
+    MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_VELOCITY * 1000)   # ms
+
+    # Convert velocity from cm/s to px/s
+    velocity_px = velocity / resolution
+    MIN_VELOCITY_PX = MIN_VELOCITY / resolution
     if 't' in kwargs:
         if kwargs.get('t') < MIN_t:
-            raise ValueError('The total stack time must be larger than {}'.format(MIN_t))
+            raise ValueError('The total stack time must be longer than {}'.format(MIN_t))
         t_propagation = kwargs.get('t')
-    else:
-        t_propagation = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / cv * 1000)     # ms
+    else:   # Use a calculated min total time
+        t_propagation = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / velocity * 1000)     # ms
 
     if 't0' in kwargs:
         t_propagation = t_propagation + kwargs.get('t0')
@@ -336,7 +341,7 @@ def model_stack_propagation(size=(100, 50), cv=20, d_noise=0, **kwargs):
         # Compute the distance from the center (cm)
         d = sqrt((abs(origin_x - ix) ** 2 + abs((origin_y - iy) ** 2)))
         # Calculate the time associated with that distance from the point of activation
-        act_time = d / conduction_v_px
+        act_time = d / velocity_px
         # Convert time from s to ms
         act_time = act_time * 1000
         prop_delta = floor(act_time)
@@ -358,7 +363,7 @@ def model_stack_propagation(size=(100, 50), cv=20, d_noise=0, **kwargs):
         # Set every pixel's values to those of the offset model transient
         model_data[:, iy, ix] = pixel_data
 
-    return model_time, model_data.astype(int)
+    return model_time, model_data.astype(np.uint16)
 
 
 # Code for example tests

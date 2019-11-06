@@ -1,15 +1,18 @@
 import unittest
-import time
-from pathlib import Path
-from math import pi
 from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area
+from pathlib import Path
+import time
+from math import pi
+import numpy as np
 from scipy.signal import find_peaks
 from imageio import volwrite
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
+
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_vm, color_ca = ['#FF9999', '#99FF99']
+# color_vm, color_ca = ['#FF9999', '#99FF99']
+color_vm, color_ca = ['r', 'y']
 
 
 def plot_test():
@@ -38,39 +41,47 @@ class TestModelTransients(unittest.TestCase):
         self.assertRaises(TypeError, model_transients, num=True)  # num must be an int or 'full'
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, model_transients, model_type='voltage')     # proper model type
-        self.assertRaises(ValueError, model_transients, t=-2)     # no negative total times
-        self.assertRaises(ValueError, model_transients, t=99)     # total time at least 100 ms long
-        self.assertRaises(ValueError, model_transients, t=150, t0=150)       # start time < than total time
-        self.assertRaises(ValueError, model_transients, fps=150)      # no fps < 200
-        self.assertRaises(ValueError, model_transients, fps=1001)      # no fps > 1000
-        self.assertRaises(ValueError, model_transients, f_0=2 ** 16)     # no baseline > 16-bit max
+        self.assertRaises(ValueError, model_transients, model_type='voltage')  # proper model type
+        self.assertRaises(ValueError, model_transients, t=-2)  # no negative total times
+        self.assertRaises(ValueError, model_transients, t=99)  # total time at least 100 ms long
+        self.assertRaises(ValueError, model_transients, t=150, t0=150)  # start time < than total time
+        self.assertRaises(ValueError, model_transients, fps=150)  # no fps < 200
+        self.assertRaises(ValueError, model_transients, fps=1001)  # no fps > 1000
+        self.assertRaises(ValueError, model_transients, f_0=2 ** 16)  # no baseline > 16-bit max
         self.assertRaises(ValueError, model_transients, f_amp=2 ** 16)  # no amplitude > 16-bit max
-        self.assertRaises(ValueError, model_transients, f_amp=-2)   # no amplitude < 0
-        self.assertRaises(ValueError, model_transients, f_0=0, f_amp=20)   # no amplitude < 0, especially Vm
+        self.assertRaises(ValueError, model_transients, f_amp=-2)  # no amplitude < 0
+        self.assertRaises(ValueError, model_transients, f_0=0, f_amp=20)  # no amplitude < 0, especially Vm
         # Multiple transients
         self.assertRaises(ValueError, model_transients, num=-1)  # no negative transients
         self.assertRaises(ValueError, model_transients, num='5')  # if a string, must be 'full'
         self.assertRaises(ValueError, model_transients, t=300, t0=50, num=3)  # not too many transients
         self.assertRaises(ValueError, model_transients, t=300, t0=50, num=2, cl=49)  # minimum Cycle Length
+        # Clipping of fluorescence
+        self.assertRaises(ValueError, model_transients, model_type='Ca',
+                          f_0=2 ** 16 - 50)  # Would cause clipping due to an overflow of uint16
+        self.assertRaises(ValueError, model_transients, model_type='Ca',
+                          f_0=2 ** 16 - 50, f_amp=48, noise=5)  # Noise would cause clipping
 
     def test_results(self):
         # Make sure model results are valid
-        self.assertEqual(len(model_transients()), 2)      # time and data arrays returned as a tuple
-        self.assertEqual(model_transients(t=1000)[0].size, model_transients(t=1000)[1].size)    # time and data same size
+        self.assertIsInstance(model_transients(), tuple)  # results returned as a tuple
+        self.assertEqual(len(model_transients()), 2)  # time and data arrays returned
+        self.assertEqual(model_transients(t=1000)[0].size, model_transients(t=1000)[1].size)  # time and data same size
         # Test the returned time array
-        self.assertEqual(model_transients(t=150)[0].size, 150)      # length is correct
-        self.assertEqual(model_transients(t=1000, t0=10, fps=223)[0].size, 223)      # length is correct with odd fps
-        self.assertGreaterEqual(model_transients(t=100)[0].all(), 0)     # no negative times
-        self.assertLess(model_transients(t=200)[0].all(), 200)     # no times >= total time parameter
+        self.assertEqual(model_transients(t=150)[0].size, 150)  # length is correct
+        self.assertEqual(model_transients(t=1000, t0=10, fps=223)[0].size, 223)  # length is correct with odd fps
+        self.assertGreaterEqual(model_transients(t=100)[0].all(), 0)  # no negative times
+        self.assertLess(model_transients(t=200)[0].all(), 200)  # no times >= total time parameter
         # Test the returned data array
-        self.assertTrue(model_transients(noise=5)[1].dtype in [int])  # data values returned as ints
-        self.assertEqual(model_transients(t=150)[1].size, 150)      # length is correct
-        self.assertEqual(model_transients(t=1000, t0=10, fps=223)[1].size, 223)     # length is correct with odd fps
-        self.assertGreaterEqual(model_transients(t=100)[1].all(), 0)     # no negative values
-        self.assertLess(model_transients(t=100)[1].all(), 2 ** 16)     # no values >= 16-bit max
-        self.assertGreaterEqual(2000, model_transients(model_type='Vm', f_0=2000)[1].max())  # Vm amplitude handled properly
-        self.assertLessEqual(2000, model_transients(model_type='Ca', f_0=2000)[1].min())  # Ca amplitude handled properly
+        self.assertIsInstance(model_transients(noise=5)[1][1], np.uint16)  # data values returned as uint16
+        self.assertEqual(model_transients(t=150)[1].size, 150)  # length is correct
+        self.assertEqual(model_transients(t=1000, t0=10, fps=223)[1].size, 223)  # length is correct with odd fps
+        self.assertGreaterEqual(model_transients(t=100)[1].all(), 0)  # no negative values
+        self.assertLess(model_transients(model_type='Ca')[1].all(), 2 ** 16-1)  # no values >= 16-bit max
+        self.assertGreaterEqual(2000,
+                                model_transients(model_type='Vm', f_0=2000)[1].max())  # Vm amplitude handled properly
+        self.assertLessEqual(2000,
+                             model_transients(model_type='Ca', f_0=2000)[1].min())  # Ca amplitude handled properly
 
         # Test multiple transient generation
         f_amp = 250
@@ -80,16 +91,37 @@ class TestModelTransients(unittest.TestCase):
         time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=f_amp, num=num)
         data_vm = (-(data_vm - 2000)) + 2000
         peaks_vm, _ = find_peaks(data_vm, height=peak_min_height)
-        self.assertEqual(peaks_vm.size, num)      # detected peaks matches number of generated transients
+        self.assertEqual(peaks_vm.size, num)  # detected peaks matches number of generated transients
 
         time_ca, data_ca = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num=num)
         peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height)
-        self.assertEqual(peaks_ca.size, num)      # detected peaks matches number of generated transients
+        self.assertEqual(peaks_ca.size, num)  # detected peaks matches number of generated transients
 
         # time_ca_full, data_ca_full = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num='full')
         time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f_0=1000, f_amp=250, num='full')
         peaks_ca, _ = find_peaks(data_ca_full, height=1000 + peak_min_height)
-        self.assertEqual(peaks_ca.size, int(5000 / 100))      # detected peaks matches calculated transients for 'full'
+        self.assertEqual(peaks_ca.size, int(5000 / 100))  # detected peaks matches calculated transients for 'full'
+
+    def test_plot_single(self):
+        time_vm, data_vm = model_transients()
+        # time_ca, data_ca = model_transients(model_type='Ca', t=100, f_0=2 ** 16 - 50)
+
+        # Build a figure to plot model data
+        fig_single, ax_single = plot_test()
+        ax_single.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_single.set_xlabel('Time (ms)', color=gray_heavy)
+
+        # Plot aligned model data
+        # ax_dual_multi.set_ylim([1500, 2500])
+        # data_vm_align = -(data_vm - data_vm.max())
+        # data_ca_align = data_ca - data_ca.min()
+        plot_vm, = ax_single.plot(time_vm, data_vm, marker='+', color=color_vm, label='Vm')
+        # plot_ca, = ax_single.plot(time_ca, data_ca, marker='+', color=color_ca, label='Ca')
+        # plot_baseline = ax_single.axhline(color='gray', linestyle='--', label='baseline')
+        ax_single.legend(title='A Model Transient (Defaults)',
+                         loc='right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_single.show()
 
     def test_plot_fps(self):
         # Test model Ca single transient data, at different fps
@@ -104,9 +136,9 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_ca_1, = ax_dual_fps.plot(time_ca_1, data_ca_1-1000, gray_light, marker='1', label='Ca, fps: 250')
-        plot_ca_2, = ax_dual_fps.plot(time_ca_2, data_ca_2-1000, gray_med, marker='+', label='Ca, fps: 500')
-        plot_ca_3, = ax_dual_fps.plot(time_ca_3, data_ca_3-1000, gray_heavy, marker='2', label='Ca, fps: 1000')
+        plot_ca_1, = ax_dual_fps.plot(time_ca_1, data_ca_1 - 1000, gray_light, marker='1', label='Ca, fps: 250')
+        plot_ca_2, = ax_dual_fps.plot(time_ca_2, data_ca_2 - 1000, gray_med, marker='+', label='Ca, fps: 500')
+        plot_ca_3, = ax_dual_fps.plot(time_ca_3, data_ca_3 - 1000, gray_heavy, marker='2', label='Ca, fps: 1000')
         plot_baseline = ax_dual_fps.axhline(color='gray', linestyle='--', label='baseline')
         ax_dual_fps.legend(title='FPS Variations',
                            loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -129,36 +161,43 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_ca_1, = ax_duration.plot(time_vm_1, -(data_vm_1-100), color_vm, marker='1', label='Vm, APD20: 5')
-        plot_ca_2, = ax_duration.plot(time_vm_2, -(data_vm_2-100), color_vm, marker='+', label='Vm, APD20: 15')
-        plot_ca_3, = ax_duration.plot(time_vm_3, -(data_vm_3-100), color_vm, marker='2', label='Vm, APD20: 25')
-        plot_ca_1, = ax_duration.plot(time_ca_1, data_ca_1-100, color_ca, marker='1', label='Ca, CAD40: 15')
-        plot_ca_2, = ax_duration.plot(time_ca_2, data_ca_2-100, color_ca, marker='+', label='Ca, CAD40: 25')
-        plot_ca_3, = ax_duration.plot(time_ca_3, data_ca_3-100, color_ca, marker='2', label='Ca, CAD40: 35')
+        plot_ca_1, = ax_duration.plot(time_vm_1, -(data_vm_1 - 100), color_vm, marker='1', label='Vm, APD20: 5')
+        plot_ca_2, = ax_duration.plot(time_vm_2, -(data_vm_2 - 100), color_vm, marker='+', label='Vm, APD20: 15')
+        plot_ca_3, = ax_duration.plot(time_vm_3, -(data_vm_3 - 100), color_vm, marker='2', label='Vm, APD20: 25')
+        plot_ca_1, = ax_duration.plot(time_ca_1, data_ca_1 - 100, color_ca, marker='1', label='Ca, CAD40: 15')
+        plot_ca_2, = ax_duration.plot(time_ca_2, data_ca_2 - 100, color_ca, marker='+', label='Ca, CAD40: 25')
+        plot_ca_3, = ax_duration.plot(time_ca_3, data_ca_3 - 100, color_ca, marker='2', label='Ca, CAD40: 35')
         plot_baseline = ax_duration.axhline(color='gray', linestyle='--', label='baseline')
         ax_duration.legend(title='APD20 and CAD40 Variations',
                            loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_duration.show()
 
-    def test_plot_multi(self):
+    def test_plot_cyclelength(self):
         # Test model Vm multi transient data, at different Cycle Lengths
         num = 4
-        time_vm_1, data_vm_1 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=50)
-        time_vm_2, data_vm_2 = model_transients(t=500, f_0=2000, f_amp=250, num=num)
-        time_vm_3, data_vm_3 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=150)
+        time_vm1, data_vm1 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=50)
+        time_vm2, data_vm2 = model_transients(t=500, f_0=2000, f_amp=250, num=num)
+        time_vm3, data_vm3 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=150)
 
         # Build a figure to plot model data
-        fig_cyclelength, ax_cyclelength = plot_test()
-        ax_cyclelength.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
-        ax_cyclelength.set_xlabel('Time (ms)', color=gray_heavy)
+        fig_cyclelength, ax_old = plot_test()
+        ax_cyclelength1 = plt.subplot(3, 1, 1)
+        plt.setp(ax_cyclelength1.get_xticklabels(), visible=False)
+        ax_cyclelength2 = plt.subplot(3, 1, 2, sharex=ax_cyclelength1)
+        ax_cyclelength2.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        plt.setp(ax_cyclelength2.get_xticklabels(), visible=False)
+        ax_cyclelength3 = plt.subplot(3, 1, 3, sharex=ax_cyclelength1)
+        ax_cyclelength3.set_xlabel('Time (ms)', color=gray_heavy)
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_vm_1, = ax_cyclelength.plot(time_vm_1, -(data_vm_1-2000), gray_light, marker='1', label='Vm, CL: 50')
-        plot_vm_2, = ax_cyclelength.plot(time_vm_2, -(data_vm_2-2000), gray_med, marker='+', label='Ca, CL: 100')
-        plot_vm_3, = ax_cyclelength.plot(time_vm_3, -(data_vm_3-2000), gray_heavy, marker='2', label='Ca, CL: 150')
-        plot_baseline = ax_cyclelength.axhline(color='gray', linestyle='--', label='baseline')
-        ax_cyclelength.legend(title='Cycle Length Variations',
+        data_vm1_align, data_vm2_align, data_vm3_align =\
+            -(data_vm1 - data_vm1.max()), -(data_vm2 - data_vm2.max()), -(data_vm3 - data_vm3.max())
+        plot_vm_1, = ax_cyclelength1.plot(time_vm1, data_vm1_align, gray_light, marker='1', label='Vm, CL: 50')
+        plot_vm_2, = ax_cyclelength2.plot(time_vm2, data_vm2_align, gray_med, marker='+', label='Vm, CL: 100')
+        plot_vm_3, = ax_cyclelength3.plot(time_vm3, data_vm3_align, gray_heavy, marker='2', label='Vm, CL: 150')
+        # plot_baseline = ax_cyclelength.axhline(color='gray', linestyle='--', label='baseline')
+        fig_cyclelength.legend(title='Cycle Length Variations',
                               loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_cyclelength.show()
 
@@ -166,7 +205,7 @@ class TestModelTransients(unittest.TestCase):
         # Test model Vm and Ca single transient data
         time_vm, data_vm = model_transients(f_0=2000, f_amp=250)
         time_ca, data_ca = model_transients(model_type='Ca', f_0=1000, f_amp=250)
-        self.assertEqual(time_vm.size, data_vm.size)     # data and time arrays returned as a tuple
+        self.assertEqual(time_vm.size, data_vm.size)  # data and time arrays returned as a tuple
 
         # Build a figure to plot model data
         fig_dual, ax_dual = plot_test()
@@ -176,8 +215,10 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_vm, = ax_dual.plot(time_vm, -(data_vm-2000), 'r+', label='Vm')
-        plot_ca, = ax_dual.plot(time_ca, data_ca-1000, 'y+', label='Ca')
+        data_vm_align = -(data_vm - data_vm.max())
+        data_ca_align = data_ca - data_ca.min()
+        plot_vm, = ax_dual.plot(time_vm, data_vm_align, 'r+', label='Vm')
+        plot_ca, = ax_dual.plot(time_ca, data_ca_align, 'y+', label='Ca')
         plot_baseline = ax_dual.axhline(color='gray', linestyle='--', label='baseline')
         ax_dual.legend(title='Dual Vm and Ca transient',
                        loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -187,8 +228,8 @@ class TestModelTransients(unittest.TestCase):
     def test_plot_dual_multi(self):
         # Test model Vm and Ca multi-transient data, with noise
         num = 4
-        time_vm, data_vm = model_transients(t=500, t0=25, f_0=2000, f_amp=250, noise=2, num=num)
-        time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, f_0=1000, f_amp=250, noise=2, num=num)
+        time_vm, data_vm = model_transients(t=500, t0=25, f_0=2000, f_amp=250, num=num)
+        time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, f_0=1000, f_amp=250, num=num)
 
         # Build a figure to plot model data
         fig_dual_multi, ax_dual_multi = plot_test()
@@ -197,8 +238,10 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax_dual_multi.set_ylim([1500, 2500])
-        plot_vm, = ax_dual_multi.plot(time_vm, -(data_vm-2000), 'r+', label='Vm')
-        plot_ca, = ax_dual_multi.plot(time_ca, data_ca-1000, 'y+', label='Ca')
+        data_vm_align = -(data_vm - data_vm.max())
+        data_ca_align = data_ca - data_ca.min()
+        plot_vm, = ax_dual_multi.plot(time_vm, data_vm_align, 'r+', label='Vm')
+        plot_ca, = ax_dual_multi.plot(time_ca, data_ca_align, 'y+', label='Ca')
         plot_baseline = ax_dual_multi.axhline(color='gray', linestyle='--', label='baseline')
         ax_dual_multi.legend(title='Dual Vm and Ca transients',
                              loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -215,26 +258,26 @@ class TestModelStack(unittest.TestCase):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack, size=20)  # size must be a tuple, e.g. (100, 50)
         # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, model_stack, size=(20, 5))     # no size > (10, 10)
-        self.assertRaises(ValueError, model_stack, size=(5, 20))     # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack, size=(20, 5))  # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack, size=(5, 20))  # no size > (10, 10)
 
     def test_results(self):
-        # Make sure model results are valid
-        self.assertEqual(len(model_stack(t=1000)), 2)      # time and data arrays returned as a tuple
-        stack_time, stack_data = model_stack(t=1000)
-        self.assertEqual(stack_time.size, stack_data.shape[0])    # time and data same size
+        # Make sure model stack results are valid
+        self.assertIsInstance(model_stack(), tuple)  # results returned as a tuple
+        self.assertEqual(len(model_stack()), 2)  # time and data arrays returned
+        stack_time, stack_data = model_stack()
+        self.assertEqual(stack_time.size, stack_data.shape[0])  # time and data same size
 
         # Test the returned time array
-        self.assertEqual(stack_time.size, 1000)      # length is correct
-        self.assertGreaterEqual(stack_time.all(), 0)     # no negative times
+        self.assertEqual(stack_time.size, 100)  # length is correct
+        self.assertGreaterEqual(stack_time.all(), 0)  # no negative times
 
         # Test the returned data array
-        self.assertEqual(stack_data.shape[0], 1000)      # length is correct
-        self.assertEqual(stack_data.shape, (1000, 100, 50))    # default dimensions (T, Y, X)
-        self.assertGreaterEqual(stack_data.all(), 0)     # no negative values
-        self.assertLess(stack_data.all(), 2 ** 16)     # no values >= 16-bit max
+        self.assertEqual(stack_data.shape, (100, 100, 50))  # default dimensions (T, Y, X)
+        self.assertGreaterEqual(stack_data.all(), 0)  # no negative values
+        self.assertLess(stack_data.all(), 2 ** 16)  # no values >= 16-bit max
         stackSize_time, stackSize_data = model_stack(t=1000, size=(100, 100))
-        self.assertEqual(stackSize_data.shape, (1000, 100, 100))    # dimensions (T, Y, X)
+        self.assertEqual(stackSize_data.shape, (1000, 100, 100))  # dimensions (T, Y, X)
 
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
@@ -253,30 +296,31 @@ class TestModelStackPropagation(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack_propagation, size=20)  # size must be a tuple, e.g. (100, 50)
-        self.assertRaises(TypeError, model_stack_propagation, cv='50')
+        self.assertRaises(TypeError, model_stack_propagation, velocity='50')
         self.assertRaises(TypeError, model_stack_propagation, snr='10')
         # Make sure parameters are valid, and valid errors are raised when necessary
-        self.assertRaises(ValueError, model_stack_propagation, size=(20, 5))     # no size > (10, 10)
-        self.assertRaises(ValueError, model_stack_propagation, size=(5, 20))     # no size > (10, 10)
-        self.assertRaises(ValueError, model_stack_propagation, cv=4)     # no cv > 5
-        self.assertRaises(ValueError, model_stack_propagation, t=90)     # no t < 100
+        self.assertRaises(ValueError, model_stack_propagation, size=(20, 5))  # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack_propagation, size=(5, 20))  # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack_propagation, velocity=4)  # no velocity > 5
+        self.assertRaises(ValueError, model_stack_propagation, t=90)  # no t < 100
 
     def test_results(self):
-        # Make sure model results are valid
-        self.assertEqual(len(model_stack_propagation()), 2)  # time and data arrays returned as a tuple
+        # Make sure model stack results are valid
+        self.assertIsInstance(model_stack_propagation(), tuple)  # results returned as a tuple
+        self.assertEqual(len(model_stack_propagation()), 2)  # time and data arrays returned
         stack_time, stack_data = model_stack_propagation()
         self.assertEqual(stack_time.size, stack_data.shape[0])
 
         # Test the returned time array
-        self.assertEqual(stack_time.size, 200)  # length is correct, default cv of 20 : t of 2000
+        self.assertEqual(stack_time.size, 150)  # default velocity of 20 -> t of 150
         self.assertGreaterEqual(stack_time.all(), 0)  # no negative times
 
         # Test the returned data array
-        self.assertEqual(stack_data.shape, (200, 100, 50))  # default dimensions (T, Y, X)
+        self.assertEqual(stack_data.shape, (150, 100, 50))  # default dimensions (T, Y, X)
         self.assertGreaterEqual(stack_data.all(), 0)  # no negative values
         self.assertLess(stack_data.all(), 2 ** 16)  # no values >= 16-bit max
         stackSize_time, stackSize_data = model_stack_propagation(size=(100, 100))
-        self.assertEqual(stackSize_data.shape, (200, 100, 100))  # new dimensions (T, Y, X)
+        self.assertEqual(stackSize_data.shape, (150, 100, 100))  # dimensions (T, Y, X)
 
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
@@ -291,11 +335,11 @@ class TestModelStackPropagation(unittest.TestCase):
     def test_tiff_noise(self):
         # Make sure this stack is similar to a noisy 16-bit .tif/.tiff
         start = time.process_time()
-        time_vm, data_vm = model_stack_propagation(noise=5, cv=50, t0=50)
+        time_vm, data_vm = model_stack_propagation(noise=5, velocity=50, t0=50)
         end = time.process_time()
         print('Timing, test_tiff_noise, Vm : ', end - start)
         volwrite(self.tests + '/results/ModelStackPropagationNoise_vm.tif', data_vm)
-        time_ca, data_ca = model_stack_propagation(noise=5, model_type='Ca', cv=50, t0=50)
+        time_ca, data_ca = model_stack_propagation(noise=5, model_type='Ca', velocity=50, t0=50)
         volwrite(self.tests + '/results/ModelStackPropagationNoise_ca.tif', data_ca)
 
     def test_tiff_snr(self):
@@ -323,7 +367,7 @@ class TestModelCircle(unittest.TestCase):
 
     def test_type(self):
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, circle_area, 3+5j)
+        self.assertRaises(TypeError, circle_area, 3 + 5j)
         self.assertRaises(TypeError, circle_area, True)
         self.assertRaises(TypeError, circle_area, 'radius')
 
