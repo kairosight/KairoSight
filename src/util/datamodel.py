@@ -253,8 +253,8 @@ def model_stack(size=(100, 50), **kwargs):
     return model_time, model_data.astype(np.uint16)
 
 
-# TODO add SNR, duration, Tau variation along propagation, to validate mapping
-def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, **kwargs):
+# TODO add variation along propagation (noise, amplitude, duration, Tau) to validate mapping
+def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
     murine action potential (OAP) or a propagating murine calcium transient (OCT).
 
@@ -266,6 +266,8 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, **kwargs):
             Velocity (cm/s) of propagating OAPs/OCTs, default is 20
        d_noise : int
             Degree of Noise SD to vary along propagation, default is 0
+       d_amp : int
+            Degree of Amplitude to vary along propagation, default is 0
 
        Other Parameters
        ----------------

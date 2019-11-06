@@ -1,6 +1,6 @@
 import unittest
 from util.processing import invert_signal, normalize_signal, calculate_snr, map_snr, calculate_error
-from util.datamodel import model_transients, model_stack_propagation, circle_area
+from util.datamodel import model_transients, model_stack_propagation
 import numpy as np
 import statistics
 import matplotlib.pyplot as plt
@@ -126,15 +126,11 @@ class TestInvert(unittest.TestCase):
     def test_params(self):
         signal_bad_type = np.full(100, True)
         # Make sure type errors are raised when necessary
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, invert_signal, signal_in=True)
         self.assertRaises(TypeError, invert_signal, signal_in=signal_bad_type)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, invert_signal, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure results are correct
@@ -144,8 +140,8 @@ class TestInvert(unittest.TestCase):
         self.assertIsInstance(signal_inv, np.ndarray)  # inverted signal
 
         # Make sure result values are valid
-        self.assertAlmostEqual(signal_inv.min(), self.signal_F0 - self.signal_amp, delta=self.noise*3)    #
-        self.assertAlmostEqual(signal_inv.max(), self.signal_F0, delta=self.noise*3)    #
+        self.assertAlmostEqual(signal_inv.min(), self.signal_F0 - self.signal_amp, delta=self.noise*4)    #
+        self.assertAlmostEqual(signal_inv.max(), self.signal_F0, delta=self.noise*4)    #
 
     def test_plot_single(self):
         # Make sure signal inversion looks correct
@@ -183,15 +179,11 @@ class TestNormalize(unittest.TestCase):
     def test_params(self):
         signal_bad_type = np.full(100, True)
         # Make sure type errors are raised when necessary
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, normalize_signal, signal_in=True)
         self.assertRaises(TypeError, normalize_signal, signal_in=signal_bad_type)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, normalize_signal, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure results are correct
@@ -231,7 +223,7 @@ class TestSnrSignal(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, calculate_snr, signal_in=True)
         self.assertRaises(TypeError, calculate_snr, signal_in=signal_bad_type)
         # noise_count : int, default is 10
@@ -239,16 +231,12 @@ class TestSnrSignal(unittest.TestCase):
         self.assertRaises(TypeError, calculate_snr, signal_in=self.signal_ca, noise_count='500')
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 30
-        self.assertRaises(ValueError, calculate_snr, signal_in=signal_bad_value)
         # i_noise : < t, > 0
         self.assertRaises(ValueError, calculate_snr, signal_in=self.signal_ca, noise_count=self.signal_time - 1)
         self.assertRaises(ValueError, calculate_snr, signal_in=self.signal_ca, noise_count=-4)
 
         # Make sure difficult data is identified
-        signal_hard_value = np.full(100, 10)
+        signal_hard_value = np.full(100, 10, dtype=np.uint16)
         # Peak section too flat for auto-detection
         # signal_hard_value[20] = signal_hard_value[20] + 20.2
         self.assertRaises(ArithmeticError, calculate_snr, signal_in=signal_hard_value)
@@ -260,7 +248,7 @@ class TestSnrSignal(unittest.TestCase):
         self.assertIsInstance(snr, float)  # snr
         self.assertIsInstance(rms_bounds, tuple)  # signal_range
         self.assertIsInstance(peak_peak, float)  # Peak to Peak value aka amplitude
-        self.assertAlmostEqual(peak_peak, self.signal_amp, delta=self.noise*3)
+        self.assertAlmostEqual(peak_peak, self.signal_amp, delta=self.noise*4)
 
         self.assertIsInstance(sd_noise, float)  # sd of noise
         self.assertAlmostEqual(sd_noise, self.noise, delta=1)  # noise, as a % of the signal amplitude
@@ -373,9 +361,9 @@ class TestSnrSignal(unittest.TestCase):
 
         # Build a figure to plot stats comparison
         fig_error_scatter, ax_snr_error_scatter = plot_stats_scatter()
-        ax_snr_error_scatter.set_title('SNR vs Noise Accuracy')
+        ax_snr_error_scatter.set_title('SNR vs Noise Accuracy (n={})'.format(trial_count))
         ax_snr_error_scatter.set_ylabel('SNR (Noise SD, Calculated)', color=gray_med)
-        # ax_snr_error_scatter.set_ylabel('% Error of SNR Calculation')
+        # ax_snr_error_scatter.set_ylabel('%Error of SNR Calculation')
         ax_snr_error_scatter.set_xlabel('SNR (Noise SD, , Actual)')
         ax_snr_error_scatter.set_ylim([0, noises[-1]+1])
         ax_snr_error_scatter.set_xlim([0, noises[-1]+1])
@@ -384,29 +372,27 @@ class TestSnrSignal(unittest.TestCase):
         for i in range(0, len(noises)):
             ax_snr_error_scatter.errorbar(noises[i], results_trials_snr[i]['sd_noise']['mean'],
                                           yerr=results_trials_snr[i]['sd_noise']['sd'], fmt="x",
-                                          color=gray_heavy, lw=1, capsize=4, capthick=1.0)
+                                          color=gray_med, lw=1, capsize=4, capthick=1.0)
 
         ax_error = ax_snr_error_scatter.twinx()  # instantiate a second axes that shares the same x-axis
-        ax_error.set_ylabel('% Error of SNR')  # we already handled the x-label with ax1
-        ax_error.set_ylim([-2, 10])
+        ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
+        ax_error.set_ylabel('%Error of SNR')  # we already handled the x-label with ax1
+        ax_error.set_ylim([-100, 100])
         ax_error.plot(noises, error, color=gray_heavy, linestyle='-', label='% Error')
-        # ax_error.tick_params(axis='y', labelcolor=gray_heavy)
 
         ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        # ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        # ax_snr_error_scatter.real_sd_noise = ax_snr_error_scatter.axhline(y=0, color=gray_light, linestyle='--')
-        # ax_snr_error_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_error_scatter.show()
 
 
 class TestSnrMap(unittest.TestCase):
     # Setup data to test with, a propagating stack of varying SNR
+    f_0 = 1000
     f_amp = 100
-    noise = 5
-    d_noise = 10     # as a % of the signal amplitude
+    noise = 2
+    d_noise = 20     # as a % of the signal amplitude
     noise_count = 100
-    time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_amp=f_amp, noise=noise)
+    time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_0=f_0, f_amp=f_amp, noise=noise)
     stack_ca_shape = stack_ca.shape
     FRAMES = stack_ca_shape[0]
     map_shape = (stack_ca_shape[1], stack_ca_shape[2])
@@ -414,23 +400,24 @@ class TestSnrMap(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
         # stack_in : ndarray, 3-D array
-        stack_bad_shape = np.empty(self.stack_ca_shape, dtype=np.uint16)
+        stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
         stack_bad_type = np.full(self.stack_ca_shape, True)
         self.assertRaises(TypeError, map_snr, stack_in=True)
         self.assertRaises(TypeError, map_snr, stack_in=stack_bad_shape)
         self.assertRaises(TypeError, map_snr, stack_in=stack_bad_type)
+        # noise_count : int
+        self.assertRaises(TypeError, map_snr, stack_in=self.stack_ca, noise_count=True)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # stack_in : >=0
-        stack_bad_value = np.full(self.stack_ca_shape, 10)
-        stack_bad_value[20] = stack_bad_value[20] - 30
-        self.assertRaises(ValueError, map_snr, stack_in=stack_bad_value)
+        # noise_count : >=0
+        self.assertRaises(ValueError, map_snr, stack_in=self.stack_ca, noise_count=-2)
 
     def test_results(self):
         # Make sure SNR Map results are correct
         snr_map_ca = map_snr(self.stack_ca)
         self.assertIsInstance(snr_map_ca, np.ndarray)  # snr map type
         self.assertEqual(snr_map_ca.shape, self.map_shape)  # snr map shape
+        self.assertIsInstance(snr_map_ca[0, 0], float)  # snr map value type
 
     def test_plot(self):
         # Make sure SNR Map looks correct
@@ -439,33 +426,28 @@ class TestSnrMap(unittest.TestCase):
         snr_min = np.nanmin(snr_map_ca)
         print('Activation Maps max value: ', snr_max)
 
-        # Plot Activation Map
+        # Plot a frame from the stack and the SNR map of the entire stack
         fig_map_snr, ax_img_snr, ax_map_snr = plot_map(snr_map_ca)
-        # Create normalization range for map (round down and up to nearest 10)
+        # Create normalization range for map (0 and max rounded up to the nearest 10)
         cimg_snr = SCMaps.grayC
         img_snr_ca = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cimg_snr)
         cmap_snr = SCMaps.davos.reversed()
-        # cmap_norm = colors.Normalize(vmin=snr_min, vmax=snr_max)
-        cmap_norm = colors.Normalize(vmin=(np.floor(snr_min)), vmax=round(snr_max + 5.1, -1))
+        cmap_norm = colors.Normalize(vmin=0, vmax=round(snr_max + 5.1, -1))
         map_snr_ca = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
         ax_img_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
         ax_img_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
         ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
         ax_map_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
         # Add colorbar (lower right of img)
-        ax_ins_img = inset_axes(ax_img_snr,
-                                width="5%", height="80%",
-                                loc=5,
+        ax_ins_img = inset_axes(ax_img_snr, width="5%", height="80%", loc=5,
                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
                                 borderpad=0)
         # Add colorbar (lower right of act. map)
-        ax_ins_map = inset_axes(ax_map_snr,
-                                width="5%", height="80%",
-                                loc=5,
+        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="80%", loc=5,
                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
                                 borderpad=0)
         cb_img = plt.colorbar(img_snr_ca, cax=ax_ins_img, orientation="vertical")
-        cb_img.ax.set_xlabel('A.U.', fontsize=fontsize3)
+        cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
         cb_img.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
         cb_img.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
         cb_img.ax.tick_params(labelsize=fontsize3)
@@ -493,8 +475,8 @@ class TestErrorSignal(unittest.TestCase):
     def test_params(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # ideal : ndarray, dtyoe : int or float
-        # modified : ndarray, dtyoe : int or float
+        # ideal : ndarray, dtyoe : uint16 or float
+        # modified : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, calculate_error, ideal=True, modified=self.signal_ca_mod)
         self.assertRaises(TypeError, calculate_error, ideal=signal_bad_type, modified=self.signal_ca_mod)
         self.assertRaises(TypeError, calculate_error, ideal=self.signal_ca_ideal, modified=True)
@@ -516,7 +498,7 @@ class TestErrorSignal(unittest.TestCase):
         error, error_mean, error_sd = calculate_error(self.signal_ca_ideal, self.signal_ca_mod)
         # Build a figure to plot SNR results
         fig_snr, ax_error_signal = plot_test()
-        ax_error_signal.set_title('% Error of a noisy signal')
+        ax_error_signal.set_title('%Error of a noisy signal')
         ax_error_signal.set_ylabel('Arbitrary Fluorescent Units', color=gray_med)
         ax_error_signal.tick_params(axis='y', labelcolor=gray_med)
         ax_error_signal.set_xlabel('Time (ms)')
@@ -557,8 +539,8 @@ class TestErrorSignal(unittest.TestCase):
 
         # Build a figure to plot stats comparison
         fig_stats_scatter, ax_sd_noise_scatter = plot_stats_scatter()
-        ax_sd_noise_scatter.set_title('SD of % Error for noisy data')
-        ax_sd_noise_scatter.set_ylabel('% Error (Mean w/ SD)')
+        ax_sd_noise_scatter.set_title('%Error of Noisy vs Ideal data')
+        ax_sd_noise_scatter.set_ylabel('%Error (Mean w/ SD)')
         ax_sd_noise_scatter.set_xlabel('Noise SD (Actual)')
         ax_sd_noise_scatter.set_ylim([-10, 10])
         for i in range(0, len(results)):

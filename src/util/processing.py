@@ -131,11 +131,8 @@ def invert_signal(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
-
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
 
     # calculate axis to rotate data around (middle value int or float)
     axis = signal_in.min() + ((signal_in.max() - signal_in.min()) / 2)
@@ -164,8 +161,8 @@ def normalize_signal(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
@@ -215,13 +212,15 @@ def calculate_snr(signal_in, noise_count=10):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
     if type(noise_count) is not int:
         raise TypeError('Number of noise values to use must be an "int"')
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+    if noise_count < 0:
+        raise ValueError('Noise count must be >= 0')
     if noise_count >= len(signal_in):
         raise ValueError('Number of noise values to use must be < length of signal array')
 
@@ -230,7 +229,7 @@ def calculate_snr(signal_in, noise_count=10):
     signal_range = signal_bounds[1] - signal_bounds[0]
 
     # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
-    noise_height = signal_bounds[0] + signal_range/3    # assumes max noise/signal amps. of 1 / 3
+    noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 3
     i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
     if len(i_noise_peaks) == 0:
         i_noise_peaks = [len(signal_in)-1]
@@ -238,8 +237,8 @@ def calculate_snr(signal_in, noise_count=10):
                                num=noise_count).astype(int)
     if any(i < 0 for i in i_noise_calc):
         raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
-    data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]]
-    noise_rms = np.sqrt(np.mean(data_noise.astype(np.dtype(float)) ** 2))
+    data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]].astype(np.dtype(float))
+    noise_rms = np.sqrt(np.mean(data_noise ** 2))
     noise_sd = statistics.stdev(data_noise)
     if noise_sd == 0:
         noise_sd = 0.5  # Noise data too flat to detect SD
@@ -290,14 +289,14 @@ def map_snr(stack_in, noise_count=10):
         """
     # Check parameters
     if type(stack_in) is not np.ndarray:
-        raise TypeError('Stack data type must be an "ndarray"')
+        raise TypeError('Stack type must be an "ndarray"')
     if len(stack_in.shape) is not 3:
-        raise TypeError('Stack (stack_in) must be 3-D (T, X, Y)')
-    if stack_in.dtype not in [int, float]:
-        raise TypeError('Stack values must either be "int" or "float"')
+        raise TypeError('Stack must be a 3-D ndarray (T, X, Y)')
+    if stack_in.dtype not in [np.uint16, float]:
+        raise TypeError('Stack values must either be "np.uint16" or "float"')
 
-    if stack_in.min() < 0:
-        raise ValueError('All signal values must be >= 0')
+    if type(noise_count) is not int:
+        raise TypeError('Noise count must be an "int"')
 
     map_shape = stack_in.shape[1:]
     map_out = np.empty(map_shape)
@@ -334,12 +333,12 @@ def calculate_error(ideal, modified):
     # Check parameters
     if type(ideal) is not np.ndarray:
         raise TypeError('Ideal data type must be an "ndarray"')
-    if ideal.dtype not in [int, float]:
-        raise TypeError('Ideal values must either be "int" or "float"')
+    if ideal.dtype not in [int, np.uint16, float]:
+        raise TypeError('Ideal values must either be "int", "uint16" or "float"')
     if type(modified) is not np.ndarray:
         raise TypeError('Modified data type must be an "ndarray"')
-    if modified.dtype not in [int, float]:
-        raise TypeError('Modified values must either be "int" or "float"')
+    if modified.dtype not in [int, np.uint16, float]:
+        raise TypeError('Modified values must either be "int", "uint16" or "float"')
 
     error = ((ideal.astype(float) - modified.astype(float)) / ideal.astype(float)) * 100
     error_mean = error.mean()
