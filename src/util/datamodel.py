@@ -265,9 +265,9 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
        velocity : int
             Velocity (cm/s) of propagating OAPs/OCTs, default is 20
        d_noise : int
-            Degree of Noise SD to vary along propagation, default is 0
+            Units of Noise SD to increase along propagation, default is 0
        d_amp : int
-            Degree of Amplitude to vary along propagation, default is 0
+            Units of Amplitude to decrease along propagation, default is 0
 
        Other Parameters
        ----------------
@@ -299,19 +299,22 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     if velocity < MIN_VELOCITY:
         raise ValueError('The velocity must be larger than {}'.format(MIN_VELOCITY))
 
-    # Calculations for propagation timing
+    # Convert velocity from cm/s to px/s
+    velocity_px = velocity / resolution
+    MIN_VELOCITY_PX = MIN_VELOCITY / resolution
+
     # Dimensions of model data (px)
     HEIGHT, WIDTH = size
     # Allocate space for the Activation Map used for propagation
     act_map = np.zeros(shape=(HEIGHT, WIDTH))
     HEIGHT_cm, WIDTH_cm = HEIGHT * resolution, WIDTH * resolution
 
+    # Calculate region borders (as distance from the center) for varying a transient parameter
+    div_borders = np.linspace(start=int(HEIGHT/2), stop=HEIGHT/2/DIV_NOISE, num=DIV_NOISE)
+
     # Calculate the absolute minimum time needed for a single propagation, assuming the max velocity
     MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_VELOCITY * 1000)   # ms
 
-    # Convert velocity from cm/s to px/s
-    velocity_px = velocity / resolution
-    MIN_VELOCITY_PX = MIN_VELOCITY / resolution
     if 't' in kwargs:
         if kwargs.get('t') < MIN_t:
             raise ValueError('The total stack time must be longer than {}'.format(MIN_t))
@@ -323,9 +326,11 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
         t_propagation = t_propagation + kwargs.get('t0')
 
     kwargs['t'] = t_propagation
-    # If SNR varies, setup noise delta
+    # If SNR or Amplitude varies, setup the delta_X variables
     if d_noise:
         noise_delta = 0
+    if d_amp:
+        amp_delta = 0
 
     # Create a model transient array
     pixel_time, pixel_data = model_transients(**kwargs)
@@ -340,10 +345,10 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     origin_x, origin_y = WIDTH / 2, HEIGHT / 2
     # Assign an activation time to each pixel
     for iy, ix in np.ndindex(act_map.shape):
-        # Compute the distance from the center (cm)
-        d = sqrt((abs(origin_x - ix) ** 2 + abs((origin_y - iy) ** 2)))
+        # Compute the distance from the center (px)
+        d_px = sqrt((abs(origin_x - ix) ** 2 + abs((origin_y - iy) ** 2)))
         # Calculate the time associated with that distance from the point of activation
-        act_time = d / velocity_px
+        act_time = d_px / velocity_px
         # Convert time from s to ms
         act_time = act_time * 1000
         prop_delta = floor(act_time)
@@ -351,12 +356,22 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
             prop_delta = prop_delta + kwargs.get('t0')
         if 'noise' in kwargs:
             noise_offset = kwargs.get('noise')
+        else:
+            noise_offset = 0
         kwargs_new = kwargs.copy()
-        if d_noise:
-            if iy % (HEIGHT / DIV_NOISE) == 0:  # at the border of a new division
-                noise_delta = (d_noise * iy / HEIGHT)
-            noise_offset = noise_offset + noise_delta   # add to the noise sd
-            kwargs_new['noise'] = noise_offset
+        # if d_noise:
+        #     if d_px % (HEIGHT / DIV_NOISE) == 0:  # at the border of a new division
+        #         noise_delta = (d_noise * d_px / HEIGHT)
+        #     noise_offset = noise_offset + noise_delta   # add to the noise sd
+        #     kwargs_new['noise'] = noise_offset
+        for idx, d_div in enumerate(div_borders):
+            if (d_px < d_div) or (idx == DIV_NOISE):  # if the pixel is closer than this division's border, or too close
+                pass
+            else:
+                if d_noise:
+                    noise_offset = noise_offset + (d_noise / (idx+1))
+                    kwargs_new['noise'] = noise_offset
+
         kwargs_new['t0'] = prop_delta
         kwargs_new['t'] = t_propagation
 

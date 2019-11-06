@@ -1,6 +1,7 @@
 import unittest
 from util.processing import invert_signal, normalize_signal, calculate_snr, map_snr, calculate_error
 from util.datamodel import model_transients, model_stack_propagation
+from pathlib import Path
 import numpy as np
 import statistics
 import matplotlib.pyplot as plt
@@ -10,6 +11,9 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+# File paths  and files needed for tests
+dir_cwd = Path.cwd()
+dir_tests = str(dir_cwd)
 
 
 def plot_test():
@@ -43,6 +47,7 @@ def plot_map(map_in):
     axis_map.spines['left'].set_visible(False)
     axis_map.spines['top'].set_visible(False)
     axis_map.spines['bottom'].set_visible(False)
+    axis_map.set_yticks([])
     axis_map.set_yticklabels([])
     axis_map.set_xticks([])
     axis_map.set_xticklabels([])
@@ -389,8 +394,8 @@ class TestSnrMap(unittest.TestCase):
     # Setup data to test with, a propagating stack of varying SNR
     f_0 = 1000
     f_amp = 100
-    noise = 2
-    d_noise = 20     # as a % of the signal amplitude
+    noise = 5
+    d_noise = 10     # as a % of the signal amplitude
     noise_count = 100
     time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_0=f_0, f_amp=f_amp, noise=noise)
     stack_ca_shape = stack_ca.shape
@@ -424,10 +429,12 @@ class TestSnrMap(unittest.TestCase):
         snr_map_ca = map_snr(self.stack_ca)
         snr_max = np.nanmax(snr_map_ca)
         snr_min = np.nanmin(snr_map_ca)
-        print('Activation Maps max value: ', snr_max)
+        print('SNR Maps max value: ', snr_max)
 
         # Plot a frame from the stack and the SNR map of the entire stack
         fig_map_snr, ax_img_snr, ax_map_snr = plot_map(snr_map_ca)
+        ax_img_snr.set_title('Variably Noisy Data (Noise SD: 5-15)')
+        ax_map_snr.set_title('SNR Map')
         # Create normalization range for map (0 and max rounded up to the nearest 10)
         cimg_snr = SCMaps.grayC
         img_snr_ca = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cimg_snr)
@@ -457,6 +464,7 @@ class TestSnrMap(unittest.TestCase):
         cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
         fig_map_snr.show()
+        fig_map_snr.savefig(dir_tests + '/results/SNRMap_ca.png')
 
 
 class TestErrorSignal(unittest.TestCase):
