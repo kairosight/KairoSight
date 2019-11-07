@@ -1,6 +1,12 @@
 import numpy as np
 import statistics
 from scipy.signal import find_peaks
+from skimage.morphology import disk, square
+from skimage.filters.rank import median, mean, mean_bilateral
+from skimage.filters import gaussian
+# from cv2 import blur, GaussianBlur, bilateralFilter
+# from scipy.ndimage import convolve
+FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian']
 
 
 def isolate_spatial(stack_in, roi):
@@ -61,22 +67,65 @@ def isolate_transient(signal_in, i_start, i_end):
     pass
 
 
-def filter_spatial(stack_in, filter_type):
-    """Spatially filter a stack (3-D array, TYX) of grayscale optical data.
+def filter_spatial(frame_in, filter_type='median', kernel=3):
+    """Spatially filter a frame (2-D array, YX) of grayscale optical data.
 
         Parameters
         ----------
-        stack_in : ndarray
-             A 3-D array (T, Y, X) of optical data
+        frame_in : ndarray
+             A 2-D array (Y, X) of optical data
         filter_type : str
-            The type of filter algorithm to use
+            The type of filter algorithm to use: convolve (default), gaussian, bilateral
+        kernel : int
+            The width and height of the kernel used, must be positive and odd, default is 3
 
         Returns
         -------
-        stack_out : ndarray
-             A spatially filtered 3-D array (T, Y, X) of optical data
+        frame_out : ndarray
+             A spatially filtered 2-D array (Y, X) of optical data, dtype : frame_in.dtype
         """
-    pass
+    # Check parameters
+    if type(frame_in) is not np.ndarray:
+        raise TypeError('Frame type must be an "ndarray"')
+    if len(frame_in.shape) is not 2:
+        raise TypeError('Frame must be a 3-D ndarray (T, X, Y)')
+    if frame_in.dtype not in [np.uint16, float]:
+        raise TypeError('Frame values must either be "np.uint16" or "float"')
+    if type(filter_type) is not str:
+        raise TypeError('Filter type must be a "str"')
+    if type(kernel) is not int:
+        raise TypeError('Kernel size must be an "int"')
+
+    if filter_type not in FILTERS_SPATIAL:
+        raise ValueError('Filter type must be one of the following: {}'.format(FILTERS_SPATIAL))
+    if kernel < 3 or (kernel % 2) == 0:
+        raise ValueError('Kernel size must be >= 3 and odd')
+
+    # Setup frame_out
+    HEIGHT, WIDTH = frame_in.shape
+    frame_out = frame_in.copy()
+
+    if filter_type is 'median':
+        # Good for ___, but ___
+        # k = np.full([kernel, kernel], 1)
+        frame_out = median(frame_in, disk(kernel))
+    elif filter_type is 'mean':
+        # Good for ___, but over-smooths?
+        # k = np.full([kernel, kernel], 1)
+        frame_out = mean(frame_in, disk(kernel))
+    elif filter_type is 'bilateral':
+        # Good for edge preservation, but slow
+        sigma_color = 50  # standard deviation of the intensity gaussian kernel
+        sigma_space = 10  # standard deviation of the spatial gaussian kernel
+        frame_out = mean_bilateral(frame_in, disk(kernel))
+    elif filter_type is 'gaussian':
+        # Good for ___, but ___
+        sigma = kernel / 3   # standard deviation of the gaussian kernel
+        frame_out = gaussian(frame_in, sigma=sigma, preserve_range=True)
+    else:
+        raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
+
+    return frame_out.astype(frame_in.dtype)
 
 
 def filter_temporal(signal_in, filter_type):

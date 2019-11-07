@@ -1,5 +1,5 @@
 import unittest
-from util.processing import invert_signal, normalize_signal, calculate_snr, map_snr, calculate_error
+from util.processing import *
 from util.datamodel import model_transients, model_stack_propagation
 from pathlib import Path
 import numpy as np
@@ -29,31 +29,41 @@ def plot_test():
     return fig, axis
 
 
-def plot_map(map_in):
+def plot_filter_spatial():
+    # Setup a figure to show a noisy frame, a spatially filtered frame, and an ideal frame
+    fig = plt.figure(figsize=(10, 5))  # _ x _ inch page
+    axis_frame = fig.add_subplot(131)
+    axis_filtered = fig.add_subplot(132)
+    axis_ideal = fig.add_subplot(133)
+    # Common between the two
+    for ax in [axis_ideal, axis_frame, axis_filtered]:
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+
+    return fig, axis_frame, axis_filtered, axis_ideal
+
+
+def plot_map():
+    # Setup a figure to show a frame and a map generated from that frame
     fig = plt.figure(figsize=(8, 5))  # _ x _ inch page
     axis_img = fig.add_subplot(121)
     axis_map = fig.add_subplot(122)
-    height, width, = map_in.shape[0], map_in.shape[1]  # X, Y flipped due to rotation
-    # x_crop, y_crop = [X_CROP[0], width - X_CROP[1]], [height - Y_CROP[0], Y_CROP[1]]
-    # axis.axis('off')
-    axis_img.spines['right'].set_visible(False)
-    axis_img.spines['left'].set_visible(False)
-    axis_img.spines['top'].set_visible(False)
-    axis_img.spines['bottom'].set_visible(False)
-    axis_img.set_yticks([])
-    axis_img.set_yticklabels([])
-    axis_img.set_xticks([])
-    axis_img.set_xticklabels([])
-    axis_map.spines['right'].set_visible(False)
-    axis_map.spines['left'].set_visible(False)
-    axis_map.spines['top'].set_visible(False)
-    axis_map.spines['bottom'].set_visible(False)
-    axis_map.set_yticks([])
-    axis_map.set_yticklabels([])
-    axis_map.set_xticks([])
-    axis_map.set_xticklabels([])
-    # axis.set_xlim(x_crop)
-    # axis.set_ylim(y_crop)
+    # Common between the two
+    for ax in [axis_img, axis_map]:
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        ax.set_xticks([])
+        ax.set_xticklabels([])
 
     return fig, axis_img, axis_map
 
@@ -111,6 +121,153 @@ def run_trials_snr(self, trials_count, noise=0):
     results['sd_noise']['mean'] = np.mean(trials_sd_noise)
     results['sd_noise']['sd'] = statistics.stdev(trials_sd_noise)
     return results
+
+
+class TestFilterSpatial(unittest.TestCase):
+    # Setup data to test with, a propagating stack of varying SNR
+    filter_type = 'gaussian'
+    kernel = 3
+
+    f_0 = 1000
+    f_amp = 100
+    noise = 5
+    time_ideal_ca, stack_ideal_ca = model_stack_propagation(model_type='Ca', f_0=f_0, f_amp=f_amp)
+    frame_ideal_ca = stack_ideal_ca[int(len(stack_ideal_ca) / 8)]  # frame from 1/8th total time
+    time_noisy_ca, stack_noisy_ca = model_stack_propagation(model_type='Ca', f_0=f_0, f_amp=f_amp, noise=noise)
+    frame_noisy_ca = stack_noisy_ca[int(len(stack_noisy_ca) / 8)]  # frame from 1/8th total time
+    stack_ca_shape = stack_noisy_ca.shape
+    FRAMES = stack_noisy_ca.shape[0]
+    HEIGHT, WIDTH = (stack_ca_shape[1], stack_ca_shape[2])
+    frame_shape = (HEIGHT, WIDTH)
+    origin_x, origin_y = WIDTH / 2, HEIGHT / 2
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        # frame_in : ndarray, 2-D array
+        frame_bad_shape = np.full(100, 100, dtype=np.uint16)
+        frame_bad_type = np.full(self.stack_ca_shape, True)
+        self.assertRaises(TypeError, filter_spatial, frame_in=True)
+        self.assertRaises(TypeError, filter_spatial, frame_in=frame_bad_shape)
+        self.assertRaises(TypeError, filter_spatial, frame_in=frame_bad_type)
+        # filter_type : str
+        self.assertRaises(TypeError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type=True)
+        # kernel : int
+        self.assertRaises(TypeError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=True)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # filter_type :
+        self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='gross')
+        # kernel : >= 3, odd
+        self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=2)
+        self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=8)
+
+    def test_results(self):
+        # Make sure spatial filter results are correct
+        filtered_ca = filter_spatial(self.frame_noisy_ca)
+        # frame_out : ndarray
+        self.assertIsInstance(filtered_ca, np.ndarray)  # frame_out type
+        self.assertEqual(filtered_ca.shape, self.frame_shape)  # frame_out shape
+        self.assertIsInstance(filtered_ca[0, 0], type(self.frame_noisy_ca[0, 0]))  # frame_out value type same as input
+
+    def test_plot(self):
+        # Make sure filtered frame looks correct
+        filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=self.filter_type)
+
+        # Plot a frame from the stack and the filtered frame
+        fig_filtered, ax_noisy, ax_filtered, ax_ideal = plot_filter_spatial()
+        # Create normalization colormap range for all frames (round up to nearest 10)
+        cmap_frames = SCMaps.grayC.reversed()
+        frames_min, frames_max = 0, 0
+        for frame in [self.frame_ideal_ca, self.frame_noisy_ca, filtered_ca]:
+            frames_min = min(frames_max, np.nanmin(frame))
+            frames_max = max(frames_max, np.nanmax(frame))
+        cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
+                                     vmax=round(frames_max + 5.1, -1))
+        # Noise frame
+        ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.noise))
+        img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
+        # Draw shape and size of spatial filter kernel
+
+        # Filtered frame
+        ax_filtered.set_title('Spatially Filtered\n({}, kernel:{})'.format(self.filter_type, self.kernel))
+        img_filtered = ax_filtered.imshow(filtered_ca, cmap=cmap_frames, norm=cmap_norm)
+
+        # Ideal frame
+        ax_ideal.set_title('Model Data')
+        img_ideal = ax_ideal.imshow(self.frame_ideal_ca, cmap=cmap_frames, norm=cmap_norm)
+        # Add colorbar (right of frame)
+        ax_ins_filtered = inset_axes(ax_ideal, width="5%", height="80%", loc=5, bbox_to_anchor=(0.1, 0, 1, 1),
+                                     bbox_transform=ax_ideal.transAxes, borderpad=0)
+        cb_filtered = plt.colorbar(img_ideal, cax=ax_ins_filtered, orientation="vertical")
+        cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
+        cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
+        cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb_filtered.ax.tick_params(labelsize=fontsize3)
+
+        fig_filtered.show()
+
+    def test_plot_all(self):
+        # Plot all filters to compare
+        # Setup a figure to show a noisy frame, a spatially filtered frames, and an ideal frame
+        fig_filters = plt.figure(figsize=(8, 12))  # _ x _ inch page
+        # General layout
+        gs0 = fig_filters.add_gridspec(1, 3)
+        # Create normalization colormap range for the frames (round up to nearest 10)
+        cmap_frames = SCMaps.grayC.reversed()
+        frames_min, frames_max = 0, 0
+        for frame in [self.frame_ideal_ca, self.frame_noisy_ca]:
+            frames_min = min(frames_max, np.nanmin(frame))
+            frames_max = max(frames_max, np.nanmax(frame))
+        cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
+                                     vmax=round(frames_max + 5.1, -1))
+
+        # Noisy frame
+        ax_noisy = fig_filters.add_subplot(gs0[0])
+        img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
+
+        # Filtered frames
+        gs_filters = gs0[1].subgridspec(len(FILTERS_SPATIAL), 1)  # 3 rows, 2 columns
+        # Common between the two
+        # Common between the two
+        for idx, filter_type in enumerate(FILTERS_SPATIAL):
+            filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=filter_type)
+            ax = fig_filters.add_subplot(gs_filters[idx])
+            ax.set_title('{}, kernel:{}'.format(filter_type, self.kernel))
+            img_filter = ax.imshow(filtered_ca, cmap=cmap_frames, norm=cmap_norm)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+            if idx is 0:
+                # Add colorbar (right of frame)
+                ax_ins_filtered = inset_axes(ax, width="5%", height="80%", loc=5, bbox_to_anchor=(0.1, 0, 1, 1),
+                                             bbox_transform=ax.transAxes, borderpad=0)
+                cb_filtered = plt.colorbar(img_filter, cax=ax_ins_filtered, orientation="vertical")
+                cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
+                cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
+                cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+                cb_filtered.ax.tick_params(labelsize=fontsize3)
+
+        # Ideal frame
+        ax_ideal = fig_filters.add_subplot(gs0[2])
+        ax_ideal.set_title('Model Data')
+        img_ideal = ax_ideal.imshow(self.frame_ideal_ca, cmap=cmap_frames, norm=cmap_norm)
+
+        for ax in [ax_noisy, ax_ideal]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        fig_filters.show()
+        fig_filters.savefig(dir_tests + '/results/SpatialFilters_ca.png')
 
 
 class TestInvert(unittest.TestCase):
@@ -435,13 +592,13 @@ class TestSnrMap(unittest.TestCase):
         snr_min = np.nanmin(snr_map_ca)
         print('SNR Maps max value: ', snr_max)
 
-        # Plot a frame from the stack and the SNR map of the entire stack
+        # Plot a frame from the stack and the SNR map of that frame
         fig_map_snr, ax_img_snr, ax_map_snr = plot_map(snr_map_ca)
-        ax_img_snr.set_title('Variably Noisy Data (Noise SD: {}-{})'.format(self.noise, self.noise+self.d_noise))
+        ax_img_snr.set_title('Noisy Model Data (noise SD: {}-{})'.format(self.noise, self.noise+self.d_noise))
         ax_map_snr.set_title('SNR Map')
-        # Image from stack
-        cimg_snr = SCMaps.grayC
-        img_snr_ca = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cimg_snr)
+        # Frame from stack
+        cmap_frame = SCMaps.grayC.reversed()
+        img_frame = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cmap_frame)
         # Draw circles showing borders of SNR variance
         for idx, div_border in enumerate(self.div_borders):
             div_circle = Circle((self.origin_x, self.origin_y), radius=div_border,
@@ -451,11 +608,11 @@ class TestSnrMap(unittest.TestCase):
         ax_img_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
         ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
         ax_map_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
-        # Add colorbar (lower right of img)
+        # Add colorbar (lower right of frame)
         ax_ins_img = inset_axes(ax_img_snr, width="5%", height="80%", loc=5,
                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
                                 borderpad=0)
-        cb_img = plt.colorbar(img_snr_ca, cax=ax_ins_img, orientation="vertical")
+        cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
         cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
         cb_img.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
         cb_img.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
@@ -464,12 +621,12 @@ class TestSnrMap(unittest.TestCase):
         # Create normalization range for map (0 and max rounded up to the nearest 10)
         cmap_snr = SCMaps.tokyo.reversed()
         cmap_norm = colors.Normalize(vmin=0, vmax=round(snr_max + 5.1, -1))
-        map_snr_ca = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
+        img_snr = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
         # Add colorbar (lower right of map)
         ax_ins_map = inset_axes(ax_map_snr, width="5%", height="80%", loc=5,
                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
                                 borderpad=0)
-        cb1_map = plt.colorbar(map_snr_ca, cax=ax_ins_map, orientation="vertical")
+        cb1_map = plt.colorbar(img_snr, cax=ax_ins_map, orientation="vertical")
         cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
         cb1_map.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
         cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
