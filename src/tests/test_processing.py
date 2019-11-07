@@ -7,6 +7,7 @@ import statistics
 import matplotlib.pyplot as plt
 import matplotlib.ticker as pltticker
 import matplotlib.colors as colors
+from matplotlib.patches import Circle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
@@ -395,12 +396,15 @@ class TestSnrMap(unittest.TestCase):
     f_0 = 1000
     f_amp = 100
     noise = 5
-    d_noise = 10     # as a % of the signal amplitude
+    d_noise = 15     # as a % of the signal amplitude
     noise_count = 100
     time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_0=f_0, f_amp=f_amp, noise=noise)
     stack_ca_shape = stack_ca.shape
-    FRAMES = stack_ca_shape[0]
-    map_shape = (stack_ca_shape[1], stack_ca_shape[2])
+    FRAMES = stack_ca.shape[0]
+    HEIGHT, WIDTH = (stack_ca_shape[1], stack_ca_shape[2])
+    frame_shape = (HEIGHT, WIDTH)
+    origin_x, origin_y = WIDTH / 2, HEIGHT / 2
+    div_borders = np.linspace(start=int(HEIGHT / 2), stop=HEIGHT / 2 / 5, num=5)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -421,7 +425,7 @@ class TestSnrMap(unittest.TestCase):
         # Make sure SNR Map results are correct
         snr_map_ca = map_snr(self.stack_ca)
         self.assertIsInstance(snr_map_ca, np.ndarray)  # snr map type
-        self.assertEqual(snr_map_ca.shape, self.map_shape)  # snr map shape
+        self.assertEqual(snr_map_ca.shape, self.frame_shape)  # snr map shape
         self.assertIsInstance(snr_map_ca[0, 0], float)  # snr map value type
 
     def test_plot(self):
@@ -433,14 +437,16 @@ class TestSnrMap(unittest.TestCase):
 
         # Plot a frame from the stack and the SNR map of the entire stack
         fig_map_snr, ax_img_snr, ax_map_snr = plot_map(snr_map_ca)
-        ax_img_snr.set_title('Variably Noisy Data (Noise SD: 5-15)')
+        ax_img_snr.set_title('Variably Noisy Data (Noise SD: {}-{})'.format(self.noise, self.noise+self.d_noise))
         ax_map_snr.set_title('SNR Map')
-        # Create normalization range for map (0 and max rounded up to the nearest 10)
+        # Image from stack
         cimg_snr = SCMaps.grayC
         img_snr_ca = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cimg_snr)
-        cmap_snr = SCMaps.davos.reversed()
-        cmap_norm = colors.Normalize(vmin=0, vmax=round(snr_max + 5.1, -1))
-        map_snr_ca = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
+        # Draw circles showing borders of SNR variance
+        for idx, div_border in enumerate(self.div_borders):
+            div_circle = Circle((self.origin_x, self.origin_y), radius=div_border,
+                                fc=None, fill=None, ec=gray_light, lw=1, linestyle='--')
+            ax_img_snr.add_artist(div_circle)
         ax_img_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
         ax_img_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
         ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
@@ -449,20 +455,26 @@ class TestSnrMap(unittest.TestCase):
         ax_ins_img = inset_axes(ax_img_snr, width="5%", height="80%", loc=5,
                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
                                 borderpad=0)
-        # Add colorbar (lower right of act. map)
-        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="80%", loc=5,
-                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
-                                borderpad=0)
         cb_img = plt.colorbar(img_snr_ca, cax=ax_ins_img, orientation="vertical")
         cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
         cb_img.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
         cb_img.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
         cb_img.ax.tick_params(labelsize=fontsize3)
+        # SNR Map
+        # Create normalization range for map (0 and max rounded up to the nearest 10)
+        cmap_snr = SCMaps.tokyo.reversed()
+        cmap_norm = colors.Normalize(vmin=0, vmax=round(snr_max + 5.1, -1))
+        map_snr_ca = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
+        # Add colorbar (lower right of map)
+        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="80%", loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
+                                borderpad=0)
         cb1_map = plt.colorbar(map_snr_ca, cax=ax_ins_map, orientation="vertical")
         cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
         cb1_map.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
         cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
+
         fig_map_snr.show()
         fig_map_snr.savefig(dir_tests + '/results/SNRMap_ca.png')
 

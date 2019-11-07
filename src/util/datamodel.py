@@ -290,7 +290,7 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     resolution = 0.01       # 1 cm / 100 px
     MIN_VELOCITY = 10   # Minimum velocity (cm/s)
     MAX_VELOCITY = 50   # Minimum velocity (cm/s)
-    DIV_NOISE = 5   # Divisions of noise variation within the frame (each is Height / DIV_NOISE)
+    DIV_NOISE = 5   # Divisions of noise variation along half the  height the frame
     # Check parameters
     if type(size) not in [tuple]:
         raise TypeError('Image size must be a tuple, e.g. (20, 20)')
@@ -326,11 +326,6 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
         t_propagation = t_propagation + kwargs.get('t0')
 
     kwargs['t'] = t_propagation
-    # If SNR or Amplitude varies, setup the delta_X variables
-    if d_noise:
-        noise_delta = 0
-    if d_amp:
-        amp_delta = 0
 
     # Create a model transient array
     pixel_time, pixel_data = model_transients(**kwargs)
