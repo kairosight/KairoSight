@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import find_peaks
+from scipy.misc import derivative
 
 
 def find_tran_start(signal_in):
@@ -25,35 +26,11 @@ def find_tran_start(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-def find_tran_upstroke(signal_in):
-    """Find the time of the upstroke of a transient,
-    defined as the maximum of the 1st derivative
-
-        Parameters
-        ----------
-        signal_in : ndarray
-             The array of data to be evaluated
-
-        Returns
-        -------
-        i_upstroke : int
-            The index of the signal array corresponding to the upstroke of the transient
-        """
-    # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
-
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
-
-    pass
-
 
 def calc_tran_activation(signal_in):
     """Calculate the time of the activation of a transient,
-    defined as the midpoint (not limited by sampling rate) between the start and peak times
+    defined as the the maximum of the 1st derivative OR
+    midpoint (not limited by sampling rate) between the start and peak times
 
         Parameters
         ----------
@@ -105,7 +82,7 @@ def find_tran_peak(signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
-    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range/2))
+    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range / 2))
 
     if len(i_peaks) > 1:
         raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
@@ -164,28 +141,6 @@ def find_tran_end(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-def find_tran_restoration(signal_in):
-    """Find the time of the restoration of a transient,
-    defined as the index of the return to a start value
-
-        Parameters
-        ----------
-        signal_in : ndarray
-            The array of data to be evaluated
-
-        Returns
-        -------
-        i_restoration : int
-            The index of signal array corresponding to the restoration of the transient
-        """
-    # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
-
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
 
 def calc_tran_duration(signal_in, percent=50):
     """Calculate the duration of a transient,
@@ -217,6 +172,7 @@ def calc_tran_duration(signal_in, percent=50):
     if any(x < 0 or x >= 100 for x in percent):
         raise ValueError('All signal values must be between 0-99%')
 
+
 def calc_tran_tau(signal_in):
     """Calculate the decay time constant (tau) of a transient,
     defined as the time between 30 and 90% decay from peak
@@ -239,6 +195,7 @@ def calc_tran_tau(signal_in):
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+
 
 def calc_tran_di(signal_in):
     """Calculate the diastolic interval (DI) of a transient,
@@ -266,6 +223,7 @@ def calc_tran_di(signal_in):
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+
 
 def map_tran_tau(stack_in):
     """Map the decay constant (tau) values for a stack of transient fluorescent data
@@ -332,6 +290,7 @@ def calc_ff0(signal_in, invert=False):
     signal_ff0 = (f_t - f_0) / f_0
 
     return signal_ff0
+
 
 def calc_phase(signal_in):
     """Convert a signal from its fluorescent value to its phase,

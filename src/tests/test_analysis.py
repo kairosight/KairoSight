@@ -1,13 +1,14 @@
 import unittest
-from util.analysis import find_tran_peak, calc_ff0, find_tran_start, find_tran_upstroke, calc_tran_activation, \
-    find_tran_downstroke, find_tran_end, find_tran_restoration, calc_tran_duration, calc_tran_tau, calc_tran_di, \
-    calc_phase
+from util.analysis import *
 from util.datamodel import model_transients
 import numpy as np
 import matplotlib.pyplot as plt
+
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_vm, color_ca = ['#FF9999', '#99FF99']
+colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
+# colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue
 
 
 def plot_test():
@@ -55,41 +56,6 @@ class TestStart(unittest.TestCase):
         self.assertIsInstance(i_start, np.int32)  # index of start
 
         self.assertAlmostEqual(i_start, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
-
-
-class TestUpstroke(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        self.assertRaises(TypeError, find_tran_upstroke, signal_in=True)
-        self.assertRaises(TypeError, find_tran_upstroke, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, find_tran_upstroke, signal_in='word')
-        self.assertRaises(TypeError, find_tran_upstroke, signal_in=3j + 7)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, find_tran_upstroke, signal_in=signal_bad_value)
-
-    def test_results(self):
-        # Make sure result types are valid
-        # i_upstroke : int
-        i_upstroke = find_tran_upstroke(self.signal_ca)
-        self.assertIsInstance(i_upstroke, np.int32)
-
-        self.assertAlmostEqual(i_upstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
 
 
 class TestActivation(unittest.TestCase):
@@ -146,7 +112,7 @@ class TestPeak(unittest.TestCase):
         self.assertRaises(TypeError, find_tran_peak, signal_in=5)
         self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
         self.assertRaises(TypeError, find_tran_peak, signal_in='word')
-        self.assertRaises(TypeError, find_tran_peak, signal_in=3j+7)
+        self.assertRaises(TypeError, find_tran_peak, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # signal_in : >=0
@@ -162,7 +128,7 @@ class TestPeak(unittest.TestCase):
         self.assertIsInstance(i_peak, np.int32)  # index of peak
 
         #  Make sure result values are valid
-        self.assertAlmostEqual(i_peak, self.signal_t0 + 10, delta=5)    # time to peak of an OAP/OCT
+        self.assertAlmostEqual(i_peak, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
 
 
 class TestDownstroke(unittest.TestCase):
@@ -200,6 +166,51 @@ class TestDownstroke(unittest.TestCase):
         self.assertAlmostEqual(i_downstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
 
 
+class TestAnalysisPoints(unittest.TestCase):
+    # Setup data to test with
+    t = 200
+    t0 = 20
+    time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0)
+    # dt = int(time_ca[1])
+    df_ca = np.diff(signal_ca, n=1, prepend=int(signal_ca[0]))
+    d2f_ca = np.diff(signal_ca, n=2, prepend=[int(signal_ca[0]), int(signal_ca[0])])
+    # df_ca = np.gradient(signal_ca, dt) / np.gradient(time_ca, dt)
+    # d2f_ca = np.gradient(df_ca, dt) / np.gradient(time_ca, dt)
+
+    def test_plot(self):
+        # Build a figure to plot the signal, it's derivatives, and the analysis points
+        fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
+        # General layout
+        gs_traces = fig_points.add_gridspec(3, 1)  # 3 rows, 1 column
+        # gs_traces = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
+        # gs_frames = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
+        # F(t) signal
+        ax_f = fig_points.add_subplot(gs_traces[0])
+        ax_f.set_ylabel('F(t)')
+        # dF/dt signal
+        ax_df = fig_points.add_subplot(gs_traces[1])
+        ax_df.set_ylabel('dF/dt')
+        # d2F/dt2 signal
+        ax_d2F = fig_points.add_subplot(gs_traces[2])
+        ax_d2F.set_ylabel('d2F/dt2')
+        for idx, ax in enumerate([ax_f, ax_df, ax_d2F]):
+            ax.spines['right'].set_visible(False)
+            # ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            # ax.set_yticks([])
+            # ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+
+        ax_f.plot(self.time_ca, self.signal_ca, color=gray_heavy)
+        ax_df.plot(self.time_ca, self.df_ca, color=gray_med)
+        ax_d2F.plot(self.time_ca, self.d2f_ca, color=gray_med)
+        # ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_points.show()
+
+
+
 class TestEnd(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
@@ -235,41 +246,6 @@ class TestEnd(unittest.TestCase):
         self.assertAlmostEqual(i_end, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
 
 
-class TestRestoration(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        self.assertRaises(TypeError, find_tran_restoration, signal_in=True)
-        self.assertRaises(TypeError, find_tran_restoration, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, find_tran_restoration, signal_in='word')
-        self.assertRaises(TypeError, find_tran_restoration, signal_in=3j + 7)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, find_tran_restoration, signal_in=signal_bad_value)
-
-    def test_results(self):
-        # Make sure result types are valid
-        #  i_restoration : int
-        i_restoration = find_tran_restoration(self.signal_ca)
-        self.assertIsInstance(i_restoration, np.int32)
-
-        self.assertAlmostEqual(i_restoration, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
-
-
 class TestDuration(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
@@ -286,9 +262,9 @@ class TestDuration(unittest.TestCase):
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
         #  percent : int
-        self.assertRaises(TypeError, calc_tran_duration, signal_in=True, percent = True)
-        self.assertRaises(TypeError, calc_tran_duration, signal_in=signal_bad_type, percent = '500')
-        self.assertRaises(TypeError, calc_tran_duration, signal_in='word', percent = 3j+7)
+        self.assertRaises(TypeError, calc_tran_duration, signal_in=True, percent=True)
+        self.assertRaises(TypeError, calc_tran_duration, signal_in=signal_bad_type, percent='500')
+        self.assertRaises(TypeError, calc_tran_duration, signal_in='word', percent=3j + 7)
         self.assertRaises(TypeError, calc_tran_duration, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
@@ -297,7 +273,7 @@ class TestDuration(unittest.TestCase):
         signal_bad_value = np.full(100, 10)
         signal_bad_value[20] = signal_bad_value[20] - 50
         percent_bad_value = -1
-        self.assertRaises(ValueError, find_tran_restoration, signal_in=signal_bad_value, percent = percent_bad_value)
+        self.assertRaises(ValueError, calc_tran_duration, signal_in=signal_bad_value, percent=percent_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
@@ -426,8 +402,8 @@ class TestAnalysisFF0(unittest.TestCase):
         self.assertIsInstance(signal_ca_ff0[0], float)  # dtyoe : float
 
         # Make sure result values are valid
-        self.assertAlmostEqual(signal_ca_ff0.min(), signal_vm_ff0.max(), delta=0.01)    # Vm is a downward deflection
-        
+        self.assertAlmostEqual(signal_ca_ff0.min(), signal_vm_ff0.max(), delta=0.01)  # Vm is a downward deflection
+
     def test_plot_dual(self):
         # Make sure F/F0 looks correct
         signal_vm_ff0 = calc_ff0(self.signal_vm, invert=True)
@@ -466,9 +442,9 @@ class TestPhase(unittest.TestCase):
         signal_bad_type = np.full(100, True)
         # signal_in : ndarray, dtyoe : int or float
         self.assertRaises(TypeError, calc_phase, signal_in=True)
-        self.assertRaises(TypeError,  calc_phase, signal_in=signal_bad_type)
+        self.assertRaises(TypeError, calc_phase, signal_in=signal_bad_type)
         self.assertRaises(TypeError, calc_phase, signal_in='word')
-        self.assertRaises(TypeError,  calc_phase, signal_in=3j + 7)
+        self.assertRaises(TypeError, calc_phase, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # signal_in : >=0
@@ -486,6 +462,7 @@ class TestPhase(unittest.TestCase):
 
         # Make sure result values are valid
         self.assertAlmostEqual(signal_ca_phase.min(), signal_vm_phase.max(), delta=0.01)
+
 
 if __name__ == '__main__':
     unittest.main()
