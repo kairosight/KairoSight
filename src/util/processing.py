@@ -1,12 +1,11 @@
 import numpy as np
 import statistics
 from scipy.signal import find_peaks
-from skimage.morphology import disk, square
+from skimage.morphology import square
 from skimage.filters.rank import median, mean, mean_bilateral
 from skimage.filters import gaussian
-# from cv2 import blur, GaussianBlur, bilateralFilter
-# from scipy.ndimage import convolve
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian']
+# TODO add TV, a non-local, and a weird filter
 
 
 def isolate_spatial(stack_in, roi):
@@ -108,16 +107,16 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     if filter_type is 'median':
         # Good for ___, but ___
         # k = np.full([kernel, kernel], 1)
-        frame_out = median(frame_in, disk(kernel))
+        frame_out = median(frame_in, square(kernel))
     elif filter_type is 'mean':
         # Good for ___, but over-smooths?
         # k = np.full([kernel, kernel], 1)
-        frame_out = mean(frame_in, disk(kernel))
+        frame_out = mean(frame_in, square(kernel))
     elif filter_type is 'bilateral':
         # Good for edge preservation, but slow
         sigma_color = 50  # standard deviation of the intensity gaussian kernel
         sigma_space = 10  # standard deviation of the spatial gaussian kernel
-        frame_out = mean_bilateral(frame_in, disk(kernel))
+        frame_out = mean_bilateral(frame_in, square(kernel))
     elif filter_type is 'gaussian':
         # Good for ___, but ___
         sigma = kernel / 3   # standard deviation of the gaussian kernel

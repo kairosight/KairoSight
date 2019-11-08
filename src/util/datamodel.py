@@ -1,8 +1,12 @@
 from math import pi, floor, ceil, sqrt
 import numpy as np
 # Constants
-FL_16BIT_MAX = 2 ** 16 - 1
+FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
+# Spatial resolution (cm/px)
+# resolution = 0.005    # 1 cm / 200 px
+# resolution = 0.0149   # pig video resolution
+RESOLUTION = 0.01       # 1 cm / 100 px
 
 
 def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100, noise=0,
@@ -284,10 +288,6 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     # Constants
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
-    # Spatial resolution (cm/px)
-    # resolution = 0.005  # 1 cm / 200 px
-    # resolution = 0.0149  # pig video resolution
-    resolution = 0.01       # 1 cm / 100 px
     MIN_VELOCITY = 10   # Minimum velocity (cm/s)
     MAX_VELOCITY = 50   # Minimum velocity (cm/s)
     DIV_NOISE = 5   # Divisions of noise variation along half the  height the frame
@@ -300,14 +300,14 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
         raise ValueError('The velocity must be larger than {}'.format(MIN_VELOCITY))
 
     # Convert velocity from cm/s to px/s
-    velocity_px = velocity / resolution
-    MIN_VELOCITY_PX = MIN_VELOCITY / resolution
+    velocity_px = velocity / RESOLUTION
+    MIN_VELOCITY_PX = MIN_VELOCITY / RESOLUTION
 
     # Dimensions of model data (px)
     HEIGHT, WIDTH = size
     # Allocate space for the Activation Map used for propagation
     act_map = np.zeros(shape=(HEIGHT, WIDTH))
-    HEIGHT_cm, WIDTH_cm = HEIGHT * resolution, WIDTH * resolution
+    HEIGHT_cm, WIDTH_cm = HEIGHT * RESOLUTION, WIDTH * RESOLUTION
 
     # Calculate region borders (as distance from the center) for varying a transient parameter
     div_borders = np.linspace(start=int(HEIGHT/2), stop=HEIGHT/2/DIV_NOISE, num=DIV_NOISE)
