@@ -1,10 +1,12 @@
 import numpy as np
 import statistics
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, lfilter
+from scipy.signal import fir_filter_design as ffd
 from skimage.morphology import square
 from skimage.filters.rank import median, mean, mean_bilateral
 from skimage.filters import gaussian
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian']
+FILTERS_TEMPORAL = ['lowpass', 'auto']
 # TODO add TV, a non-local, and a weird filter
 
 
@@ -100,10 +102,6 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     if kernel < 3 or (kernel % 2) == 0:
         raise ValueError('Kernel size must be >= 3 and odd')
 
-    # Setup frame_out
-    HEIGHT, WIDTH = frame_in.shape
-    frame_out = frame_in.copy()
-
     if filter_type is 'median':
         # Good for ___, but ___
         # k = np.full([kernel, kernel], 1)
@@ -127,22 +125,91 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     return frame_out.astype(frame_in.dtype)
 
 
-def filter_temporal(signal_in, filter_type):
+def filter_temporal(signal_in, sample_rate, filter_type='lowpass'):
     """Temporally filter an array of optical data.
 
         Parameters
         ----------
         signal_in : ndarray
              The array of data to be evaluated
+        sample_rate : float
+            Sample rate (Hz) of signal_in
         filter_type : str
-            The type of filter algorithm to use
+            The type of filter algorithm to use, default is 'lowpass'
 
         Returns
         -------
-        stack_out : ndarray
-             A temporally filtered 3-D array (T, Y, X) of optical data
+        signal_out : ndarray
+             A temporally filtered signal array
         """
-    pass
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
+    if type(sample_rate) is not float:
+        raise TypeError('Sample rate must be a "float"')
+    if type(filter_type) is not str:
+        raise TypeError('Filter type must be a "str"')
+
+    if filter_type not in FILTERS_TEMPORAL:
+        raise ValueError('Filter type must be one of the following: {}'.format(FILTERS_TEMPORAL))
+
+    if filter_type is 'lowpass':
+        # Good for ___, but ___
+        # FIR design arguements
+        Fs = sample_rate           # sample-rate, down-sampled
+        taps = 2 ** 1   # TODO adjust to reduce ringing
+        Fpass = 100       # passband edge
+        Fstop = 105     # stopband edge, transition band 100kHz
+        Wp = Fpass/Fs    # pass normalized frequency
+        Ws = Fstop/Fs    # stop normalized frequency
+        br = ffd.remez(taps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
+        signal_out = filtfilt(br, 1, signal_in)
+
+        # # FIR design arguements
+        # Fpass = 100  # passband edge
+        # Fstop = 105  # stopband edge, transition band __ Hz
+        # R = 25  # how much to down sample by
+        # Fsr = Fs / 25.  # down-sampled sample rate
+        # xs = resample(signal_in, int(len(signal_in) / 25.))
+        # # Down sampled version, create new filter and plot spectrum
+        # R = 4.             # how much to down sample by
+        # Fsr = Fs/R          # down-sampled sample rate
+        # Wp = Fpass / Fsr  # pass normalized frequency
+        # Ws = Fstop / Fsr  # stop normalized frequency
+        # signal_out = filtfilt(br, 1, signal_in)
+
+        # ############
+        # # The Nyquist rate of the signal.
+        # nyq_rate = sample_rate / 2.0
+        # # The desired width of the transition from pass to stop,
+        # # relative to the Nyquist rate.  We'll design the filter
+        # # with a 5 Hz transition width.
+        # width = 2.0 / nyq_rate
+        # # The desired attenuation in the stop band, in dB.
+        # ripple_db = 60.0
+        # # Compute the order and Kaiser parameter for the FIR filter.
+        # N, beta = kaiserord(ripple_db, width)
+        # # The cutoff frequency of the filter.
+        # cutoff_hz = 100
+        # # Use firwin with a Kaiser window to create a lowpass FIR filter.
+        # taps = firwin(N, cutoff_hz / nyq_rate, window=('kaiser', beta))
+        # # Use lfilter to filter x with the FIR filter.
+        # signal_out = lfilter(taps, 1.0, signal_in)
+    elif filter_type is 'auto':
+        # import noisereduce as nr
+        # # load data
+        # rate, data = wavfile.read("mywav.wav")
+        # # select section of data that is noise
+        # noisy_part = data[10000:15000]
+        # # perform noise reduction
+        # reduced_noise = nr.reduce_noise(audio_clip=data, noise_clip=noisy_part, verbose=True)
+        pass
+    else:
+        raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
+
+    return signal_out.astype(signal_in.dtype)
 
 
 def filter_drift(signal_in, poly_order):

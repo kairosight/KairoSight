@@ -1,5 +1,6 @@
 import unittest
 from util.analysis import *
+from util.processing import *
 from util.datamodel import model_transients
 import numpy as np
 import matplotlib.pyplot as plt
@@ -170,11 +171,14 @@ class TestAnalysisPoints(unittest.TestCase):
     # Setup data to test with
     t = 200
     t0 = 20
-    time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0)
+    fps = 1000
+    time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps)
+    sample_rate = float(fps)
+    signal_ca = filter_temporal(signal_ca, sample_rate)
     # dt = int(time_ca[1])
-    df_ca = np.diff(signal_ca, n=1, prepend=int(signal_ca[0]))
-    d2f_ca = np.diff(signal_ca, n=2, prepend=[int(signal_ca[0]), int(signal_ca[0])])
-    # df_ca = np.gradient(signal_ca, dt) / np.gradient(time_ca, dt)
+    df_ca = np.diff(signal_ca, n=1, prepend=int(signal_ca[0])).astype(float)
+    d2f_ca = np.diff(signal_ca, n=2, prepend=[int(signal_ca[0]), int(signal_ca[0])]).astype(float)
+    # df_ca = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)
     # d2f_ca = np.gradient(df_ca, dt) / np.gradient(time_ca, dt)
 
     def test_plot(self):
@@ -204,8 +208,8 @@ class TestAnalysisPoints(unittest.TestCase):
             ax.set_xticklabels([])
 
         ax_f.plot(self.time_ca, self.signal_ca, color=gray_heavy)
-        ax_df.plot(self.time_ca, self.df_ca, color=gray_med)
-        ax_d2F.plot(self.time_ca, self.d2f_ca, color=gray_med)
+        ax_df.plot(self.time_ca, filter_temporal(self.df_ca, self.sample_rate), color=gray_med)
+        ax_d2F.plot(self.time_ca, filter_temporal(self.d2f_ca, self.sample_rate), color=gray_med)
         # ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_points.show()
 

@@ -158,7 +158,7 @@ class TestFilterSpatial(unittest.TestCase):
         self.assertRaises(TypeError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=True)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # filter_type :
+        # filter_type : must be in FILTERS_SPATIAL
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='gross')
         # kernel : >= 3, odd
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=2)
@@ -212,7 +212,7 @@ class TestFilterSpatial(unittest.TestCase):
     def test_plot_trace(self):
         # Make sure filtered stack signals looks correct
         signal_x, signal_y = (int(self.WIDTH / 3), int(self.HEIGHT / 3))
-        signal_r = self.kernel/2
+        signal_r = self.kernel / 2
         # Filter a noisy stack
         stack_filtered = np.empty_like(self.stack_noisy_ca)
         for idx, frame in enumerate(self.stack_noisy_ca):
@@ -341,6 +341,71 @@ class TestFilterSpatial(unittest.TestCase):
         fig_filters.savefig(dir_tests + '/results/SpatialFilters_ca.png')
 
 
+class TestFilterTemporal(unittest.TestCase):
+    # Setup data to test with
+    t = 200
+    t0 = 20
+    fps = 1000
+    signal_F0 = 200
+    signal_amp = 100
+    noise = 2
+    time_noisy_ca, signal_noisy_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
+                                                      f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    time_ideal_ca, signal_ideal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
+                                                      f_0=signal_F0, f_amp=signal_amp)
+    sample_rate = float(fps)
+
+    def test_params(self):
+        signal_bad_type = np.full(100, True)
+        # Make sure type errors are raised when necessary
+        # signal_in : ndarray, dtyoe : uint16 or float
+        self.assertRaises(TypeError, filter_temporal, signal_in=True, sample_rate=self.sample_rate)
+        self.assertRaises(TypeError, filter_temporal, signal_in=signal_bad_type, sample_rate=self.sample_rate)
+        # sample_rate : float
+        self.assertRaises(TypeError, filter_temporal, signal_in=self.signal_noisy_ca, sample_rate=True)
+        # filter_type : str
+        self.assertRaises(TypeError, filter_temporal, signal_in=self.signal_noisy_ca, sample_rate=self.sample_rate,
+                          filter_type=True)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # filter_type : must be in FILTERS_TEMPORAL
+        self.assertRaises(ValueError, filter_temporal, signal_in=self.signal_noisy_ca, sample_rate=self.sample_rate,
+                          filter_type='gross')
+
+    def test_results(self):
+        # Make sure results are correct
+        signal_out = filter_temporal(self.signal_noisy_ca, self.sample_rate)
+
+        # signal_out : ndarray
+        self.assertIsInstance(signal_out, np.ndarray)  # filtered signal
+
+        # Make sure result values are valid
+        # self.assertAlmostEqual(signal_out.min(), self.signal_ideal_ca.min(), delta=20)
+        # self.assertAlmostEqual(signal_out.max(), self.signal_ideal_ca.max(), delta=20)
+
+    def test_plot_single(self):
+        # Make sure filtered signal looks correct
+        signal_filtered = filter_temporal(self.signal_noisy_ca, self.sample_rate)
+
+        # Build a figure to plot new signal
+        fig_filter, ax_filter = plot_test()
+        ax_filter.set_title('Temporal Filtering (noise SD: {})'.format(self.noise))
+        ax_filter.set_ylabel('Arbitrary Fluorescent Units')
+        ax_filter.set_xlabel('Time (ms)')
+        # ax_filter.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
+
+        noisy_norm = normalize_signal(self.signal_noisy_ca)
+        filtered_norm = normalize_signal(signal_filtered)
+
+        ax_filter.plot(self.time_noisy_ca, noisy_norm, color=gray_light, linestyle='None', marker='+',
+                       label='Ca')
+        ax_filter.plot(self.time_noisy_ca, filtered_norm, color=gray_med, linestyle='None', marker='+',
+                       label='Ca, Filtered')
+
+        ax_filter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_filter.show()
+
+
 class TestInvert(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
@@ -354,7 +419,7 @@ class TestInvert(unittest.TestCase):
                                           f_0=signal_F0, f_amp=signal_amp,
                                           noise=noise, num=signal_num)
 
-    # time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
+    # time_ca, signal_noisy_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
     #                                       f_0=signal_F0, f_amp=signal_amp,
     #                                       noise=noise, num=signal_num)
 
@@ -665,7 +730,7 @@ class TestSnrMap(unittest.TestCase):
         print('SNR Maps max value: ', snr_max)
 
         # Plot a frame from the stack and the SNR map of that frame
-        fig_map_snr, ax_img_snr, ax_map_snr = plot_map(snr_map_ca)
+        fig_map_snr, ax_img_snr, ax_map_snr = plot_map()
         ax_img_snr.set_title('Noisy Model Data (noise SD: {}-{})'.format(self.noise, self.noise + self.d_noise))
         ax_map_snr.set_title('SNR Map')
         # Frame from stack
