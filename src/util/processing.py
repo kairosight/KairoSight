@@ -1,6 +1,6 @@
 import numpy as np
 import statistics
-from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, lfilter
+from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, lfilter, butter, freqs, freqz, minimum_phase
 from scipy.signal import fir_filter_design as ffd
 from skimage.morphology import square
 from skimage.filters.rank import median, mean, mean_bilateral
@@ -125,7 +125,7 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     return frame_out.astype(frame_in.dtype)
 
 
-def filter_temporal(signal_in, sample_rate, filter_type='lowpass'):
+def filter_temporal(signal_in, sample_rate, filter_type='lowpass', filter_order=200):
     """Temporally filter an array of optical data.
 
         Parameters
@@ -141,6 +141,8 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass'):
         -------
         signal_out : ndarray
              A temporally filtered signal array
+        delay : float
+             The temporal delay caused by the filter (ms)
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -159,13 +161,13 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass'):
         # Good for ___, but ___
         # FIR design arguements
         Fs = sample_rate           # sample-rate, down-sampled
-        taps = 2 ** 1   # TODO adjust to reduce ringing
-        Fpass = 100       # passband edge
+        Norder = filter_order
+        Ntaps = Norder + 1   # The desired number of taps in the filter
+        Fpass = 95       # passband edge
         Fstop = 105     # stopband edge, transition band 100kHz
         Wp = Fpass/Fs    # pass normalized frequency
         Ws = Fstop/Fs    # stop normalized frequency
-        br = ffd.remez(taps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
-        signal_out = filtfilt(br, 1, signal_in)
+        taps = ffd.remez(Ntaps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
 
         # # FIR design arguements
         # Fpass = 100  # passband edge
@@ -178,7 +180,9 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass'):
         # Fsr = Fs/R          # down-sampled sample rate
         # Wp = Fpass / Fsr  # pass normalized frequency
         # Ws = Fstop / Fsr  # stop normalized frequency
-        # signal_out = filtfilt(br, 1, signal_in)
+        signal_filt = lfilter(taps, 1, signal_in)
+        # signal_filt = minimum_phase(signal_filt, method='hilbert')
+        signal_out = signal_filt[Norder-1:]
 
         # ############
         # # The Nyquist rate of the signal.
@@ -209,7 +213,11 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass'):
     else:
         raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
 
-    return signal_out.astype(signal_in.dtype)
+    # Calculate the phase delay of the filtered signal
+    phase_delay = 0.5 * (filter_order - 1) / sample_rate
+    delay = phase_delay * 1000
+
+    return signal_out.astype(signal_in.dtype), delay
 
 
 def filter_drift(signal_in, poly_order):
@@ -458,7 +466,9 @@ def calculate_error(ideal, modified):
     if modified.dtype not in [int, np.uint16, float]:
         raise TypeError('Modified values must either be "int", "uint16" or "float"')
 
-    error = ((ideal.astype(float) - modified.astype(float)) / ideal.astype(float)) * 100
+    MIN = 0.0001    # Min to avoid division by 0
+
+    error = ((ideal.astype(float)+MIN - modified.astype(float)+MIN) / (ideal.astype(float)+MIN) * 100)
     error_mean = error.mean()
     error_sd = statistics.stdev(error)
 

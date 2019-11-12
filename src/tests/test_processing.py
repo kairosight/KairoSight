@@ -1,7 +1,11 @@
 import unittest
+
+from scipy.signal import minimum_phase
+
 from util.processing import *
 from util.datamodel import model_transients, model_stack_propagation
 from pathlib import Path
+from math import pi
 import numpy as np
 import statistics
 import matplotlib.pyplot as plt
@@ -13,6 +17,7 @@ import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_ideal, color_raw, color_filtered = ['#606060', '#FC0352', '#03A1FC']
 # File paths  and files needed for tests
 dir_cwd = Path.cwd()
 dir_tests = str(dir_cwd)
@@ -344,7 +349,7 @@ class TestFilterSpatial(unittest.TestCase):
 class TestFilterTemporal(unittest.TestCase):
     # Setup data to test with
     t = 200
-    t0 = 20
+    t0 = 50
     fps = 1000
     signal_F0 = 200
     signal_amp = 100
@@ -374,35 +379,146 @@ class TestFilterTemporal(unittest.TestCase):
 
     def test_results(self):
         # Make sure results are correct
-        signal_out = filter_temporal(self.signal_noisy_ca, self.sample_rate)
+        signal_out, delay = filter_temporal(self.signal_noisy_ca, self.sample_rate)
 
         # signal_out : ndarray
         self.assertIsInstance(signal_out, np.ndarray)  # filtered signal
+
+        # delay : float
+        self.assertIsInstance(delay, float)  # time shift due to a phase delay from a linear phase response
 
         # Make sure result values are valid
         # self.assertAlmostEqual(signal_out.min(), self.signal_ideal_ca.min(), delta=20)
         # self.assertAlmostEqual(signal_out.max(), self.signal_ideal_ca.max(), delta=20)
 
+    def test_plot_filter(self):
+        # Plot filter frequency response(s)
+        Fcutoff = 100     # Cutoff frequency of the lowpass filter
+        # The Nyquist rate of the signal.
+        nyq_rate = self.sample_rate / 2.0
+
+        # Butterworth
+        # Norder = 5
+        # b, a = butter(Norder, Fcutoff * (2 * pi), 'low', analog=True)
+
+        # FIR
+        # FIR 1 design arguements
+        window = 'remez'
+        # window = 'remez, hilbert'
+        Fs = self.sample_rate           # sample-rate, down-sampled
+        # taps = 2 ** 2   # TODO adjust to reduce ringing
+        Norder = 200
+        Ntaps = Norder + 1   # The desired number of taps in the filter
+        Fpass = 95       # passband edge
+        Fstop = 105     # stopband edge, transition band 100kHz
+        Wp = Fpass/Fs    # pass normalized frequency
+        Ws = Fstop/Fs    # stop normalized frequency
+        taps = ffd.remez(Ntaps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
+        # taps = minimum_phase(taps, method='hilbert')
+
+        # # FIR 2 design    - https://scipy-cookbook.readthedocs.io/items/FIRFilter.html
+        # # The desired width of the transition from pass to stop,
+        # # relative to the Nyquist rate.  We'll design the filter
+        # # with a 5 Hz transition width.
+        # width = 10 / nyq_rate
+        # # The desired attenuation in the stop band, in dB.
+        # ripple_db = 60.0
+        # # Compute the order and Kaiser parameter for the FIR filter.
+        # Norder, beta = kaiserord(ripple_db, width)
+        # # Use firwin with a Kaiser window to create a lowpass FIR filter.
+        # window = 'kaiser'
+        # taps = firwin(Norder, cutoff=Fcutoff, window=(window, beta), fs=self.sample_rate)
+        # # # Calculate frequency response
+        # # w, h = freqz(taps, worN=8000)
+
+        # # FIR 3 design  - http://pyageng.mpastell.com/book/dsp.html
+        # Norder = 100
+        # window = 'hamming'
+        # # Design filter
+        # taps = firwin(Norder, cutoff=Fcutoff, window=window, fs=self.sample_rate)
+
+        # Calculate frequency response (magnitude and phase)
+        w, h = freqz(taps, 1)   # for FIR, a=1
+        phase_delay = 0.5 * (Norder - 1) / self.sample_rate
+        h_phase = np.unwrap(np.arctan2(np.imag(h), np.real(h)))
+        df_h_phase = np.diff(h_phase, n=1, prepend=int(h_phase[0])).astype(float)
+        print('phase_delay : {} '.format(phase_delay))
+        print('Delay (slope) : {} '.format(df_h_phase[1]))
+
+        # Build figure
+        fig_filter, ax_filter = plot_test()
+        ax_filter.spines['top'].set_visible(False)
+        # Magnitude
+        # ax_filter.set_title('Butterworth filter frequency response\n(Analog, n = {}))'.format(Norder))
+        ax_filter.set_title('Custom FIR filter frequency response\n({}, n = {}, phase delay = {} s)'
+                            .format(window, Norder, phase_delay))
+        # ax_filter.set_xlabel('Frequency [radians / second]')
+        ax_filter.set_xlabel('Frequency (Hz)')
+        ax_filter.set_xlim(0, 500)
+        ax_filter.set_ylabel('Magnitude (dB)')
+        ax_filter.set_ylim(-150, 10)
+        ax_filter.grid(which='both', axis='both')
+
+        # ax_filter.plot(w / (2 * pi), 20 * np.log10(abs(h)), color=color_filtered) # analog or butterworth?
+        ax_filter.plot((w/pi) * nyq_rate, 20 * np.log10(abs(h)), color=color_filtered)   # FIR
+        ax_filter.axvline(Fcutoff, color='green')  # cutoff frequency
+
+        # Phase
+        ax_phase = ax_filter.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_phase.spines['top'].set_visible(False)
+        # ax_phase.set_xlabel('Normalized frequency (1.0 = Nyquist)')
+        ax_phase.set_ylabel('Phase (rad.)')
+        ax_phase.set_ylim(-150, 10)
+        # ax_phase.set_yticks([-np.pi, -0.5 * np.pi, 0, 0.5 * np.pi, np.pi],
+        #                     [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
+
+        # ax_phase.plot(w / (2 * pi), np.angle(h, deg=True), color=gray_med, linestyle='--')
+        # ax_phase.plot((w/pi) * nyq_rate, np.angle(h, deg=True), color=gray_med, linestyle='--')
+        ax_phase.plot((w/pi) * nyq_rate, h_phase, color=gray_med, linestyle='--')
+        h_phase_corrected = h_phase * (phase_delay / (2*pi))
+        # h_phase_corrected = h_phase / df_h_phase
+        ax_phase.plot((w/pi) * nyq_rate, h_phase_corrected, color=gray_med, linestyle=':')
+        fig_filter.show()
+
     def test_plot_single(self):
         # Make sure filtered signal looks correct
-        signal_filtered = filter_temporal(self.signal_noisy_ca, self.sample_rate)
+        ideal_norm = normalize_signal(self.signal_ideal_ca)
+        noisy_norm = normalize_signal(self.signal_noisy_ca)
+        filter_type = 'lowpass'
+        filter_order = 50
+        signal_filtered, delay = filter_temporal(noisy_norm, self.sample_rate, filter_type, filter_order)
+        filtered_norm = normalize_signal(signal_filtered)
 
-        # Build a figure to plot new signal
+        # Build a figure to plot new signal and %error
+        # fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
+        # # General layout
+        # gs_traces = fig_points.add_gridspec(3, 1)  # 3 rows, 1 column
+
         fig_filter, ax_filter = plot_test()
         ax_filter.set_title('Temporal Filtering (noise SD: {})'.format(self.noise))
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
         # ax_filter.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
 
-        noisy_norm = normalize_signal(self.signal_noisy_ca)
-        filtered_norm = normalize_signal(signal_filtered)
-
-        ax_filter.plot(self.time_noisy_ca, noisy_norm, color=gray_light, linestyle='None', marker='+',
-                       label='Ca')
-        ax_filter.plot(self.time_noisy_ca, filtered_norm, color=gray_med, linestyle='None', marker='+',
+        ax_filter.plot(self.time_noisy_ca, ideal_norm, color=color_ideal, linestyle='None', marker='+',
+                       label='Ca, ideal')
+        ax_filter.plot(self.time_noisy_ca, noisy_norm, color=color_raw, linestyle='None', marker='+',
+                       label='Ca, noisy')
+        ax_filter.plot(self.time_noisy_ca[filter_order-1:] - delay, filtered_norm,
+                       color=color_filtered, linestyle='None', marker='+',
                        label='Ca, Filtered')
 
-        ax_filter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        error, error_mean, error_sd = calculate_error(ideal_norm[filter_order-1:],
+                                                      filtered_norm)
+        ax_error = ax_filter.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
+        ax_error.set_ylabel('% Error')  # we already handled the x-label with ax1
+        ax_error.set_ylim([-100, 100])
+        ax_error.plot(self.time_noisy_ca[filter_order-1:] - delay, error,
+                      color=gray_heavy, linestyle='-', label='% Error')
+
+        ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_filter.show()
 
 
