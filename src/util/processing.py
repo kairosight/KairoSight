@@ -344,7 +344,7 @@ def calculate_snr(signal_in, noise_count=10):
     signal_range = signal_bounds[1] - signal_bounds[0]
 
     # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
-    noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 3
+    noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
     i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
     if len(i_noise_peaks) == 0:
         i_noise_peaks = [len(signal_in)-1]
@@ -364,7 +364,10 @@ def calculate_snr(signal_in, noise_count=10):
 
     # Find indices of peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
     # i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
-    i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2, distance=len(signal_in)/2)
+    # i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2, distance=len(signal_in)/2)
+    i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2,
+                            prominence=signal_range/2,
+                            distance=len(signal_in)/2)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 1:
