@@ -4,6 +4,7 @@ from pathlib import Path
 import time
 from math import pi
 import numpy as np
+from scipy import interpolate
 from scipy.signal import find_peaks
 from imageio import volwrite
 import matplotlib.pyplot as plt
@@ -86,21 +87,23 @@ class TestModelTransients(unittest.TestCase):
         # Test multiple transient generation
         f_amp = 250
         num = 4
-        peak_min_height = f_amp / 3
+        peak_min_height = f_amp / 2
 
         time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=f_amp, num=num)
-        data_vm = (-(data_vm - 2000)) + 2000
-        peaks_vm, _ = find_peaks(data_vm, height=peak_min_height)
-        self.assertEqual(peaks_vm.size, num)  # detected peaks matches number of generated transients
+        data_vm_inv = (-(data_vm - 2000)) + 2000
+        peaks_vm, _ = find_peaks(data_vm_inv, height=peak_min_height, prominence=f_amp/2)
+        self.assertEqual(num, peaks_vm.size)  # detected peaks matches number of generated transients
 
-        time_ca, data_ca = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num=num)
-        peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height)
-        self.assertEqual(peaks_ca.size, num)  # detected peaks matches number of generated transients
+        time_ca, data_ca = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=f_amp, num=num)
+        # peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, distance=len(data_ca)/num)
+        peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, prominence=f_amp/2)
+        self.assertEqual(num, peaks_ca.size)  # detected peaks matches number of generated transients
 
         # time_ca_full, data_ca_full = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num='full')
-        time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f_0=1000, f_amp=250, num='full')
-        peaks_ca, _ = find_peaks(data_ca_full, height=1000 + peak_min_height)
-        self.assertEqual(peaks_ca.size, int(5000 / 100))  # detected peaks matches calculated transients for 'full'
+        num_full = 5000 / 100
+        time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f_0=1000, f_amp=f_amp, num='full')
+        peaks_ca, _ = find_peaks(data_ca_full, height=peak_min_height, prominence=f_amp/2)
+        self.assertEqual(num_full, peaks_ca.size)  # detected peaks matches calculated transients for 'full'
 
     def test_plot_single(self):
         time_vm, data_vm = model_transients()
@@ -122,6 +125,33 @@ class TestModelTransients(unittest.TestCase):
                          loc='right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_single.show()
+
+    def test_plot_single_bspline(self):
+        # See a B-spline representation of model data
+        x = np.array([0., 1.2, 1.9, 3.2, 4., 6.5])
+        y = np.array([0., 2.3, 3., 4.3, 2.9, 3.1])
+
+        t, c, k = interpolate.splrep(x, y, k=2)
+        # print('''\
+        # t: {}
+        # c: {}
+        # k: {}
+        # '''.format(t, c, k))
+        N = 100
+        xmin, xmax = x.min(), x.max()
+        xx = np.linspace(xmin, xmax, N)
+        spline = interpolate.BSpline(t, c, k, extrapolate=False)
+
+        # Build a figure to plot model data
+        fig_bspline, ax_bspline = plot_test()
+        ax_bspline.set_ylim([-5, 5])
+
+        ax_bspline.plot(x, y, 'bo', label='Original points')
+        ax_bspline.plot(xx, spline(xx), 'r', marker='+', linestyle='', label='B-Spline points')
+        ax_bspline.grid()
+        ax_bspline.legend(loc='best')
+
+        fig_bspline.show()
 
     def test_plot_fps(self):
         # Test model Ca single transient data, at different fps

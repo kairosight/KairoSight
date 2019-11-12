@@ -1,6 +1,7 @@
 from math import pi, floor, ceil, sqrt
 import numpy as np
 from random import gauss, seed
+from scipy import interpolate
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
@@ -9,7 +10,7 @@ MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
 # resolution = 0.0149   # pig video resolution
 RESOLUTION = 0.01       # 1 cm / 100 px
 # Set seed of random number generator
-seed(1)
+# seed(1)
 
 
 def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100, noise=0,
@@ -208,6 +209,14 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
         model_tran_train = model_tran_train[:model_data.size - FRAME_T0]
 
     model_data[FRAME_T0:FRAME_T0 + model_tran_train.size] = model_tran_train
+
+    # TODO use B-spline to contruct the transient
+    # B-spline interpolation of model data, 2nd degree spline fitting
+    t, c, k = interpolate.splrep(model_time, model_data, k=2)
+    N = FRAMES
+    # xx = np.linspace(model_time.min(), model_time.max(), N)
+    spline = interpolate.BSpline(t, c, k, extrapolate=False)
+    model_data = spline(model_time)
 
     # Add gaussian noise, mean: 0, standard deviation: noise% of peak, length
     model_noise = np.random.normal(0, (noise/100) * f_amp, model_data.size)
