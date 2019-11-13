@@ -108,19 +108,11 @@ class TestPeak(unittest.TestCase):
     def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, find_tran_peak, signal_in=True)
-        self.assertRaises(TypeError, find_tran_peak, signal_in=5)
         self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, find_tran_peak, signal_in='word')
-        self.assertRaises(TypeError, find_tran_peak, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-
-        self.assertRaises(ValueError, find_tran_peak, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
@@ -167,54 +159,6 @@ class TestDownstroke(unittest.TestCase):
         self.assertAlmostEqual(i_downstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
 
 
-class TestAnalysisPoints(unittest.TestCase):
-    # Setup data to test with
-    t = 200
-    t0 = 20
-    fps = 1000
-    time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps)
-    sample_rate = float(fps)
-    signal_ca = filter_temporal(signal_ca, sample_rate)
-    # dt = int(time_ca[1])
-    df_ca = np.diff(signal_ca, n=1, prepend=int(signal_ca[0])).astype(float)
-    d2f_ca = np.diff(signal_ca, n=2, prepend=[int(signal_ca[0]), int(signal_ca[0])]).astype(float)
-    # df_ca = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)
-    # d2f_ca = np.gradient(df_ca, dt) / np.gradient(time_ca, dt)
-
-    def test_plot(self):
-        # Build a figure to plot the signal, it's derivatives, and the analysis points
-        fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
-        # General layout
-        gs_traces = fig_points.add_gridspec(3, 1)  # 3 rows, 1 column
-        # gs_traces = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
-        # gs_frames = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
-        # F(t) signal
-        ax_f = fig_points.add_subplot(gs_traces[0])
-        ax_f.set_ylabel('F(t)')
-        # dF/dt signal
-        ax_df = fig_points.add_subplot(gs_traces[1])
-        ax_df.set_ylabel('dF/dt')
-        # d2F/dt2 signal
-        ax_d2F = fig_points.add_subplot(gs_traces[2])
-        ax_d2F.set_ylabel('d2F/dt2')
-        for idx, ax in enumerate([ax_f, ax_df, ax_d2F]):
-            ax.spines['right'].set_visible(False)
-            # ax.spines['left'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            ax.spines['bottom'].set_visible(False)
-            # ax.set_yticks([])
-            # ax.set_yticklabels([])
-            ax.set_xticks([])
-            ax.set_xticklabels([])
-
-        ax_f.plot(self.time_ca, self.signal_ca, color=gray_heavy)
-        ax_df.plot(self.time_ca, filter_temporal(self.df_ca, self.sample_rate), color=gray_med)
-        ax_d2F.plot(self.time_ca, filter_temporal(self.d2f_ca, self.sample_rate), color=gray_med)
-        # ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        fig_points.show()
-
-
-
 class TestEnd(unittest.TestCase):
     # Setup data to test with
     signal_F0 = 1000
@@ -248,6 +192,59 @@ class TestEnd(unittest.TestCase):
         self.assertIsInstance(i_end, np.int32)
 
         self.assertAlmostEqual(i_end, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+
+
+class TestAnalysisPoints(unittest.TestCase):
+    # Setup data to test with
+    t = 200
+    t0 = 20
+    fps = 1000
+    time_vm, signal_vm = model_transients(t=t, t0=t0, fps=fps)
+    time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps)
+    signal = invert_signal(signal_vm)
+    sample_rate = float(fps)
+    # signal_ca = filter_temporal(signal_ca, sample_rate)
+    # dt = int(time_ca[1])
+    df_ca = np.diff(signal, n=1, prepend=int(signal[0])).astype(float)
+    d2f_ca = np.diff(signal, n=2, prepend=[int(signal[0]), int(signal[0])]).astype(float)
+    # df_ca = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)
+    # d2f_ca = np.gradient(df_ca, dt) / np.gradient(time_ca, dt)
+
+    def test_plot(self):
+        # Build a figure to plot the signal, it's derivatives, and the analysis points
+        fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
+        # General layout
+        gs_traces = fig_points.add_gridspec(3, 1)  # 3 rows, 1 column
+        # gs_traces = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
+        # gs_frames = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
+        # F(t) signal
+        ax_f = fig_points.add_subplot(gs_traces[0])
+        ax_f.set_ylabel('F(t)')
+        # dF/dt signal
+        ax_df = fig_points.add_subplot(gs_traces[1])
+        ax_df.set_ylabel('dF/dt')
+        # d2F/dt2 signal
+        ax_d2F = fig_points.add_subplot(gs_traces[2])
+        ax_d2F.set_ylabel('d2F/dt2')
+        for idx, ax in enumerate([ax_f, ax_df, ax_d2F]):
+            ax.spines['right'].set_visible(False)
+            # ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            # ax.set_yticks([])
+            # ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+
+        ax_f.plot(self.time_ca, self.signal, color=gray_heavy)
+        # ax_df.plot(self.time_ca, self.df_ca, color=gray_med)
+        # ax_d2F.plot(self.time_ca, self.d2f_ca, color=gray_med)
+        df_ca_smooth = filter_temporal(self.df_ca, self.sample_rate, filter_order=5)
+        d2f_ca_smooth = filter_temporal(self.d2f_ca, self.sample_rate, filter_order=5)
+        ax_df.plot(self.time_ca, df_ca_smooth, color=gray_med)
+        ax_d2F.plot(self.time_ca, d2f_ca_smooth, color=gray_med)
+        # ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_points.show()
 
 
 class TestDuration(unittest.TestCase):
@@ -384,12 +381,9 @@ class TestAnalysisFF0(unittest.TestCase):
     def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int
-        self.assertRaises(TypeError, calc_ff0, signal_in=5)
-        self.assertRaises(TypeError, calc_ff0, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, calc_ff0, signal_in=True)
-        self.assertRaises(TypeError, calc_ff0, signal_in='word')
-        self.assertRaises(TypeError, calc_ff0, signal_in=3j + 7)
+        # signal_in : ndarray
+        self.assertRaises(TypeError, find_tran_peak, signal_in=True)
+        self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # signal_in : >=0

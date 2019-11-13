@@ -125,7 +125,7 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     return frame_out.astype(frame_in.dtype)
 
 
-def filter_temporal(signal_in, sample_rate, filter_order=5):
+def filter_temporal(signal_in, sample_rate, filter_order='auto'):
     """Apply a lowpass filter to array of optical data.
 
         Parameters
@@ -135,7 +135,7 @@ def filter_temporal(signal_in, sample_rate, filter_order=5):
         sample_rate : float
             Sample rate (Hz) of signal_in
         filter_order : int or str
-            The order of the filter, default is 5
+            The order of the filter, default is 'auto'
             If 'auto', order is calculated using scipy.signal.kaiserord
 
         Returns

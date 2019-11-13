@@ -20,11 +20,37 @@ def find_tran_start(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+
+
+def find_tran_act(signal_in):
+    """Find the time of the activation of a transient,
+    defined as the the maximum of the 1st derivative OR
+
+        Parameters
+        ----------
+        signal_in : ndarray
+            The array of data to be evaluated
+
+        Returns
+        -------
+        i_start : int
+            The index of the signal array corresponding to the start of the transient
+        """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
+    pass
 
 
 def find_tran_peak(signal_in):
@@ -44,7 +70,7 @@ def find_tran_peak(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
@@ -81,7 +107,7 @@ def find_tran_downstroke(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
@@ -107,7 +133,7 @@ def find_tran_end(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
@@ -116,8 +142,7 @@ def find_tran_end(signal_in):
 
 def calc_tran_activation(signal_in):
     """Calculate the time of the activation of a transient,
-    defined as the the maximum of the 1st derivative OR
-    midpoint (not limited by sampling rate) between the start and peak times
+    defined as the midpoint (not limited by sampling rate) between the start and peak times
 
         Parameters
         ----------
@@ -133,7 +158,7 @@ def calc_tran_activation(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
@@ -162,7 +187,7 @@ def calc_tran_duration(signal_in, percent=50):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
     if type(percent) is not int:
         raise TypeError('Percent data type must be an "int"')
@@ -190,7 +215,7 @@ def calc_tran_tau(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
@@ -218,7 +243,7 @@ def calc_tran_di(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     if any(v < 0 for v in signal_in):
