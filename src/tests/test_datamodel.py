@@ -12,8 +12,7 @@ import matplotlib.ticker as plticker
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-# color_vm, color_ca = ['#FF9999', '#99FF99']
-color_vm, color_ca = ['r', 'y']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
 def plot_test():

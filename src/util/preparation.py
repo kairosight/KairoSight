@@ -1,6 +1,55 @@
 import os
+from math import floor
 from imageio import volread, get_reader
-# import numpy as np
+import numpy as np
+
+
+def open_signal(source, fps=500):
+    """Open an array of optical data from a text file (.csv)
+    as a calculated time array and an array of 16-bit arbitrary fluorescent data
+
+        Parameters
+        ----------
+        source : str
+            The full path to the file
+        fps : int
+            The framerate of the recorded captured
+
+        Returns
+        -------
+        signal_time : ndarray
+            An array of timestamps (ms) corresponding to the model_data
+        signal_data : ndarray
+            An array of normalized fluorescence data
+    """
+    # Check parameter types
+    if type(source) not in [str]:
+        raise TypeError('Required "source" ' + source + ' parameter must be a string')
+    # Check parameter validity
+    # Make sure the source is an existing file
+    if not os.path.isfile(source):
+        raise FileNotFoundError('Required "source" ' + source + ' is not a file or does not exist.')
+
+    # Load the text file
+    signal_text = np.genfromtxt(source, delimiter=',')
+
+    # Calculate important constants
+    FPMS = fps / 1000
+    FRAME_T = 1 / FPMS
+
+    if len(signal_text.shape) > 1:
+        # Multiple columns
+        data_x = signal_text[1:, 0]     # rows of the first column (skip X,Y header row)
+        data_y_counts = signal_text[1:, 1].astype(np.uint16)  # rows of the first column (skip X,Y header row)
+        FRAMES = len(data_x)
+        FINAL_T = floor(FPMS * FRAMES)
+        signal_data = data_y_counts
+    else:
+        signal_data = signal_text[0]
+    # Generate array of timestamps
+    signal_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+
+    return signal_time, signal_data
 
 
 def open_single(source, meta=None):
