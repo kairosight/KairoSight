@@ -1,12 +1,12 @@
 import numpy as np
 import statistics
-from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, lfilter, butter, freqs, freqz, minimum_phase
+from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2,\
+    lfilter, butter, freqs, freqz, minimum_phase
 from scipy.signal import fir_filter_design as ffd
 from skimage.morphology import square
 from skimage.filters.rank import median, mean, mean_bilateral
 from skimage.filters import gaussian
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian']
-FILTERS_TEMPORAL = ['lowpass', 'auto']
 # TODO add TV, a non-local, and a weird filter
 
 
@@ -125,8 +125,8 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     return frame_out.astype(frame_in.dtype)
 
 
-def filter_temporal(signal_in, sample_rate, filter_type='lowpass', filter_order=200):
-    """Temporally filter an array of optical data.
+def filter_temporal(signal_in, sample_rate, filter_order=5):
+    """Apply a lowpass filter to array of optical data.
 
         Parameters
         ----------
@@ -134,15 +134,14 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass', filter_order=
              The array of data to be evaluated
         sample_rate : float
             Sample rate (Hz) of signal_in
-        filter_type : str
-            The type of filter algorithm to use, default is 'lowpass'
+        filter_order : int or str
+            The order of the filter, default is 5
+            If 'auto', order is calculated using scipy.signal.kaiserord
 
         Returns
         -------
         signal_out : ndarray
              A temporally filtered signal array
-        delay : float
-             The temporal delay caused by the filter (ms)
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -151,24 +150,30 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass', filter_order=
         raise TypeError('Signal values must either be "uint16" or "float"')
     if type(sample_rate) is not float:
         raise TypeError('Sample rate must be a "float"')
-    if type(filter_type) is not str:
-        raise TypeError('Filter type must be a "str"')
+    if type(filter_order) not in [int, str]:
+        raise TypeError('Filter type must be an int or str')
 
-    if filter_type not in FILTERS_TEMPORAL:
-        raise ValueError('Filter type must be one of the following: {}'.format(FILTERS_TEMPORAL))
+    f_cutoff = 100  # Cutoff frequency of the lowpass filter
+    nyq_rate = sample_rate / 2.0
+    n_order = 0
 
-    if filter_type is 'lowpass':
+    if type(filter_order) is int:
         # Good for ___, but ___
-        # FIR design arguements
-        Fs = sample_rate           # sample-rate, down-sampled
-        Norder = filter_order
-        Ntaps = Norder + 1   # The desired number of taps in the filter
-        Fpass = 95       # passband edge
-        Fstop = 105     # stopband edge, transition band 100kHz
-        Wp = Fpass/Fs    # pass normalized frequency
-        Ws = Fstop/Fs    # stop normalized frequency
-        taps = ffd.remez(Ntaps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
+        # Butterworth (from old code)
+        Wn = f_cutoff / nyq_rate
+        n_order = filter_order
+        [b, a] = butter(n_order, Wn)
+        signal_out = filtfilt(b, a, signal_in)
 
+        # # FIR design arguements
+        # Fs = sample_rate           # sample-rate, down-sampled
+        # Norder = filter_order
+        # Ntaps = Norder + 1   # The desired number of taps in the filter
+        # Fpass = 95       # passband edge
+        # Fstop = 105     # stopband edge, transition band 100kHz
+        # Wp = Fpass/Fs    # pass normalized frequency
+        # Ws = Fstop/Fs    # stop normalized frequency
+        # taps = ffd.remez(Ntaps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
         # # FIR design arguements
         # Fpass = 100  # passband edge
         # Fstop = 105  # stopband edge, transition band __ Hz
@@ -180,44 +185,33 @@ def filter_temporal(signal_in, sample_rate, filter_type='lowpass', filter_order=
         # Fsr = Fs/R          # down-sampled sample rate
         # Wp = Fpass / Fsr  # pass normalized frequency
         # Ws = Fstop / Fsr  # stop normalized frequency
-        signal_filt = lfilter(taps, 1, signal_in)
-        # signal_filt = minimum_phase(signal_filt, method='hilbert')
-        signal_out = signal_filt[Norder-1:]
+
+        # signal_filt = lfilter(taps, 1, signal_in)
+        # # signal_filt = filtfilt(taps, 1, signal_in, method="gust")
+        # # signal_filt = minimum_phase(signal_filt, method='hilbert')
+        # signal_out = signal_filt[Norder-1:]
 
         # ############
-        # # The Nyquist rate of the signal.
-        # nyq_rate = sample_rate / 2.0
-        # # The desired width of the transition from pass to stop,
-        # # relative to the Nyquist rate.  We'll design the filter
-        # # with a 5 Hz transition width.
-        # width = 2.0 / nyq_rate
-        # # The desired attenuation in the stop band, in dB.
-        # ripple_db = 60.0
-        # # Compute the order and Kaiser parameter for the FIR filter.
-        # N, beta = kaiserord(ripple_db, width)
-        # # The cutoff frequency of the filter.
-        # cutoff_hz = 100
-        # # Use firwin with a Kaiser window to create a lowpass FIR filter.
-        # taps = firwin(N, cutoff_hz / nyq_rate, window=('kaiser', beta))
-        # # Use lfilter to filter x with the FIR filter.
-        # signal_out = lfilter(taps, 1.0, signal_in)
-    elif filter_type is 'auto':
-        # import noisereduce as nr
-        # # load data
-        # rate, data = wavfile.read("mywav.wav")
-        # # select section of data that is noise
-        # noisy_part = data[10000:15000]
-        # # perform noise reduction
-        # reduced_noise = nr.reduce_noise(audio_clip=data, noise_clip=noisy_part, verbose=True)
-        pass
+
+    elif filter_order is 'auto':
+        # # FIR 4 design  - https://www.programcreek.com/python/example/100540/scipy.signal.firwin
+        # Compute the order and Kaiser parameter for the FIR filter.
+        ripple_db = 30.0
+        width = 20   # The desired width of the transition from pass to stop, Hz
+        window = 'kaiser'
+        n_order, beta = kaiserord(ripple_db, width / nyq_rate)
+        # Use firwin with a Kaiser window to create a lowpass FIR filter.
+        taps = firwin(numtaps=n_order + 1, cutoff=f_cutoff, window=(window, beta), fs=sample_rate)
+        # signal_out = lfilter(taps, 1.0, signal_in)   # for FIR, a=1
+        signal_out = filtfilt(taps, 1, signal_in, method="gust")   # for FIR, a=1
     else:
-        raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
+        raise ValueError('Filter order "{}" not implemented'.format(filter_order))
 
-    # Calculate the phase delay of the filtered signal
-    phase_delay = 0.5 * (filter_order - 1) / sample_rate
-    delay = phase_delay * 1000
+    # # Calculate the phase delay of the filtered signal
+    # phase_delay = 0.5 * (filter_order - 1) / sample_rate
+    # delay = phase_delay * 1000
 
-    return signal_out.astype(signal_in.dtype), delay
+    return signal_out.astype(signal_in.dtype)
 
 
 def filter_drift(signal_in, poly_order):
@@ -466,9 +460,9 @@ def calculate_error(ideal, modified):
     if modified.dtype not in [int, np.uint16, float]:
         raise TypeError('Modified values must either be "int", "uint16" or "float"')
 
-    MIN = 0.0001    # Min to avoid division by 0
+    MIN = 1    # Min to avoid division by 0
 
-    error = ((ideal.astype(float)+MIN - modified.astype(float)+MIN) / (ideal.astype(float)+MIN) * 100)
+    error = ((ideal.astype(float) - modified.astype(float)) / (ideal.astype(float)) * 100)
     error_mean = error.mean()
     error_sd = statistics.stdev(error)
 
