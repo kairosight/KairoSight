@@ -3,7 +3,8 @@ import unittest
 from scipy.signal import minimum_phase
 
 from util.processing import *
-from util.datamodel import model_transients, model_stack_propagation
+from util.datamodel import *
+from util.preparation import *
 from pathlib import Path
 from math import pi
 import numpy as np
@@ -515,11 +516,6 @@ class TestFilterTemporal(unittest.TestCase):
         signal_filtered = filter_temporal(self.signal_noisy_ca, self.sample_rate, filter_order)
         filtered_norm = normalize_signal(signal_filtered)
 
-        # Build a figure to plot new signal and %error
-        # fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
-        # # General layout
-        # gs_traces = fig_points.add_gridspec(3, 1)  # 3 rows, 1 column
-
         fig_filter, ax_filter = plot_test()
         ax_filter.set_title('Temporal Filtering (n={}, noise SD={})'.format(filter_order, self.noise))
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
@@ -545,6 +541,32 @@ class TestFilterTemporal(unittest.TestCase):
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_filter.show()
+
+    def test_plot_real(self):
+        # Test temporal filtering on real signal data
+        # File paths and files needed for the test
+        cwd = Path.cwd()
+        tests = str(cwd)
+        file_signal = tests + '/data/20190404-rata-12-150_right_signal1.csv'
+        time, signal = open_signal(source=file_signal)
+
+        filter_order = 20
+        signal_filtered = filter_temporal(signal, sample_rate=800.0, filter_order=filter_order)
+
+        fig_filter, ax_filter = plot_test()
+        ax_filter.set_title('Temporal Filtering (n={})'.format(filter_order))
+        ax_filter.set_ylabel('Arbitrary Fluorescent Units')
+        ax_filter.set_xlabel('Time (ms)')
+
+        ax_filter.plot(time, signal, color=color_raw, linestyle='None', marker='+',
+                       label='Ca, Real')
+        ax_filter.plot(time, signal_filtered,
+                       color=color_filtered, linestyle='None', marker='+',
+                       label='Ca, Filtered')
+
+        ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
         fig_filter.show()
 
 
