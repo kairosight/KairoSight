@@ -27,34 +27,6 @@ def find_tran_start(signal_in):
         raise ValueError('All signal values must be >= 0')
 
 
-def calc_tran_activation(signal_in):
-    """Calculate the time of the activation of a transient,
-    defined as the the maximum of the 1st derivative OR
-    midpoint (not limited by sampling rate) between the start and peak times
-
-        Parameters
-        ----------
-        signal_in : ndarray
-            The array of data to be evaluated
-
-        Returns
-        -------
-        i_activation : int
-            The index of the signal array corresponding to the activation of the transient
-        """
-
-    # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [int, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
-
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
-
-    pass
-
-
 def find_tran_peak(signal_in):
     """Find the time of the peak of a transient,
     defined as the maximum value
@@ -140,6 +112,34 @@ def find_tran_end(signal_in):
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+
+
+def calc_tran_activation(signal_in):
+    """Calculate the time of the activation of a transient,
+    defined as the the maximum of the 1st derivative OR
+    midpoint (not limited by sampling rate) between the start and peak times
+
+        Parameters
+        ----------
+        signal_in : ndarray
+            The array of data to be evaluated
+
+        Returns
+        -------
+        i_activation : int
+            The index of the signal array corresponding to the activation of the transient
+        """
+
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [int, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
+    pass
 
 
 def calc_tran_duration(signal_in, percent=50):

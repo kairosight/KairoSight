@@ -130,24 +130,28 @@ def run_trials_snr(self, trials_count, noise=0):
 
 
 class TestFilterSpatial(unittest.TestCase):
-    # Setup data to test with, a propagating stack of varying SNR
-    filter_type = 'gaussian'
-    kernel = 5
 
-    f_0 = 1000
-    f_amp = 100
-    noise = 5
-    time_noisy_ca, stack_noisy_ca = model_stack_propagation(model_type='Ca', f_0=f_0, f_amp=f_amp, noise=noise)
-    time_ideal_ca, stack_ideal_ca = model_stack_propagation(model_type='Ca', f_0=f_0, f_amp=f_amp)
+    def setUp(self):
+        # Setup data to test with, a propagating stack of varying SNR
+        self.filter_type = 'gaussian'
+        self.kernel = 5
 
-    frame_num = int(len(stack_noisy_ca) / 8)  # frame from 1/8th total time
-    frame_noisy_ca = stack_noisy_ca[frame_num]
-    frame_ideal_ca = stack_ideal_ca[frame_num]
-    stack_ca_shape = stack_noisy_ca.shape
-    FRAMES = stack_noisy_ca.shape[0]
-    HEIGHT, WIDTH = (stack_ca_shape[1], stack_ca_shape[2])
-    frame_shape = (HEIGHT, WIDTH)
-    origin_x, origin_y = WIDTH / 2, HEIGHT / 2
+        self.f_0 = 1000
+        self.f_amp = 100
+        self.noise = 5
+        self.time_noisy_ca, self.stack_noisy_ca = model_stack_propagation(
+            model_type='Ca', f_0=self.f_0, f_amp=self.f_amp, noise=self.noise)
+        self.time_ideal_ca, self.stack_ideal_ca = model_stack_propagation(
+            model_type='Ca', f_0=self.f_0, f_amp=self.f_amp)
+
+        self.frame_num = int(len(self.stack_noisy_ca) / 8)  # frame from 1/8th total time
+        self.frame_noisy_ca = self.stack_noisy_ca[self.frame_num]
+        self.frame_ideal_ca = self.stack_ideal_ca[self.frame_num]
+        self.stack_ca_shape = self.stack_noisy_ca.shape
+        self.FRAMES = self.stack_noisy_ca.shape[0]
+        self.HEIGHT, self.WIDTH = (self.stack_ca_shape[1], self.stack_ca_shape[2])
+        self.frame_shape = (self.HEIGHT, self.WIDTH)
+        self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -402,19 +406,19 @@ class TestFilterTemporal(unittest.TestCase):
         # b, a = butter(Norder, Fcutoff * (2 * pi), 'low', analog=True)
 
         # FIR
-        # FIR 1 design arguements
-        window = 'remez'
-        # window = 'remez, hilbert'
-        Fs = self.sample_rate           # sample-rate, down-sampled
-        # taps = 2 ** 2   # TODO adjust to reduce ringing
-        Norder = 200
-        Ntaps = Norder + 1   # The desired number of taps in the filter
-        Fpass = 95       # passband edge
-        Fstop = 105     # stopband edge, transition band 100kHz
-        Wp = Fpass/Fs    # pass normalized frequency
-        Ws = Fstop/Fs    # stop normalized frequency
-        taps = ffd.remez(Ntaps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
-        # taps = minimum_phase(taps, method='hilbert')
+        # # FIR 1 design arguements
+        # window = 'remez'
+        # # window = 'remez, hilbert'
+        # Fs = self.sample_rate           # sample-rate, down-sampled
+        # # taps = 2 ** 2
+        # Norder = 200
+        # Ntaps = Norder + 1   # The desired number of taps in the filter
+        # Fpass = 95       # passband edge
+        # Fstop = 105     # stopband edge, transition band 100kHz
+        # Wp = Fpass/Fs    # pass normalized frequency
+        # Ws = Fstop/Fs    # stop normalized frequency
+        # taps = ffd.remez(Ntaps, [0, Wp, Ws, .5], [1, 0], maxiter=10000)
+        # # taps = minimum_phase(taps, method='hilbert')
 
         # # FIR 2 design    - https://scipy-cookbook.readthedocs.io/items/FIRFilter.html
         # # The desired width of the transition from pass to stop,
@@ -436,6 +440,19 @@ class TestFilterTemporal(unittest.TestCase):
         # window = 'hamming'
         # # Design filter
         # taps = firwin(Norder, cutoff=Fcutoff, window=window, fs=self.sample_rate)
+
+        # # FIR 4 design  - https://www.programcreek.com/python/example/100540/scipy.signal.firwin
+        # Compute the order and Kaiser parameter for the FIR filter.
+        ripple_db = 60.0
+        width = 10
+        window = 'kaiser'
+        Norder, beta = kaiserord(ripple_db, width / self.sample_rate * 2)
+
+        # Use firwin with a Kaiser window to create a lowpass FIR filter.
+        taps = firwin(Norder, Fcutoff / self.sample_rate * 2, window=(window, beta))
+
+        # the filter must be symmetric, in order to be zero-phase
+        assert np.all(np.abs(taps - taps[::-1]) < 1e-15)
 
         # Calculate frequency response (magnitude and phase)
         w, h = freqz(taps, 1)   # for FIR, a=1
@@ -468,16 +485,17 @@ class TestFilterTemporal(unittest.TestCase):
         ax_phase.spines['top'].set_visible(False)
         # ax_phase.set_xlabel('Normalized frequency (1.0 = Nyquist)')
         ax_phase.set_ylabel('Phase (rad.)')
-        ax_phase.set_ylim(-150, 10)
-        # ax_phase.set_yticks([-np.pi, -0.5 * np.pi, 0, 0.5 * np.pi, np.pi],
-        #                     [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
+        # ax_phase.set_ylim(-150, 10)
+        ax_phase.set_yticks([-np.pi, -0.5 * np.pi, 0, 0.5 * np.pi, np.pi],
+                            [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
         # ax_phase.plot(w / (2 * pi), np.angle(h, deg=True), color=gray_med, linestyle='--')
-        # ax_phase.plot((w/pi) * nyq_rate, np.angle(h, deg=True), color=gray_med, linestyle='--')
-        ax_phase.plot((w/pi) * nyq_rate, h_phase, color=gray_med, linestyle='--')
-        h_phase_corrected = h_phase * (phase_delay / (2*pi))
+        ax_phase.plot((w/pi) * nyq_rate, np.angle(h), color=gray_med, linestyle='--')
+        # ax_phase.plot((w/pi) * nyq_rate, h_phase, color=gray_med, linestyle='--')
+
+        # h_phase_corrected = h_phase * (phase_delay / (2*pi))
         # h_phase_corrected = h_phase / df_h_phase
-        ax_phase.plot((w/pi) * nyq_rate, h_phase_corrected, color=gray_med, linestyle=':')
+        # ax_phase.plot((w/pi) * nyq_rate, h_phase_corrected, color=gray_med, linestyle=':')
         fig_filter.show()
 
     def test_plot_single(self):
@@ -504,7 +522,7 @@ class TestFilterTemporal(unittest.TestCase):
                        label='Ca, ideal')
         ax_filter.plot(self.time_noisy_ca, noisy_norm, color=color_raw, linestyle='None', marker='+',
                        label='Ca, noisy')
-        ax_filter.plot(self.time_noisy_ca[filter_order-1:] - delay, filtered_norm,
+        ax_filter.plot(self.time_noisy_ca[filter_order-1:], filtered_norm,
                        color=color_filtered, linestyle='None', marker='+',
                        label='Ca, Filtered')
 
@@ -514,7 +532,7 @@ class TestFilterTemporal(unittest.TestCase):
         ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
         ax_error.set_ylabel('% Error')  # we already handled the x-label with ax1
         ax_error.set_ylim([-100, 100])
-        ax_error.plot(self.time_noisy_ca[filter_order-1:] - delay, error,
+        ax_error.plot(self.time_noisy_ca[filter_order-1:], error,
                       color=gray_heavy, linestyle='-', label='% Error')
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -802,19 +820,21 @@ class TestSnrSignal(unittest.TestCase):
 
 
 class TestSnrMap(unittest.TestCase):
-    # Setup data to test with, a propagating stack of varying SNR
-    f_0 = 1000
-    f_amp = 100
-    noise = 5
-    d_noise = 15  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, stack_ca = model_stack_propagation(model_type='Ca', d_noise=d_noise, f_0=f_0, f_amp=f_amp, noise=noise)
-    stack_ca_shape = stack_ca.shape
-    FRAMES = stack_ca.shape[0]
-    HEIGHT, WIDTH = (stack_ca_shape[1], stack_ca_shape[2])
-    frame_shape = (HEIGHT, WIDTH)
-    origin_x, origin_y = WIDTH / 2, HEIGHT / 2
-    div_borders = np.linspace(start=int(HEIGHT / 2), stop=HEIGHT / 2 / 5, num=5)
+    def setUp(self):
+        # Setup data to test with, a propagating stack of varying SNR
+        self.f_0 = 1000
+        self.f_amp = 100
+        self.noise = 5
+        self.d_noise = 15  # as a % of the signal amplitude
+        self.noise_count = 100
+        self.time_ca, self.stack_ca = model_stack_propagation(
+            model_type='Ca', d_noise=self.d_noise, f_0=self.f_0, f_amp=self.f_amp, noise=self.noise)
+        self.stack_ca_shape = self.stack_ca.shape
+        self.FRAMES = self.stack_ca.shape[0]
+        self.HEIGHT, self.WIDTH = (self.stack_ca_shape[1], self.stack_ca_shape[2])
+        self.frame_shape = (self.HEIGHT, self.WIDTH)
+        self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
+        self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
