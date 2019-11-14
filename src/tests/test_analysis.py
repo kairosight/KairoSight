@@ -201,10 +201,13 @@ class TestAnalysisPoints(unittest.TestCase):
     fps = 1000
     time_vm, signal_vm = model_transients(t=t, t0=t0, fps=fps)
     time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps)
-    signal = invert_signal(signal_vm)
+    time, signal = time_vm, invert_signal(signal_vm)
     sample_rate = float(fps)
     # signal_ca = filter_temporal(signal_ca, sample_rate)
     # dt = int(time_ca[1])
+    # TODO try derivative using spline and nu=1, nu=2
+    # spl = UnivariateSpline(time, signal)
+    # df_ca = spl(time, nu=1)
     df_ca = np.diff(signal, n=1, prepend=int(signal[0])).astype(float)
     d2f_ca = np.diff(signal, n=2, prepend=[int(signal[0]), int(signal[0])]).astype(float)
     # df_ca = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)

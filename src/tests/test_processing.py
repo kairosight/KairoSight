@@ -18,7 +18,7 @@ import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_ideal, color_raw, color_filtered = ['#606060', '#FC0352', '#03A1FC']
+color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 # File paths  and files needed for tests
 dir_cwd = Path.cwd()
 dir_tests = str(dir_cwd)
@@ -395,7 +395,7 @@ class TestFilterTemporal(unittest.TestCase):
 
     def test_plot_filter(self):
         # Plot filter frequency response(s)
-        Fcutoff = 100     # Cutoff frequency of the lowpass filter
+        Fcutoff = 100  # Cutoff frequency of the lowpass filter
         # The Nyquist rate of the signal.
         nyq_rate = self.sample_rate / 2.0
 
@@ -446,16 +446,16 @@ class TestFilterTemporal(unittest.TestCase):
         # FIR 4 design  - https://www.programcreek.com/python/example/100540/scipy.signal.firwin
         # Compute the order and Kaiser parameter for the FIR filter.
         ripple_db = 30.0
-        width = 20   # The desired width of the transition from pass to stop, Hz
+        width = 20  # The desired width of the transition from pass to stop, Hz
         window = 'kaiser'
         n_order, beta = kaiserord(ripple_db, width / nyq_rate)
         # Use firwin with a Kaiser window to create a lowpass FIR filter.
-        taps = firwin(numtaps=n_order+1, cutoff=Fcutoff, window=(window, beta), fs=self.sample_rate)
+        taps = firwin(numtaps=n_order + 1, cutoff=Fcutoff, window=(window, beta), fs=self.sample_rate)
         # the filter must be symmetric, in order to be zero-phase
         assert np.all(np.abs(taps - taps[::-1]) < 1e-15)
         # filtfilt(b, a, sig, method="gust")
         # Calculate frequency response (magnitude and phase)
-        w, h = freqz(taps)   # for FIR, a=1
+        w, h = freqz(taps)  # for FIR, a=1
 
         # # # FIR 5 design
         # window = 'hamming'
@@ -476,7 +476,7 @@ class TestFilterTemporal(unittest.TestCase):
         # Magnitude
         # ax_mag.set_title('Butterworth filter frequency response\n(Analog, n = {}))'.format(n_order))
         ax_mag.set_title('Custom FIR filter frequency response\n({}, n={}, phase delay={} s)'
-                            .format(window, n_order, phase_delay))
+                         .format(window, n_order, phase_delay))
         # ax_mag.set_xlabel('Frequency [radians / second]')
         ax_mag.set_xlabel('Frequency (Hz)')
         ax_mag.set_xlim(0, 500)
@@ -485,7 +485,7 @@ class TestFilterTemporal(unittest.TestCase):
         ax_mag.grid(which='both', axis='both')
 
         # ax_mag.plot(w / (2 * pi), 20 * np.log10(abs(h)), color=color_filtered) # analog or butterworth?
-        ax_mag.plot((w/pi) * nyq_rate, 20 * np.log10(abs(h)), color=color_filtered, label='Magnitude')
+        ax_mag.plot((w / pi) * nyq_rate, 20 * np.log10(abs(h)), color=color_filtered, label='Magnitude')
         ax_mag.axvline(Fcutoff, color='green')  # cutoff frequency
 
         # Phase
@@ -498,7 +498,7 @@ class TestFilterTemporal(unittest.TestCase):
         ax_phase.set_yticklabels([r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
         # ax_phase.plot(w / (2 * pi), np.angle(h, deg=True), color=gray_med, linestyle='--')
-        ax_phase.plot((w/pi) * nyq_rate, np.angle(h), color=gray_med, linestyle='--', label='Phase')
+        ax_phase.plot((w / pi) * nyq_rate, np.angle(h), color=gray_med, linestyle='--', label='Phase')
         # ax_phase.plot((w/pi) * nyq_rate, h_phase, color=gray_med, linestyle='--')
 
         # h_phase_corrected = h_phase * (phase_delay / (2*pi))
@@ -568,6 +568,95 @@ class TestFilterTemporal(unittest.TestCase):
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_filter.show()
+
+
+class TestFilterDrift(unittest.TestCase):
+    # Setup data to test with
+    t = 500
+    t0 = 100
+    fps = 1000
+    signal_F0 = 1000
+    signal_amp = 100
+    noise = 3
+    time_noisy_ca, signal_noisy_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
+                                                      f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    time_ideal_ca, signal_ideal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
+                                                      f_0=signal_F0, f_amp=signal_amp)
+    time, signal_ideal = time_noisy_ca, signal_noisy_ca
+
+    # # Polynomial drift
+    # poly_ideal_order = 1
+    # poly_ideal_splope = -0.5
+    # poly_ideal = np.poly1d([poly_ideal_splope, signal_F0 - (poly_ideal_splope * t)])  # linear, decreasing
+    # drift_ideal_y = poly_ideal(time)
+    # drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
+    # Exponential drift
+    poly_ideal_order = 'exp'
+    exp_ideal = 50 * np.exp(-0.05 * time) + signal_F0
+    drift_ideal_y = exp_ideal
+    drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
+
+    signal_drift = (signal_ideal + drift_ideal_d).astype(np.uint16)
+
+    def test_params(self):
+        signal_bad_type = np.full(100, True)
+        # Make sure type errors are raised when necessary
+        # signal_in : ndarray, dtyoe : uint16 or float
+        self.assertRaises(TypeError, filter_drift, signal_in=True)
+        self.assertRaises(TypeError, filter_drift, signal_in=signal_bad_type)
+        # drift_order : int or 'str'
+        self.assertRaises(TypeError, filter_drift, signal_in=self.signal_drift, drift_order=True)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # poly_order : >= 1, <= 5
+        self.assertRaises(ValueError, filter_drift, signal_in=self.signal_drift, drift_order=0)
+        self.assertRaises(ValueError, filter_drift, signal_in=self.signal_drift, drift_order=6)
+        # poly_order : if a str, must be 'exp'
+        self.assertRaises(ValueError, filter_drift, signal_in=self.signal_drift, drift_order='gross')
+
+    def test_results(self):
+        # Make sure results are correct
+        signal_out, drift = filter_drift(self.signal_drift, drift_order=self.poly_ideal_order)
+
+        # signal_out : ndarray
+        self.assertIsInstance(signal_out, np.ndarray)
+        # signal_out.dtype : signal_in.dtype
+        self.assertIsInstance(signal_out[1], type(self.signal_drift[1]))
+        # drift : ndarray
+        self.assertIsInstance(drift, np.ndarray)
+
+        # Make sure result values are valid
+        # self.assertAlmostEqual(signal_out.min(), self.signal_ideal_ca.min(), delta=self.noise * 4)  #
+        # self.assertAlmostEqual(signal_out.max(), self.signal_ideal_ca.max(), delta=self.noise * 4)  #
+
+    def test_plot_calculation(self):
+        # Make sure drift calculations looks correct
+        signal_out, drift = filter_drift(self.signal_drift, drift_order=self.poly_ideal_order)
+
+        # Build a figure to plot new signal
+        fig_drift, ax_drift = plot_test()
+        ax_drift.set_title('Filter - Drift Removal\n(polynomial order: {})'.format(self.poly_ideal_order))
+        ax_drift.set_ylabel('Arbitrary Fluorescent Units')
+        ax_drift.set_xlabel('Time (ms)')
+
+        ax_drift.plot(self.time, self.signal_ideal, color=color_ideal, linestyle='None', marker='+',
+                      label='Ca (Actual)')
+        ax_drift.plot(self.time, self.drift_ideal_y, color=gray_light, linestyle='None', marker='+',
+                      label='Drift (Actual)')
+        ax_drift.plot(self.time, self.signal_drift, color=color_raw, linestyle='None', marker='+',
+                      label='Ca (w/ Drift)')
+
+        ax_drift.plot(self.time, drift, color=gray_med, linestyle='None', marker='+',
+                      label='Drift (Calc.)')
+        ax_drift.plot(self.time, signal_out, color=color_filtered, linestyle='None', marker='+',
+                      label='Ca (Filtered)')
+
+        # ax_drift.text(0.65, 0.5, 'SNR (Noise SD, Actual) : {}'.format(self.noise),
+        #             color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
+        # ax_drift.text(0.65, 0.45, 'SNR (Noise SD, Calculated) : {}'.format(round(sd_noise, 3)),
+        #             color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
+        ax_drift.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_drift.show()
 
 
 class TestInvert(unittest.TestCase):

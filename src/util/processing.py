@@ -1,8 +1,9 @@
-import numpy as np
 import statistics
+import numpy as np
+from numpy import linalg
 from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2,\
     lfilter, butter, freqs, freqz, minimum_phase
-from scipy.signal import fir_filter_design as ffd
+from scipy.optimize import curve_fit
 from skimage.morphology import square
 from skimage.filters.rank import median, mean, mean_bilateral
 from skimage.filters import gaussian
@@ -141,7 +142,7 @@ def filter_temporal(signal_in, sample_rate, filter_order='auto'):
         Returns
         -------
         signal_out : ndarray
-             A temporally filtered signal array
+             A temporally filtered signal array, dtype : signal_in.dtype
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -194,7 +195,9 @@ def filter_temporal(signal_in, sample_rate, filter_order='auto'):
         # ############
 
     elif filter_order is 'auto':
-        # # FIR 4 design  - https://www.programcreek.com/python/example/100540/scipy.signal.firwin
+        # # FIR 4 design  -
+        # https://www.programcreek.com/python/example/100540/scipy.signal.firwin
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html
         # Compute the order and Kaiser parameter for the FIR filter.
         ripple_db = 30.0
         width = 20   # The desired width of the transition from pass to stop, Hz
@@ -214,22 +217,71 @@ def filter_temporal(signal_in, sample_rate, filter_order='auto'):
     return signal_out.astype(signal_in.dtype)
 
 
-def filter_drift(signal_in, poly_order):
-    """Remove drift from an array of optical data using a polynomial fit.
+def filter_drift(signal_in, drift_order=2):
+    """Remove drift from an array of optical data using the subtraction of a polynomial fit.
 
         Parameters
         ----------
         signal_in : ndarray
-             The array of data to be evaluated
-        poly_order : int
-             The order of the polynomial to fit to
+            The array of data to be evaluated, dtype : uint16 or float
+        drift_order : int or str
+            The order of the polynomial drift to fit to, default is 'exp'
+            If 'exp', drift is calculated using scipy.optimize.curve_fit
 
         Returns
         -------
         signal_out : ndarray
-             A signal array with drift removed
+            A signal array with drift removed, dtype : signal_in.dtype
+        drift : ndarray
+            The values of the calculated polynomial drift used
         """
-    pass
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an ndarray')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values type must either be uint16 or float')
+    if type(drift_order) not in [int, str]:
+        raise TypeError('Drift order must be a "exp" or an int')
+
+    if type(drift_order) is int:
+        if (drift_order < 1) or (drift_order > 5):
+            raise ValueError('Drift order must be "exp" or an "int" >= 1 and <= 5')
+    if type(drift_order) is str:
+        if drift_order is not 'exp':
+            raise ValueError('Drift order "{}" not implemented'.format(drift_order))
+
+    def func_exp(x, a, b, c):
+        return a * np.exp(-b * x) + c
+
+    drift_range = signal_in.max() - signal_in.min()
+    drift_x = np.arange(start=0, stop=len(signal_in))
+    exp_B_estimages = (0.03, 0.1)   # assumed bounds of the B constant for an exponential fit
+
+    if type(drift_order) is int:
+        # np.polyfit : Least squares polynomial fit
+        poly = np.poly1d(np.polyfit(drift_x, signal_in, drift_order))
+        poly_y = poly(drift_x)
+    else:
+        # # scipy.optimize.curve_fit : Use non-linear least squares to fit a function, f, to data
+        exp_bounds_lower = [0, exp_B_estimages[0], signal_in.min()]
+        exp_bounds_upper = [drift_range*2, exp_B_estimages[1], signal_in.max()]
+        popt, pcov = curve_fit(func_exp, drift_x, signal_in, bounds=(exp_bounds_lower, exp_bounds_upper))
+        poly_y = func_exp(drift_x, *popt)
+
+    # # linalg.lstsq : Computes a least-squares fit
+    # A = np.vstack([drift_x, np.ones(len(drift_x))]).T
+    # poly = np.poly1d(linalg.lstsq(A, signal_in)[0])
+    # poly_y = poly(drift_x)
+
+    # # scipy.interpolate.UnivariateSpline : Computes spline fits
+    # spl = UnivariateSpline(drift_x, signal_in)
+    # spl.set_smoothing_factor(2)
+    # poly_y = spl(drift_x)
+
+    signal_out = signal_in - poly_y + poly_y.min()
+    drift = poly_y
+
+    return signal_out.astype(signal_in.dtype), drift
 
 
 def invert_signal(signal_in):
