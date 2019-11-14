@@ -508,7 +508,7 @@ class TestFilterTemporal(unittest.TestCase):
         # ax_phase.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_filter.show()
 
-    def test_plot_single(self):
+    def test_plot_error(self):
         # Make sure filtered signal looks correct
         ideal_norm = normalize_signal(self.signal_ideal_ca)
         noisy_norm = normalize_signal(self.signal_noisy_ca)
@@ -517,18 +517,19 @@ class TestFilterTemporal(unittest.TestCase):
         filtered_norm = normalize_signal(signal_filtered)
 
         fig_filter, ax_filter = plot_test()
-        ax_filter.set_title('Temporal Filtering (n={}, noise SD={})'.format(filter_order, self.noise))
+        ax_filter.set_title('Temporal Filtering\n'
+                            '(noise SD: {}, filter order: {})'.format(self.noise, filter_order))
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
         # ax_filter.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
 
         ax_filter.plot(self.time_noisy_ca, self.signal_ideal_ca, color=color_ideal, linestyle='None', marker='+',
-                       label='Ca, ideal')
+                       label='Ca - Actual')
         ax_filter.plot(self.time_noisy_ca, self.signal_noisy_ca, color=color_raw, linestyle='None', marker='+',
-                       label='Ca, noisy')
+                       label='Ca - w/ noise')
         ax_filter.plot(self.time_noisy_ca, signal_filtered,
                        color=color_filtered, linestyle='None', marker='+',
-                       label='Ca, Filtered')
+                       label='Ca - Filtered')
 
         # ideal_norm_align = ideal_norm[filter_order - 1:]
         error, error_mean, error_sd = calculate_error(self.signal_ideal_ca, signal_filtered)
@@ -542,6 +543,7 @@ class TestFilterTemporal(unittest.TestCase):
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_filter.show()
+        fig_filter.savefig(dir_tests + '/results/TemporalFilterTraces_ca.png')
 
     def test_plot_real(self):
         # Test temporal filtering on real signal data
@@ -573,7 +575,7 @@ class TestFilterTemporal(unittest.TestCase):
 class TestFilterDrift(unittest.TestCase):
     # Setup data to test with
     t = 500
-    t0 = 100
+    t0 = 200
     fps = 1000
     signal_F0 = 1000
     signal_amp = 100
@@ -592,7 +594,8 @@ class TestFilterDrift(unittest.TestCase):
     # drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
     # Exponential drift
     poly_ideal_order = 'exp'
-    exp_ideal = 50 * np.exp(-0.05 * time) + signal_F0
+    exp_B = 0.03
+    exp_ideal = signal_amp * np.exp(-exp_B * time) + signal_F0
     drift_ideal_y = exp_ideal
     drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
 
@@ -629,34 +632,42 @@ class TestFilterDrift(unittest.TestCase):
         # self.assertAlmostEqual(signal_out.min(), self.signal_ideal_ca.min(), delta=self.noise * 4)  #
         # self.assertAlmostEqual(signal_out.max(), self.signal_ideal_ca.max(), delta=self.noise * 4)  #
 
-    def test_plot_calculation(self):
+    def test_plot_error(self):
         # Make sure drift calculations looks correct
-        signal_out, drift = filter_drift(self.signal_drift, drift_order=self.poly_ideal_order)
+        signal_filtered, drift = filter_drift(self.signal_drift, drift_order=self.poly_ideal_order)
 
         # Build a figure to plot new signal
         fig_drift, ax_drift = plot_test()
-        ax_drift.set_title('Filter - Drift Removal\n(polynomial order: {})'.format(self.poly_ideal_order))
+        ax_drift.set_title('Filter - Drift Removal\n'
+                           '(noise SD: {}, polynomial order: {})'.format(self.noise, self.poly_ideal_order))
         ax_drift.set_ylabel('Arbitrary Fluorescent Units')
         ax_drift.set_xlabel('Time (ms)')
 
         ax_drift.plot(self.time, self.signal_ideal, color=color_ideal, linestyle='None', marker='+',
-                      label='Ca (Actual)')
+                      label='Ca - Actual')
         ax_drift.plot(self.time, self.drift_ideal_y, color=gray_light, linestyle='None', marker='+',
-                      label='Drift (Actual)')
+                      label='Drift - Actual')
         ax_drift.plot(self.time, self.signal_drift, color=color_raw, linestyle='None', marker='+',
-                      label='Ca (w/ Drift)')
+                      label='Ca - w/ drift')
 
         ax_drift.plot(self.time, drift, color=gray_med, linestyle='None', marker='+',
-                      label='Drift (Calc.)')
-        ax_drift.plot(self.time, signal_out, color=color_filtered, linestyle='None', marker='+',
-                      label='Ca (Filtered)')
+                      label='Drift - Calc.')
+        ax_drift.plot(self.time, signal_filtered, color=color_filtered, linestyle='None', marker='+',
+                      label='Ca - Filtered')
 
-        # ax_drift.text(0.65, 0.5, 'SNR (Noise SD, Actual) : {}'.format(self.noise),
-        #             color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
-        # ax_drift.text(0.65, 0.45, 'SNR (Noise SD, Calculated) : {}'.format(round(sd_noise, 3)),
-        #             color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
+        error, error_mean, error_sd = calculate_error(self.signal_ideal, signal_filtered)
+        ax_error = ax_drift.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_error.set_ylabel('% Error')  # we already handled the x-label with ax1
+        ax_error.yaxis.set_major_locator(pltticker.MultipleLocator(5))
+        ax_error.set_ylim([-10, 10])
+        ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
+        ax_error.plot(self.time_noisy_ca, error,
+                      color=gray_heavy, linestyle='-', label='% Error')
+
         ax_drift.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_drift.show()
+        fig_drift.savefig(dir_tests + '/results/DriftFilterTraces_ca.png')
 
 
 class TestInvert(unittest.TestCase):

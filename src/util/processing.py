@@ -255,17 +255,22 @@ def filter_drift(signal_in, drift_order=2):
 
     drift_range = signal_in.max() - signal_in.min()
     drift_x = np.arange(start=0, stop=len(signal_in))
-    exp_B_estimages = (0.03, 0.1)   # assumed bounds of the B constant for an exponential fit
+    exp_B_estimages = (0.01, 0.1)   # assumed bounds of the B constant for an exponential fit
 
     if type(drift_order) is int:
         # np.polyfit : Least squares polynomial fit
         poly = np.poly1d(np.polyfit(drift_x, signal_in, drift_order))
         poly_y = poly(drift_x)
     else:
-        # # scipy.optimize.curve_fit : Use non-linear least squares to fit a function, f, to data
+        # scipy.optimize.curve_fit : Use non-linear least squares to fit a function, f, to data
         exp_bounds_lower = [0, exp_B_estimages[0], signal_in.min()]
         exp_bounds_upper = [drift_range*2, exp_B_estimages[1], signal_in.max()]
-        popt, pcov = curve_fit(func_exp, drift_x, signal_in, bounds=(exp_bounds_lower, exp_bounds_upper))
+        try:
+            # popt, pcov = curve_fit(func_exp, drift_x, signal_in)
+            popt, pcov = curve_fit(func_exp, drift_x, signal_in, bounds=(exp_bounds_lower, exp_bounds_upper))
+        except RuntimeError as e:
+            raise ArithmeticError('Could not fit an exponential curve to the signal')
+
         poly_y = func_exp(drift_x, *popt)
 
     # # linalg.lstsq : Computes a least-squares fit
