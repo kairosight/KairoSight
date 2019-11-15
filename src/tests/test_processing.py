@@ -284,7 +284,7 @@ class TestFilterSpatial(unittest.TestCase):
             ax_signal.plot(self.time_noisy_ca, signal, color=gray_light, linestyle='None', marker='+')
 
         fig_filter_traces.show()
-        fig_filter_traces.savefig(dir_tests + '/results/SpatialFilterTraces_ca.png')
+        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilterTraces_ca.png')
 
     def test_plot_all(self):
         # Plot all filters to compare
@@ -347,7 +347,7 @@ class TestFilterSpatial(unittest.TestCase):
             ax.set_xticks([])
             ax.set_xticklabels([])
         fig_filters.show()
-        fig_filters.savefig(dir_tests + '/results/SpatialFilters_ca.png')
+        fig_filters.savefig(dir_tests + '/results/processing_SpatialFilters_ca.png')
 
 
 class TestFilterTemporal(unittest.TestCase):
@@ -548,7 +548,7 @@ class TestFilterTemporal(unittest.TestCase):
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_filter.show()
-        fig_filter.savefig(dir_tests + '/results/TemporalFilterTraces_ca.png')
+        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilterTraces_ca.png')
 
     def test_plot_real(self):
         # Test temporal filtering on real signal data
@@ -578,7 +578,7 @@ class TestFilterTemporal(unittest.TestCase):
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
-        fig_filter.savefig(dir_tests + '/results/TemporalFilterReal_ca.png')
+        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilterReal_ca.png')
         fig_filter.show()
 
 
@@ -679,7 +679,7 @@ class TestFilterDrift(unittest.TestCase):
         ax_drift.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_drift.show()
-        fig_drift.savefig(dir_tests + '/results/DriftFilterTraces_ca.png')
+        fig_drift.savefig(dir_tests + '/results/processing_DriftFilterTraces_ca.png')
 
 
 class TestInvert(unittest.TestCase):
@@ -739,6 +739,8 @@ class TestInvert(unittest.TestCase):
         ax_inv.plot_vm_inv_mean = ax_inv.axhline(y=signal_inv.mean(), color=gray_med, linestyle='-.')
 
         ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_inv.savefig(dir_tests + '/results/processing_Inversion.png')
         fig_inv.show()
 
 
@@ -784,6 +786,8 @@ class TestNormalize(unittest.TestCase):
                      label='Ca, Normalized')
 
         ax_norm.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_norm.savefig(dir_tests + '/results/processing_Normalization_ca.png')
         fig_norm.show()
 
 
@@ -876,6 +880,7 @@ class TestSnrSignal(unittest.TestCase):
                     color=gray_heavy, fontsize=fontsize2, transform=ax_snr.transAxes)
         # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
 
+        fig_snr.savefig(dir_tests + '/results/processing_SNRDetection.png')
         fig_snr.show()
 
     def test_stats(self):
@@ -1050,7 +1055,7 @@ class TestSnrMap(unittest.TestCase):
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
         fig_map_snr.show()
-        fig_map_snr.savefig(dir_tests + '/results/SNRMap_ca.png')
+        fig_map_snr.savefig(dir_tests + '/results/processing_SNRMap_ca.png')
 
 
 class TestErrorSignal(unittest.TestCase):
