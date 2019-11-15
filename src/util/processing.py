@@ -126,7 +126,7 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     return frame_out.astype(frame_in.dtype)
 
 
-def filter_temporal(signal_in, sample_rate, filter_order='auto'):
+def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='auto'):
     """Apply a lowpass filter to array of optical data.
 
         Parameters
@@ -135,6 +135,8 @@ def filter_temporal(signal_in, sample_rate, filter_order='auto'):
              The array of data to be evaluated
         sample_rate : float
             Sample rate (Hz) of signal_in
+        freq_cutoff : float
+            Cutoff frequency (Hz) of the lowpass filter, default is 100
         filter_order : int or str
             The order of the filter, default is 'auto'
             If 'auto', order is calculated using scipy.signal.kaiserord
@@ -151,17 +153,18 @@ def filter_temporal(signal_in, sample_rate, filter_order='auto'):
         raise TypeError('Signal values must either be "uint16" or "float"')
     if type(sample_rate) is not float:
         raise TypeError('Sample rate must be a "float"')
+    if type(freq_cutoff) is not float:
+        raise TypeError('Cutoff frequency must be a "float"')
     if type(filter_order) not in [int, str]:
         raise TypeError('Filter type must be an int or str')
 
-    f_cutoff = 100  # Cutoff frequency of the lowpass filter
     nyq_rate = sample_rate / 2.0
     n_order = 0
 
     if type(filter_order) is int:
         # Good for ___, but ___
         # Butterworth (from old code)
-        Wn = f_cutoff / nyq_rate
+        Wn = freq_cutoff / nyq_rate
         n_order = filter_order
         [b, a] = butter(n_order, Wn)
         signal_out = filtfilt(b, a, signal_in)
@@ -204,7 +207,7 @@ def filter_temporal(signal_in, sample_rate, filter_order='auto'):
         window = 'kaiser'
         n_order, beta = kaiserord(ripple_db, width / nyq_rate)
         # Use firwin with a Kaiser window to create a lowpass FIR filter.
-        taps = firwin(numtaps=n_order + 1, cutoff=f_cutoff, window=(window, beta), fs=sample_rate)
+        taps = firwin(numtaps=n_order + 1, cutoff=freq_cutoff, window=(window, beta), fs=sample_rate)
         # signal_out = lfilter(taps, 1.0, signal_in)   # for FIR, a=1
         signal_out = filtfilt(taps, 1, signal_in, method="gust")   # for FIR, a=1
     else:

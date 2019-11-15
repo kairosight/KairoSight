@@ -131,7 +131,6 @@ def run_trials_snr(self, trials_count, noise=0):
 
 
 class TestFilterSpatial(unittest.TestCase):
-
     def setUp(self):
         # Setup data to test with, a propagating stack of varying SNR
         self.filter_type = 'gaussian'
@@ -352,18 +351,20 @@ class TestFilterSpatial(unittest.TestCase):
 
 
 class TestFilterTemporal(unittest.TestCase):
-    # Setup data to test with
-    t = 200
-    t0 = 50
-    fps = 1000
-    signal_F0 = 200
-    signal_amp = 100
-    noise = 5
-    time_noisy_ca, signal_noisy_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
-                                                      f_0=signal_F0, f_amp=signal_amp, noise=noise)
-    time_ideal_ca, signal_ideal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
-                                                      f_0=signal_F0, f_amp=signal_amp)
-    sample_rate = float(fps)
+    def setUp(self):
+        # Setup data to test with
+        self.t = 200
+        self.t0 = 50
+        self.fps = 1000
+        self.signal_F0 = 200
+        self.signal_amp = 100
+        self.noise = 5
+        self.time_noisy_ca, self.signal_noisy_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
+                                                                    f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                                    noise=self.noise)
+        self.time_ideal_ca, self.signal_ideal_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
+                                                                    f_0=self.signal_F0, f_amp=self.signal_amp)
+        self.sample_rate = float(self.fps)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -373,6 +374,8 @@ class TestFilterTemporal(unittest.TestCase):
         self.assertRaises(TypeError, filter_temporal, signal_in=signal_bad_type, sample_rate=self.sample_rate)
         # sample_rate : float
         self.assertRaises(TypeError, filter_temporal, signal_in=self.signal_noisy_ca, sample_rate=True)
+        # freq_cutoff : float
+        self.assertRaises(TypeError, filter_temporal, signal_in=self.signal_noisy_ca, freq_cutoff=True)
         # filter_order : int or 'auto'
         self.assertRaises(TypeError, filter_temporal, signal_in=self.signal_noisy_ca, sample_rate=self.sample_rate,
                           filter_order=True)
@@ -395,14 +398,14 @@ class TestFilterTemporal(unittest.TestCase):
 
     def test_plot_filter(self):
         # Plot filter frequency response(s)
-        Fcutoff = 100  # Cutoff frequency of the lowpass filter
+        f_cutoff = 100.0  # Cutoff frequency of the lowpass filter
         # The Nyquist rate of the signal.
         nyq_rate = self.sample_rate / 2.0
 
         # # Butterworth (from old code)
         # window = 'IIR Butterworth'
         # n_order = 10
-        # Wn = Fcutoff / nyq_rate
+        # Wn = f_cutoff / nyq_rate
         # [b, a] = butter(n_order, Wn)
         # w, h = freqz(b, a)   # for FIR, a=1
         # # signal_out = filtfilt(b, a, signal_in)
@@ -433,7 +436,7 @@ class TestFilterTemporal(unittest.TestCase):
         # n_order, beta = kaiserord(ripple_db, width)
         # # Use firwin with a Kaiser window to create a lowpass FIR filter.
         # window = 'kaiser'
-        # taps = firwin(n_order, cutoff=Fcutoff, window=(window, beta), fs=self.sample_rate)
+        # taps = firwin(n_order, cutoff=f_cutoff, window=(window, beta), fs=self.sample_rate)
         # # # Calculate frequency response
         # w, h = freqz(taps)
 
@@ -441,7 +444,7 @@ class TestFilterTemporal(unittest.TestCase):
         # n_order = 100
         # window = 'hamming'
         # # Design filter
-        # taps = firwin(n_order, cutoff=Fcutoff, window=window, fs=self.sample_rate)
+        # taps = firwin(n_order, cutoff=f_cutoff, window=window, fs=self.sample_rate)
 
         # FIR 4 design  - https://www.programcreek.com/python/example/100540/scipy.signal.firwin
         # Compute the order and Kaiser parameter for the FIR filter.
@@ -450,7 +453,7 @@ class TestFilterTemporal(unittest.TestCase):
         window = 'kaiser'
         n_order, beta = kaiserord(ripple_db, width / nyq_rate)
         # Use firwin with a Kaiser window to create a lowpass FIR filter.
-        taps = firwin(numtaps=n_order + 1, cutoff=Fcutoff, window=(window, beta), fs=self.sample_rate)
+        taps = firwin(numtaps=n_order + 1, cutoff=f_cutoff, window=(window, beta), fs=self.sample_rate)
         # the filter must be symmetric, in order to be zero-phase
         assert np.all(np.abs(taps - taps[::-1]) < 1e-15)
         # filtfilt(b, a, sig, method="gust")
@@ -486,7 +489,7 @@ class TestFilterTemporal(unittest.TestCase):
 
         # ax_mag.plot(w / (2 * pi), 20 * np.log10(abs(h)), color=color_filtered) # analog or butterworth?
         ax_mag.plot((w / pi) * nyq_rate, 20 * np.log10(abs(h)), color=color_filtered, label='Magnitude')
-        ax_mag.axvline(Fcutoff, color='green')  # cutoff frequency
+        ax_mag.axvline(f_cutoff, color='green')  # cutoff frequency
 
         # Phase
         ax_phase = ax_mag.twinx()  # instantiate a second axes that shares the same x-axis
@@ -512,13 +515,15 @@ class TestFilterTemporal(unittest.TestCase):
         # Make sure filtered signal looks correct
         ideal_norm = normalize_signal(self.signal_ideal_ca)
         noisy_norm = normalize_signal(self.signal_noisy_ca)
+        freq_cutoff = 100.0
         filter_order = 'auto'
-        signal_filtered = filter_temporal(self.signal_noisy_ca, self.sample_rate, filter_order)
+        signal_filtered = filter_temporal(self.signal_noisy_ca, self.sample_rate, freq_cutoff=freq_cutoff,
+                                          filter_order=filter_order)
         filtered_norm = normalize_signal(signal_filtered)
 
         fig_filter, ax_filter = plot_test()
         ax_filter.set_title('Temporal Filtering\n'
-                            '(noise SD: {}, filter order: {})'.format(self.noise, filter_order))
+                            '(noise SD: {}, {} Hz lowpass, filter order: {})'.format(self.noise, freq_cutoff, filter_order))
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
         # ax_filter.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
@@ -553,11 +558,15 @@ class TestFilterTemporal(unittest.TestCase):
         file_signal = tests + '/data/20190404-rata-12-150_right_signal1.csv'
         time, signal = open_signal(source=file_signal)
 
+        freq_cutoff = 100.0
         filter_order = 20
-        signal_filtered = filter_temporal(signal, sample_rate=800.0, filter_order=filter_order)
+        signal_filtered = filter_temporal(signal, sample_rate=800.0, freq_cutoff=freq_cutoff, filter_order=filter_order)
 
         fig_filter, ax_filter = plot_test()
-        ax_filter.set_title('Temporal Filtering (n={})'.format(filter_order))
+        ax_filter.set_title('Single=pixel Temporal Filtering\n({} Hz lowpass, n={})'.format(freq_cutoff, filter_order))
+        ax_filter.text(0.65, -0.12, '20190404-rata-12, PCL 150ms',
+                       color=gray_med, fontsize=fontsize2, transform=ax_filter.transAxes)
+
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
 
@@ -569,37 +578,40 @@ class TestFilterTemporal(unittest.TestCase):
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
+        fig_filter.savefig(dir_tests + '/results/TemporalFilterReal_ca.png')
         fig_filter.show()
 
 
 class TestFilterDrift(unittest.TestCase):
-    # Setup data to test with
-    t = 500
-    t0 = 200
-    fps = 1000
-    signal_F0 = 1000
-    signal_amp = 100
-    noise = 3
-    time_noisy_ca, signal_noisy_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
-                                                      f_0=signal_F0, f_amp=signal_amp, noise=noise)
-    time_ideal_ca, signal_ideal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps,
-                                                      f_0=signal_F0, f_amp=signal_amp)
-    time, signal_ideal = time_noisy_ca, signal_noisy_ca
+    def setUp(self):
+        # Setup data to test with
+        self.t = 500
+        self.t0 = 200
+        self.fps = 1000
+        self.signal_F0 = 1000
+        self.signal_amp = 100
+        self.noise = 3
+        self.time_noisy_ca, self.signal_noisy_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
+                                                                    f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                                    noise=self.noise)
+        self.time_ideal_ca, self.signal_ideal_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
+                                                                    f_0=self.signal_F0, f_amp=self.signal_amp)
+        self.time, self.signal_ideal = self.time_noisy_ca, self.signal_noisy_ca
 
-    # # Polynomial drift
-    # poly_ideal_order = 1
-    # poly_ideal_splope = -0.5
-    # poly_ideal = np.poly1d([poly_ideal_splope, signal_F0 - (poly_ideal_splope * t)])  # linear, decreasing
-    # drift_ideal_y = poly_ideal(time)
-    # drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
-    # Exponential drift
-    poly_ideal_order = 'exp'
-    exp_B = 0.03
-    exp_ideal = signal_amp * np.exp(-exp_B * time) + signal_F0
-    drift_ideal_y = exp_ideal
-    drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
+        # # Polynomial drift
+        # poly_ideal_order = 1
+        # poly_ideal_splope = -0.5
+        # poly_ideal = np.poly1d([poly_ideal_splope, signal_F0 - (poly_ideal_splope * t)])  # linear, decreasing
+        # drift_ideal_y = poly_ideal(time)
+        # drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
+        # Exponential drift
+        self.poly_ideal_order = 'exp'
+        exp_b = 0.03
+        self.exp_ideal = self.signal_amp * np.exp(-exp_b * self.time) + self.signal_F0
+        self.drift_ideal_y = self.exp_ideal
+        drift_ideal_d = self.drift_ideal_y - self.drift_ideal_y.min()
 
-    signal_drift = (signal_ideal + drift_ideal_d).astype(np.uint16)
+        self.signal_drift = (self.signal_ideal + drift_ideal_d).astype(np.uint16)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -671,21 +683,22 @@ class TestFilterDrift(unittest.TestCase):
 
 
 class TestInvert(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 50
-    signal_time = 1000
-    signal_num = 5
-    noise = 2  # as a % of the signal amplitude
-    noise_count = 100
-    time_vm, signal_vm = model_transients(t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp,
-                                          noise=noise, num=signal_num)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_F0 = 1000
+        self.signal_amp = 100
+        self.signal_t0 = 50
+        self.signal_time = 1000
+        self.signal_num = 5
+        self.noise = 2  # as a % of the signal amplitude
+        self.noise_count = 100
+        self.time_vm, self.signal_vm = model_transients(t0=self.signal_t0, t=self.signal_time,
+                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                        noise=self.noise, num=self.signal_num)
 
-    # time_ca, signal_noisy_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
-    #                                       f_0=signal_F0, f_amp=signal_amp,
-    #                                       noise=noise, num=signal_num)
+        # time_ca, signal_noisy_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
+        #                                       f_0=signal_F0, f_amp=signal_amp,
+        #                                       noise=noise, num=signal_num)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -730,15 +743,16 @@ class TestInvert(unittest.TestCase):
 
 
 class TestNormalize(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_F0 = 1000
+        self.signal_amp = 100
+        self.signal_t0 = 20
+        self.signal_time = 500
+        self.noise = 5  # as a % of the signal amplitude
+        self.noise_count = 100
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
+                                                        f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -774,15 +788,16 @@ class TestNormalize(unittest.TestCase):
 
 
 class TestSnrSignal(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_F0 = 1000
+        self.signal_amp = 100
+        self.signal_t0 = 20
+        self.signal_time = 500
+        self.noise = 5  # as a % of the signal amplitude
+        self.noise_count = 100
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
+                                                        f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -954,14 +969,13 @@ class TestSnrMap(unittest.TestCase):
         # Setup data to test with, a propagating stack of varying SNR
         self.f_0 = 1000
         self.f_amp = 100
-        self.noise = 5
-        self.d_noise = 15  # as a % of the signal amplitude
+        self.noise = 3
+        self.d_noise = 10  # as a % of the signal amplitude
         self.noise_count = 100
         self.time_ca, self.stack_ca = model_stack_propagation(
             model_type='Ca', d_noise=self.d_noise, f_0=self.f_0, f_amp=self.f_amp, noise=self.noise)
-        self.stack_ca_shape = self.stack_ca.shape
         self.FRAMES = self.stack_ca.shape[0]
-        self.HEIGHT, self.WIDTH = (self.stack_ca_shape[1], self.stack_ca_shape[2])
+        self.HEIGHT, self.WIDTH = (self.stack_ca.shape[1], self.stack_ca.shape[2])
         self.frame_shape = (self.HEIGHT, self.WIDTH)
         self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
         self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
@@ -970,7 +984,7 @@ class TestSnrMap(unittest.TestCase):
         # Make sure type errors are raised when necessary
         # stack_in : ndarray, 3-D array
         stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
-        stack_bad_type = np.full(self.stack_ca_shape, True)
+        stack_bad_type = np.full(self.stack_ca.shape, True)
         self.assertRaises(TypeError, map_snr, stack_in=True)
         self.assertRaises(TypeError, map_snr, stack_in=stack_bad_shape)
         self.assertRaises(TypeError, map_snr, stack_in=stack_bad_type)
@@ -1040,17 +1054,20 @@ class TestSnrMap(unittest.TestCase):
 
 
 class TestErrorSignal(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 10  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca_ideal, signal_ca_ideal = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                                      f_0=signal_F0, f_amp=signal_amp)
-    time_ca_mod, signal_ca_mod = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                                  f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_F0 = 1000
+        self.signal_amp = 100
+        self.signal_t0 = 20
+        self.signal_time = 500
+        self.noise = 10  # as a % of the signal amplitude
+        self.noise_count = 100
+        self.time_ca_ideal, self.signal_ca_ideal = model_transients(model_type='Ca', t0=self.signal_t0,
+                                                                    t=self.signal_time,
+                                                                    f_0=self.signal_F0, f_amp=self.signal_amp)
+        self.time_ca_mod, self.signal_ca_mod = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
+                                                                f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                                noise=self.noise)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
