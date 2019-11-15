@@ -2,13 +2,26 @@ import unittest
 from util.analysis import *
 from util.processing import *
 from util.datamodel import model_transients
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
-colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
+# File paths  and files needed for tests
+dir_cwd = Path.cwd()
+dir_tests = str(dir_cwd)
+# colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
+colors_times = {'Upstroke': '#FFD649',
+                'Activation': '#FFA253',
+                'Peak': '#F6756B',
+                'Downstroke': '#CB587F',
+                'Restoration': '#8E4B84',
+                'Baseline': '#4C4076'}  # yellow -> orange -> purple
+
+
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue
 
 
@@ -195,58 +208,74 @@ class TestEnd(unittest.TestCase):
 
 
 class TestAnalysisPoints(unittest.TestCase):
-    # Setup data to test with
-    t = 200
-    t0 = 20
-    fps = 1000
-    time_vm, signal_vm = model_transients(t=t, t0=t0, fps=fps)
-    time_ca, signal_ca = model_transients(model_type='Ca', t=t, t0=t0, fps=fps)
-    time, signal = time_vm, invert_signal(signal_vm)
-    sample_rate = float(fps)
-    # signal_ca = filter_temporal(signal_ca, sample_rate)
-    # dt = int(time_ca[1])
-    # TODO try derivative using spline and nu=1, nu=2
-    # spl = UnivariateSpline(time, signal)
-    # df_ca = spl(time, nu=1)
-    df_ca = np.diff(signal, n=1, prepend=int(signal[0])).astype(float)
-    d2f_ca = np.diff(signal, n=2, prepend=[int(signal[0]), int(signal[0])]).astype(float)
-    # df_ca = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)
-    # d2f_ca = np.gradient(df_ca, dt) / np.gradient(time_ca, dt)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_t = 200
+        self.zoom_t = 60
+        self.signal_t0 = 20
+        self.fps = 1000
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
+        time_ca, signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0, fps=self.fps)
+        self.time, self.signal = self.time_vm[0:self.zoom_t], invert_signal(self.signal_vm[0:self.zoom_t])
+        self.sample_rate = float(self.fps)
+        # signal_ca = filter_temporal(signal_ca, sample_rate)
+        # dt = int(time_ca[1])
+        # TODO try derivative using spline and nu=1, nu=2
+        # spl = UnivariateSpline(time, signal)
+        # df_ca = spl(time, nu=1)
+        self.df_ca = np.diff(self.signal, n=1, prepend=int(self.signal[0])).astype(float)
+        self.d2f_ca = np.diff(self.signal, n=2, prepend=[int(self.signal[0]), int(self.signal[0])]).astype(float)
+        # df_ca = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)
+        # d2f_ca = np.gradient(df_ca, dt) / np.gradient(time_ca, dt)
 
     def test_plot(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
-        fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
+        # fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
         # General layout
-        gs_traces = fig_points.add_gridspec(3, 1)  # 3 rows, 1 column
-        # gs_traces = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
-        # gs_frames = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
-        # F(t) signal
-        ax_f = fig_points.add_subplot(gs_traces[0])
-        ax_f.set_ylabel('F(t)')
-        # dF/dt signal
-        ax_df = fig_points.add_subplot(gs_traces[1])
-        ax_df.set_ylabel('dF/dt')
-        # d2F/dt2 signal
-        ax_d2F = fig_points.add_subplot(gs_traces[2])
-        ax_d2F.set_ylabel('d2F/dt2')
-        for idx, ax in enumerate([ax_f, ax_df, ax_d2F]):
-            ax.spines['right'].set_visible(False)
-            # ax.spines['left'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            ax.spines['bottom'].set_visible(False)
-            # ax.set_yticks([])
-            # ax.set_yticklabels([])
-            ax.set_xticks([])
-            ax.set_xticklabels([])
+        fig_points, ax_points = plot_test()
+        ax_points.set_title('Analysis Points\n1st and 2nd derivatives')
+        ax_points.set_ylabel('Arbitrary Fluorescent Units')
+        ax_points.set_xlabel('Time (ms)')
 
-        ax_f.plot(self.time_ca, self.signal, color=gray_heavy)
-        # ax_df.plot(self.time_ca, self.df_ca, color=gray_med)
-        # ax_d2F.plot(self.time_ca, self.d2f_ca, color=gray_med)
+        ax_points.plot(self.time, self.signal, color=gray_med, linestyle='-', marker='x',
+                       label='Ca (Model)')
+
+        ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
+        # ax_df2 = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_dfs.baseline = ax_dfs.axhline(color=gray_light, linestyle='-.')
+        ax_dfs.set_ylabel('df/dt and d2F/dt2')  # we already handled the x-label with ax1
         df_ca_smooth = filter_temporal(self.df_ca, self.sample_rate, filter_order=5)
         d2f_ca_smooth = filter_temporal(self.d2f_ca, self.sample_rate, filter_order=5)
-        ax_df.plot(self.time_ca, df_ca_smooth, color=gray_med)
-        ax_d2F.plot(self.time_ca, d2f_ca_smooth, color=gray_med)
-        # ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_dfs.set_ylim([-20, 20])
+        # ax_df2.set_ylim([-20, 20])
+
+        # df/dt
+        ax_dfs.plot(self.time, df_ca_smooth,
+                   color=gray_light, linestyle='--', label='df/dt')
+        # d2f/dt2
+        ax_dfs.plot(self.time, d2f_ca_smooth,
+                    color=gray_light, linestyle=':', label='d2F/dt2')
+
+        # Upstroke
+        df2_max1 = np.argmax(d2f_ca_smooth)
+        ax_points.axvline(self.time[df2_max1], color=colors_times['Upstroke'],
+                          label='Upstroke')  # 1st df2 max, Upstroke
+        # Activation
+        df_max1 = np.argmax(df_ca_smooth)  # 1st df max, Activation
+        ax_points.axvline(self.time[df_max1], color=colors_times['Activation'],
+                          label='Activation')
+        # Peak
+        ax_points.axvline(self.time[np.argmax(self.signal)], color=colors_times['Peak'],
+                          label='Peak')  # max of signal, Peak
+        # Downstroke
+        df2_max2 = np.argmax(d2f_ca_smooth[df2_max1 + 3:])  # 2st df2 max, Downstroke
+        ax_points.axvline(self.time[df2_max2 + df2_max1 + 3], color=colors_times['Downstroke'],
+                          label='Downstroke')
+
+        ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_points.savefig(dir_tests + '/results/analysis_AnalysisPoints_ca.png')
         fig_points.show()
 
 

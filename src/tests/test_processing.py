@@ -175,22 +175,22 @@ class TestFilterSpatial(unittest.TestCase):
 
     def test_results(self):
         # Make sure spatial filter results are correct
-        filtered_ca = filter_spatial(self.frame_noisy_ca)
+        frame_out = filter_spatial(self.frame_noisy_ca)
         # frame_out : ndarray
-        self.assertIsInstance(filtered_ca, np.ndarray)  # frame_out type
-        self.assertEqual(filtered_ca.shape, self.frame_shape)  # frame_out shape
-        self.assertIsInstance(filtered_ca[0, 0], type(self.frame_noisy_ca[0, 0]))  # frame_out value type same as input
+        self.assertIsInstance(frame_out, np.ndarray)  # frame_out type
+        self.assertEqual(frame_out.shape, self.frame_shape)  # frame_out shape
+        self.assertIsInstance(frame_out[0, 0], type(self.frame_noisy_ca[0, 0]))  # frame_out value type same as input
 
     def test_plot(self):
         # Make sure filtered frame looks correct
-        filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=self.filter_type)
+        frame_out = filter_spatial(self.frame_noisy_ca, filter_type=self.filter_type)
 
         # Plot a frame from the stack and the filtered frame
         fig_filtered, ax_noisy, ax_filtered, ax_ideal = plot_filter_spatial()
         # Create normalization colormap range for all frames (round up to nearest 10)
         cmap_frames = SCMaps.grayC.reversed()
         frames_min, frames_max = 0, 0
-        for frame in [self.frame_noisy_ca, filtered_ca, self.frame_ideal_ca]:
+        for frame in [self.frame_noisy_ca, frame_out, self.frame_ideal_ca]:
             frames_min = min(frames_max, np.nanmin(frame))
             frames_max = max(frames_max, np.nanmax(frame))
         cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
@@ -202,7 +202,7 @@ class TestFilterSpatial(unittest.TestCase):
 
         # Filtered frame
         ax_filtered.set_title('Spatially Filtered\n({}, kernel:{})'.format(self.filter_type, self.kernel))
-        img_filtered = ax_filtered.imshow(filtered_ca, cmap=cmap_frames, norm=cmap_norm)
+        img_filtered = ax_filtered.imshow(frame_out, cmap=cmap_frames, norm=cmap_norm)
 
         # Ideal frame
         ax_ideal.set_title('Model Data')
@@ -711,18 +711,18 @@ class TestInvert(unittest.TestCase):
 
     def test_results(self):
         # Make sure results are correct
-        signal_inv = invert_signal(self.signal_vm)
+        signal_out = invert_signal(self.signal_vm)
 
-        # signal_inv : ndarray
-        self.assertIsInstance(signal_inv, np.ndarray)  # inverted signal
+        # signal_out : ndarray
+        self.assertIsInstance(signal_out, np.ndarray)  # inverted signal
 
         # Make sure result values are valid
-        self.assertAlmostEqual(signal_inv.min(), self.signal_F0 - self.signal_amp, delta=self.noise * 4)  #
-        self.assertAlmostEqual(signal_inv.max(), self.signal_F0, delta=self.noise * 4)  #
+        self.assertAlmostEqual(signal_out.min(), self.signal_F0 - self.signal_amp, delta=self.noise * 4)  #
+        self.assertAlmostEqual(signal_out.max(), self.signal_F0, delta=self.noise * 4)  #
 
     def test_plot_single(self):
         # Make sure signal inversion looks correct
-        signal_inv = invert_signal(self.signal_vm)
+        signal_out = invert_signal(self.signal_vm)
 
         # Build a figure to plot new signal
         fig_inv, ax_inv = plot_test()
@@ -734,9 +734,9 @@ class TestInvert(unittest.TestCase):
                     label='Vm')
         ax_inv.plot_vm_mean = ax_inv.axhline(y=self.signal_vm.mean(), color=gray_med, linestyle='-.')
 
-        ax_inv.plot(self.time_vm, signal_inv, color=gray_med, linestyle='None', marker='+',
+        ax_inv.plot(self.time_vm, signal_out, color=gray_med, linestyle='None', marker='+',
                     label='Vm, Inverted')
-        ax_inv.plot_vm_inv_mean = ax_inv.axhline(y=signal_inv.mean(), color=gray_med, linestyle='-.')
+        ax_inv.plot_vm_inv_mean = ax_inv.axhline(y=signal_out.mean(), color=gray_med, linestyle='-.')
 
         ax_inv.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
@@ -767,14 +767,14 @@ class TestNormalize(unittest.TestCase):
 
     def test_results(self):
         # Make sure results are correct
-        signal_norm = normalize_signal(self.signal_ca)
+        signal_out = normalize_signal(self.signal_ca)
 
-        # signal_norm : ndarray, dtyoe : float
-        self.assertIsInstance(signal_norm, np.ndarray)  # normalized signal
+        # signal_out : ndarray, dtyoe : float
+        self.assertIsInstance(signal_out, np.ndarray)  # normalized signal
 
     def test_plot_single(self):
         # Make sure signal normalization looks correct
-        signal_norm = normalize_signal(self.signal_ca)
+        signal_out = normalize_signal(self.signal_ca)
 
         # Build a figure to plot new signal
         fig_norm, ax_norm = plot_test()
@@ -782,7 +782,7 @@ class TestNormalize(unittest.TestCase):
         ax_norm.set_ylabel('Arbitrary Fluorescent Units')
         ax_norm.set_xlabel('Time (ms)')
 
-        ax_norm.plot(self.time_ca, signal_norm, color=gray_light, linestyle='None', marker='+',
+        ax_norm.plot(self.time_ca, signal_out, color=gray_light, linestyle='None', marker='+',
                      label='Ca, Normalized')
 
         ax_norm.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)

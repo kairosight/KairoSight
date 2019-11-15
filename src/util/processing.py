@@ -16,7 +16,7 @@ def isolate_spatial(stack_in, roi):
 
         Parameters
         ----------
-        stack_in : ndarray
+        stack_in : ndarray, dtype : uint16 or float
              A 3-D array (T, Y, X) of optical data
         roi : `GraphicsItem <pyqtgraph.graphicsItems.ROI>`
              Generic region-of-interest widget.
@@ -24,18 +24,18 @@ def isolate_spatial(stack_in, roi):
         Returns
         -------
         stack_out : ndarray
-             A spatially isolated 3-D array (T, Y, X) of optical data
+             A spatially isolated 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
        """
     pass
 
 
 def isolate_temporal(stack_in, i_start, i_end):
-    """Isolate a spatial region of a stack (3-D array, TYX) of grayscale optical data.
+    """Isolate a temporal region of a stack (3-D array, TYX) of grayscale optical data.
 
         Parameters
         ----------
         stack_in : ndarray
-             A 3-D array (T, Y, X) of optical data
+             A 3-D array (T, Y, X) of optical data, dtype : uint16 or float
         i_start : int
              Index or frame to start temporal isolation
         i_end : int
@@ -44,7 +44,7 @@ def isolate_temporal(stack_in, i_start, i_end):
         Returns
         -------
         stack_out : ndarray
-             A temporally isolated 3-D array (T, Y, X) of optical data
+             A temporally isolated 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
         """
     pass
 
@@ -55,7 +55,7 @@ def isolate_transient(signal_in, i_start, i_end):
         Parameters
         ----------
         signal_in : ndarray
-             The array of data to be evaluated
+             The array of data to be evaluated, dtype : uint16 or float
         i_start : int
              Index or frame to start transient isolation
         i_end : int
@@ -64,7 +64,7 @@ def isolate_transient(signal_in, i_start, i_end):
         Returns
         -------
         transient_out : ndarray
-             The isolated array of transient data
+             The isolated array of transient data, dtype : signal_in.dtype
         """
     pass
 
@@ -75,7 +75,7 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
         Parameters
         ----------
         frame_in : ndarray
-             A 2-D array (Y, X) of optical data
+             A 2-D array (Y, X) of optical data, dtype : uint16 or float
         filter_type : str
             The type of filter algorithm to use: convolve (default), gaussian, bilateral
         kernel : int
@@ -132,7 +132,7 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
         Parameters
         ----------
         signal_in : ndarray
-             The array of data to be evaluated
+             The array of data to be evaluated, dtype : uint16 or float
         sample_rate : float
             Sample rate (Hz) of signal_in
         freq_cutoff : float
@@ -298,12 +298,12 @@ def invert_signal(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-             The array of data to be processed
+             The array of data to be processed, dtype : uint16 or float
 
         Returns
         -------
-        signal_inv : ndarray
-             The inverted signal array
+        signal_out : ndarray
+             The inverted signal array, dtype : signal_in.dtype
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -317,9 +317,9 @@ def invert_signal(signal_in):
         axis = np.floor(axis).astype(int)
 
     # rotate the data around it's central value
-    signal_inv = axis + (axis - signal_in)
+    signal_out = axis + (axis - signal_in)
 
-    return signal_inv
+    return signal_out
 
 
 def normalize_signal(signal_in):
@@ -328,11 +328,11 @@ def normalize_signal(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-             The array of data to be processed
+             The array of data to be processed, dtype : uint16 or float
 
         Returns
         -------
-        signal_norm : ndarray
+        signal_out : ndarray
              The normalized signal array, dtype : float
         """
     # Check parameters
