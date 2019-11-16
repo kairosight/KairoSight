@@ -145,6 +145,15 @@ class TestFilterSpatial(unittest.TestCase):
         self.time_ideal_ca, self.stack_ideal_ca = model_stack_propagation(
             model_type='Ca', f_0=self.f_0, f_amp=self.f_amp)
 
+        # Test temporal filtering on real signal data
+        # File paths and files needed for the test
+        file_name_rat = '201-/--/-- rat-04, PCL 240ms'
+        file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
+        # file_name_pig = '2019/03/22 pigb-01, PCL 150ms'
+        # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_15x15-LV-198x324.csv'
+        self.file_name, self.file_stack = file_name_rat, file_stack_rat
+        self.stack_real, self.stack_real_meta = open_single(source=file_stack_rat)
+
         self.frame_num = int(len(self.stack_noisy_ca) / 8)  # frame from 1/8th total time
         self.frame_noisy_ca = self.stack_noisy_ca[self.frame_num]
         self.frame_ideal_ca = self.stack_ideal_ca[self.frame_num]
@@ -202,7 +211,7 @@ class TestFilterSpatial(unittest.TestCase):
         # Draw shape and size of spatial filter kernel
 
         # Filtered frame
-        ax_filtered.set_title('Spatially Filtered\n({}, kernel:{})'.format(self.filter_type, self.kernel))
+        ax_filtered.set_title('Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel))
         img_filtered = ax_filtered.imshow(frame_out, cmap=cmap_frames, norm=cmap_norm)
 
         # Ideal frame
@@ -234,7 +243,7 @@ class TestFilterSpatial(unittest.TestCase):
         fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
         gs0 = fig_filter_traces.add_gridspec(1, 3)  # 1 row, 3 columns
         titles = ['Noisy Model Data\n(noise SD: {})'.format(self.noise),
-                  'Spatially Filtered\n({}, kernel:{})'.format(self.filter_type, self.kernel),
+                  'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel),
                   'Model Data']
         # Create normalization colormap range for all frames (round up to nearest 10)
         cmap_frames = SCMaps.grayC.reversed()
@@ -282,10 +291,92 @@ class TestFilterSpatial(unittest.TestCase):
                 ax.spines['left'].set_visible(False)
                 ax.spines['top'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)
-            ax_signal.plot(self.time_noisy_ca, signal, color=gray_light, linestyle='None', marker='+')
+            ax_signal.plot(self.time_noisy_ca, signal, color=gray_heavy, linestyle='None', marker='+')
 
         fig_filter_traces.show()
         fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilterTraces_ca.png')
+
+    def test_plot_trace_real(self):
+        # Make sure filtered stack signals looks correct
+        fps = 800
+        frame_num = int(len(self.stack_real) / 8)  # frame from 1/8th total time
+        frame_real = self.stack_real[frame_num]
+        # self.frame_ideal_ca = self.stack_ideal_ca[self.frame_num]
+        stack_shape = self.stack_real.shape
+        FRAMES = self.stack_real.shape[0]
+        HEIGHT, WIDTH = (self.stack_real.shape[1], self.stack_real.shape[2])
+        frame_shape = (HEIGHT, WIDTH)
+        origin_x, origin_y = WIDTH / 2, HEIGHT / 2
+
+        signal_x, signal_y = (int(WIDTH / 3), int(HEIGHT / 3))
+        signal_r = self.kernel / 2
+        # Filter a noisy real stack
+        stack_filtered = np.empty_like(self.stack_real)
+        for idx, frame in enumerate(self.stack_real):
+            f_filtered = filter_spatial(frame, filter_type=self.filter_type)
+            stack_filtered[idx, :, :] = f_filtered
+        frame_filtered = stack_filtered[frame_num]
+
+        # General layout
+        fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
+        gs0 = fig_filter_traces.add_gridspec(1, 2)  # 1 row, 2 columns
+        titles = ['Real Data\n({})'.format(self.file_name),
+                  'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel)]
+        # Create normalization colormap range for all frames (round up to nearest 10)
+        cmap_frames = SCMaps.grayC.reversed()
+        frames_min, frames_max = 0, 0
+        for idx, frame in enumerate([frame_real, frame_filtered]):
+            frames_min = min(frames_max, np.nanmin(frame))
+            frames_max = max(frames_max, np.nanmax(frame))
+            cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
+                                         vmax=round(frames_max + 5.1, -1))
+
+        # Plot the frame and a trace from the stack
+        for idx, stack in enumerate([self.stack_real, stack_filtered]):
+            frame = stack[frame_num]
+            # Generate array of timestamps
+            FPMS = fps / 1000
+            FRAME_T = 1 / FPMS
+            FINAL_T = floor(FPMS * FRAMES)
+            signal_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+            signal = stack[:, signal_y, signal_x]
+            gs_frame_signal = gs0[idx].subgridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 columns
+            ax_frame = fig_filter_traces.add_subplot(gs_frame_signal[0])
+            # Frame image
+            ax_frame.set_title(titles[idx], fontsize=fontsize2)
+            img_frame = ax_frame.imshow(frame, cmap=cmap_frames, norm=cmap_norm)
+            ax_frame.set_yticks([])
+            ax_frame.set_yticklabels([])
+            ax_frame.set_xticks([])
+            ax_frame.set_xticklabels([])
+            frame_signal_rect = Rectangle((signal_x - signal_r, signal_y - signal_r),
+                                          width=signal_r * 2, height=signal_r * 2,
+                                          fc=gray_med, ec=gray_heavy, lw=1, linestyle='--')
+            ax_frame.add_artist(frame_signal_rect)
+            if idx is len(titles) - 1:
+                # Add colorbar (right of frame)
+                ax_ins_filtered = inset_axes(ax_frame, width="5%", height="80%", loc=5, bbox_to_anchor=(0.15, 0, 1, 1),
+                                             bbox_transform=ax_frame.transAxes, borderpad=0)
+                cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
+                cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
+                cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
+                cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+                cb_filtered.ax.tick_params(labelsize=fontsize3)
+            # Signal trace
+            ax_signal = fig_filter_traces.add_subplot(gs_frame_signal[1])
+            ax_signal.set_xlabel('Time (ms)')
+            ax_signal.set_yticks([])
+            ax_signal.set_yticklabels([])
+            # Common between the two
+            for ax in [ax_frame, ax_signal]:
+                ax.spines['right'].set_visible(False)
+                ax.spines['left'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+            ax_signal.plot(signal_time, signal, color=gray_heavy, linestyle='None', marker='+')
+
+        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilterReal.png')
+        fig_filter_traces.show()
 
     def test_plot_all(self):
         # Plot all filters to compare
@@ -314,7 +405,7 @@ class TestFilterSpatial(unittest.TestCase):
         for idx, filter_type in enumerate(FILTERS_SPATIAL):
             filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=filter_type)
             ax = fig_filters.add_subplot(gs_filters[idx])
-            ax.set_title('{}, kernel:{}'.format(filter_type, self.kernel))
+            ax.set_title('{}, kernel: {}'.format(filter_type, self.kernel))
             img_filter = ax.imshow(filtered_ca, cmap=cmap_frames, norm=cmap_norm)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
@@ -530,12 +621,12 @@ class TestFilterTemporal(unittest.TestCase):
         # ax_filter.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
 
         ax_filter.plot(self.time_noisy_ca, self.signal_ideal_ca, color=color_ideal, linestyle='None', marker='+',
-                       label='Ca - Actual')
+                       label='Ca (Model)')
         ax_filter.plot(self.time_noisy_ca, self.signal_noisy_ca, color=color_raw, linestyle='None', marker='+',
-                       label='Ca - w/ noise')
+                       label='Ca (w/ noise)')
         ax_filter.plot(self.time_noisy_ca, signal_filtered,
                        color=color_filtered, linestyle='None', marker='+',
-                       label='Ca - Filtered')
+                       label='Ca (Filtered)')
 
         # ideal_norm_align = ideal_norm[filter_order - 1:]
         error, error_mean, error_sd = calculate_error(self.signal_ideal_ca, signal_filtered)
@@ -554,9 +645,11 @@ class TestFilterTemporal(unittest.TestCase):
     def test_plot_real(self):
         # Test temporal filtering on real signal data
         # File paths and files needed for the test
-        cwd = Path.cwd()
-        tests = str(cwd)
-        file_signal = tests + '/data/20190404-rata-12-150_right_signal1.csv'
+        file_name_rat = '2019/04/04 rata-12-Ca, PCL 150ms'
+        file_signal_rat = dir_tests + '/data/20190404-rata-12-150_right_signal1.csv'
+        file_name_pig = '2019/03/22 pigb-01-Ca, PCL 150ms'
+        file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_15x15-LV-198x324.csv'
+        file_name, file_signal = file_name_rat, file_signal_rat
         time, signal = open_signal(source=file_signal)
 
         freq_cutoff = 100.0
@@ -565,21 +658,21 @@ class TestFilterTemporal(unittest.TestCase):
 
         fig_filter, ax_filter = plot_test()
         ax_filter.set_title('Single=pixel Temporal Filtering\n({} Hz lowpass, n={})'.format(freq_cutoff, filter_order))
-        ax_filter.text(0.65, -0.12, '20190404-rata-12, PCL 150ms',
+        ax_filter.text(0.65, -0.12, file_name,
                        color=gray_med, fontsize=fontsize2, transform=ax_filter.transAxes)
 
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
 
         ax_filter.plot(time, signal, color=color_raw, linestyle='None', marker='+',
-                       label='Ca, Real')
+                       label='Ca')
         ax_filter.plot(time, signal_filtered,
                        color=color_filtered, linestyle='None', marker='+',
-                       label='Ca, Filtered')
+                       label='Ca (Filtered)')
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
-        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilterReal_ca.png')
+        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilter_ca.png')
         fig_filter.show()
 
 
@@ -606,7 +699,7 @@ class TestFilterDrift(unittest.TestCase):
         # drift_ideal_y = poly_ideal(time)
         # drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
         # Exponential drift
-        self.poly_ideal_order = 'exp'
+        self.poly_ideal_order = 'exponential'
         exp_b = 0.03
         self.exp_ideal = self.signal_amp * np.exp(-exp_b * self.time) + self.signal_F0
         self.drift_ideal_y = self.exp_ideal
@@ -657,16 +750,16 @@ class TestFilterDrift(unittest.TestCase):
         ax_drift.set_xlabel('Time (ms)')
 
         ax_drift.plot(self.time, self.signal_ideal, color=color_ideal, linestyle='None', marker='+',
-                      label='Ca - Actual')
+                      label='Ca - (Model)')
         ax_drift.plot(self.time, self.drift_ideal_y, color=gray_light, linestyle='None', marker='+',
-                      label='Drift - Actual')
+                      label='Drift - (Model)')
         ax_drift.plot(self.time, self.signal_drift, color=color_raw, linestyle='None', marker='+',
-                      label='Ca - w/ drift')
+                      label='Ca (w/ drift)')
 
         ax_drift.plot(self.time, drift, color=gray_med, linestyle='None', marker='+',
-                      label='Drift - Calc.')
+                      label='Drift (Calc.)')
         ax_drift.plot(self.time, signal_filtered, color=color_filtered, linestyle='None', marker='+',
-                      label='Ca - Filtered')
+                      label='Ca (Filtered)')
 
         error, error_mean, error_sd = calculate_error(self.signal_ideal, signal_filtered)
         ax_error = ax_drift.twinx()  # instantiate a second axes that shares the same x-axis

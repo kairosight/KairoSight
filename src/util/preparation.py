@@ -85,7 +85,7 @@ def open_single(source, meta=None):
     # Open the file
     # file_source = open(source, 'rb')
     # tags = exifread.process_file(file)  # Read EXIF data
-    stack = volread(source)  # Read image data, keep this second because it closes the file after reading
+    stack = np.array(volread(source))  # Read image data, keep this second because it closes the file after reading
     stack_meta = get_reader(source).get_meta_data()
     # Open the metadata, if provided
     if meta:

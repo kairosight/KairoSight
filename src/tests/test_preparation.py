@@ -9,6 +9,9 @@ import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_vm, color_ca = ['#FF9999', '#99FF99']
+# File paths  and files needed for tests
+dir_cwd = Path.cwd()
+dir_tests = str(dir_cwd)
 
 
 def plot_test():
@@ -23,10 +26,9 @@ def plot_test():
 
 class TestPrepOpenSignal(unittest.TestCase):
     # File paths and files needed for tests
-    cwd = Path.cwd()
-    tests = str(cwd)
-    file_signal = tests + '/data/20190404-rata-12-150_right_signal1.csv'
-    file_signal1_wrong = tests + '/data/20190404-rata-12-150_right_signal1'
+    file_name = '2019/04/04 rata-12-Ca, PCL 150ms'
+    file_signal = dir_tests + '/data/20190404-rata-12-150_right_signal1.csv'
+    file_signal1_wrong = dir_tests + '/data/20190404-rata-12-150_right_signal1'
     print("sys.maxsize : " + str(sys.maxsize) +
           ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
 
@@ -36,7 +38,6 @@ class TestPrepOpenSignal(unittest.TestCase):
         self.assertRaises(TypeError, open_signal, source=250)
 
         # Make valid errors are raised when parameters are invalid
-        self.assertRaises(FileNotFoundError, open_signal, source=self.tests)
         self.assertRaises(FileNotFoundError, open_signal, source=self.file_signal1_wrong)
 
     def test_results(self):
@@ -49,11 +50,12 @@ class TestPrepOpenSignal(unittest.TestCase):
         self.assertEqual(len(time), len(data))
 
     def test_plot_single(self):
-        time_vm, data_vm = open_signal(source=self.file_signal, fps=800)
+        fps = 800
+        time_ca, data_ca = open_signal(source=self.file_signal, fps=fps)
 
         # Build a figure to plot model data
         fig_single, ax_single = plot_test()
-        ax_single.set_title('An Imported Signal (Default FPS=500)')
+        ax_single.set_title('An Imported Signal (fps: {})'.format(fps))
         ax_single.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
         ax_single.set_xlabel('Time (ms)', color=gray_heavy)
 
@@ -61,25 +63,25 @@ class TestPrepOpenSignal(unittest.TestCase):
         # ax_dual_multi.set_ylim([1500, 2500])
         # data_vm_align = -(data_vm - data_vm.max())
         # data_ca_align = data_ca - data_ca.min()
-        plot_vm, = ax_single.plot(time_vm, data_vm, color=color_vm, label='Ca')
+        plot_vm, = ax_single.plot(time_ca, data_ca, color=color_ca)
         # plot_ca, = ax_single.plot(time_ca, data_ca, marker='+', color=color_ca, label='Ca')
         # plot_baseline = ax_single.axhline(color='gray', linestyle='--', label='baseline')
-        ax_single.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_single.text(0.65, -0.12, self.file_name,
+                       color=gray_med, fontsize=fontsize2, transform=ax_single.transAxes)
+        # ax_single.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
+        fig_single.savefig(dir_tests + '/results/prep_OpenSingle.png')
         fig_single.show()
-
 
 
 class TestPrepOpen(unittest.TestCase):
     # File paths and files needed for tests
-    cwd = Path.cwd()
-    tests = str(cwd)
-    file_single1 = tests + '/data/about1.tif'
-    file_single1_wrong = tests + '/data/about1'
-    file_single2 = tests + '/data/02-250_Vm.tif'
-    file_single2_wrong = tests + '/data/02-250_Vm'
-    file_meta = tests + '/data/02-250_Vm.pcoraw.rec'
-    file_meta_wrong = tests + '/data/02-250.pcoraw.txt'
+    file_single1 = dir_tests + '/data/about1.tif'
+    file_single1_wrong = dir_tests + '/data/about1'
+    file_single2 = dir_tests + '/data/02-250_Vm.tif'
+    file_single2_wrong = dir_tests + '/data/02-250_Vm'
+    file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+    file_meta_wrong = dir_tests + '/data/02-250.pcoraw.txt'
     print("sys.maxsize : " + str(sys.maxsize) +
           ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
 
@@ -88,13 +90,14 @@ class TestPrepOpen(unittest.TestCase):
         self.assertRaises(TypeError, open_single, source=250)
         self.assertRaises(TypeError, open_single, source=self.file_single2, meta=True)
         # Make valid errors are raised when parameters are invalid
-        self.assertRaises(FileNotFoundError, open_single, source=self.tests)
         self.assertRaises(FileNotFoundError, open_single, source=self.file_single1_wrong)
         self.assertRaises(FileNotFoundError, open_single, source=self.file_single1, meta=self.file_meta_wrong)
 
     def test_results(self):
         # Make sure files are opened and read correctly
-        self.assertIsInstance(open_single(source=self.file_single1)[0], np.ndarray)
+        # image : ndarray
+        self.assertIsInstance(open_single(source=self.file_single1)[0], np.ndarray) # TODO is it really?! not an Array?!
+        # meta : dict
         self.assertIsInstance(open_single(source=self.file_single1)[1], dict)
         self.assertIsInstance(open_single(source=self.file_single2)[1], dict)
         self.assertIsInstance(open_single(source=self.file_single2, meta=self.file_meta)[1], str)
