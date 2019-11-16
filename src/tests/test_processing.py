@@ -18,7 +18,7 @@ import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+color_ideal, color_raw, color_filtered = [gray_med, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths  and files needed for tests
 dir_cwd = Path.cwd()
@@ -639,8 +639,9 @@ class TestFilterTemporal(unittest.TestCase):
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilterTraces.png')
         fig_filter.show()
-        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilterTraces_ca.png')
 
     def test_plot_real(self):
         # Test temporal filtering on real signal data
@@ -699,7 +700,7 @@ class TestFilterDrift(unittest.TestCase):
         # drift_ideal_y = poly_ideal(time)
         # drift_ideal_d = drift_ideal_y - drift_ideal_y.min()
         # Exponential drift
-        self.poly_ideal_order = 'exponential'
+        self.poly_ideal_order = 'exp'
         exp_b = 0.03
         self.exp_ideal = self.signal_amp * np.exp(-exp_b * self.time) + self.signal_F0
         self.drift_ideal_y = self.exp_ideal
@@ -773,7 +774,7 @@ class TestFilterDrift(unittest.TestCase):
         ax_drift.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_drift.show()
-        fig_drift.savefig(dir_tests + '/results/processing_DriftFilterTraces_ca.png')
+        fig_drift.savefig(dir_tests + '/results/processing_DriftFilterTraces.png')
 
 
 class TestInvert(unittest.TestCase):
