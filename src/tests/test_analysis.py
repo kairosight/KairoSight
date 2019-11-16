@@ -1,4 +1,5 @@
 import unittest
+
 from util.analysis import *
 from util.processing import *
 from util.datamodel import model_transients
@@ -251,7 +252,7 @@ class TestAnalysisPoints(unittest.TestCase):
 
         # df/dt
         ax_dfs.plot(self.time, df_ca_smooth,
-                   color=gray_light, linestyle='--', label='df/dt')
+                    color=gray_light, linestyle='--', label='df/dt')
         # d2f/dt2
         ax_dfs.plot(self.time, d2f_ca_smooth,
                     color=gray_light, linestyle=':', label='d2F/dt2')
@@ -392,63 +393,6 @@ class TestDI(unittest.TestCase):
 #  class TestMapTau(unittest.TestCase):
 
 #  class TestDFreq(unittest.TestCase):
-
-
-class TestAnalysisFF0(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 50
-    signal_time = 1000
-    signal_num = 5
-    noise = 2  # as a % of the signal amplitude
-    noise_count = 100
-    time_vm, signal_vm = model_transients(t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp,
-                                          noise=noise, num=signal_num)
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp,
-                                          noise=noise, num=signal_num)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray
-        self.assertRaises(TypeError, find_tran_peak, signal_in=True)
-        self.assertRaises(TypeError, find_tran_peak, signal_in=signal_bad_type)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, calc_ff0, signal_in=signal_bad_value)
-
-    def test_results(self):
-        # Make sure result types are valid
-        signal_vm_ff0 = calc_ff0(self.signal_vm, invert=True)
-        signal_ca_ff0 = calc_ff0(self.signal_ca)
-        # signal_FF0 : ndarray, dtyoe : float
-        self.assertIsInstance(signal_ca_ff0, np.ndarray)  # The array of F/F0 fluorescence data
-        self.assertIsInstance(signal_ca_ff0[0], float)  # dtyoe : float
-
-        # Make sure result values are valid
-        self.assertAlmostEqual(signal_ca_ff0.min(), signal_vm_ff0.max(), delta=0.01)  # Vm is a downward deflection
-
-    def test_plot_dual(self):
-        # Make sure F/F0 looks correct
-        signal_vm_ff0 = calc_ff0(self.signal_vm, invert=True)
-        signal_ca_ff0 = calc_ff0(self.signal_ca)
-
-        # Build a figure to plot F/F0 results
-        fig_ff0, ax_ff0 = plot_test()
-        ax_ff0.set_ylabel('Arbitrary Fluorescent Units')
-        ax_ff0.set_xlabel('Time (ms)')
-
-        ax_ff0.plot(self.time_vm, signal_vm_ff0, color=color_vm, linestyle='None', marker='+', label='Vm, F/F0')
-        ax_ff0.plot(self.time_ca, signal_ca_ff0, color=color_ca, linestyle='None', marker='+', label='Ca, F/F0')
-
-        ax_ff0.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        fig_ff0.show()
 
 
 class TestPhase(unittest.TestCase):

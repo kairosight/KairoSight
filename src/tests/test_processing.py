@@ -19,6 +19,7 @@ import util.ScientificColourMaps5 as SCMaps
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths  and files needed for tests
 dir_cwd = Path.cwd()
 dir_tests = str(dir_cwd)
@@ -789,6 +790,63 @@ class TestNormalize(unittest.TestCase):
 
         fig_norm.savefig(dir_tests + '/results/processing_Normalization_ca.png')
         fig_norm.show()
+
+
+class TestFF0(unittest.TestCase):
+    def setUp(self):
+        # Setup data to test with
+        self.signal_F0 = 1000
+        self.signal_amp = 100
+        self.signal_t0 = 50
+        self.signal_time = 500
+        self.signal_num = 'full'
+        self.signal_cl = 100
+        self.noise = 2  # as a % of the signal amplitude
+        self.noise_count = 100
+        self.time_vm, self.signal_vm = model_transients(t0=self.signal_t0, t=self.signal_time,
+                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                        noise=self.noise, num=self.signal_num, cl=self.signal_cl)
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t0=self.signal_t0 + 15, t=self.signal_time,
+                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
+                                                        noise=self.noise, num=self.signal_num, cl=self.signal_cl)
+
+    def test_parameters(self):
+        # Make sure type errors are raised when necessary
+        signal_bad_type = np.full(100, True)
+        # signal_in : ndarray
+        self.assertRaises(TypeError, calc_ff0, signal_in=True)
+        self.assertRaises(TypeError, calc_ff0, signal_in=signal_bad_type)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+
+    def test_results(self):
+        # Make sure result types are valid
+        signal_vm_ff0 = calc_ff0(self.signal_vm)
+        signal_ca_ff0 = calc_ff0(self.signal_ca)
+        # signal_out : ndarray, dtyoe : float
+        self.assertIsInstance(signal_ca_ff0, np.ndarray)  # The array of F/F0 fluorescence data
+        self.assertIsInstance(signal_ca_ff0[0], float)  # dtyoe : float
+
+        # Make sure result values are valid
+        # self.assertAlmostEqual(signal_ca_ff0.min(), signal_vm_ff0.max(), delta=0.01)  # Vm is a downward deflection
+
+    def test_plot_dual(self):
+        # Make sure F/F0 looks correct
+        signal_vm_ff0 = calc_ff0(self.signal_vm)
+        signal_ca_ff0 = calc_ff0(self.signal_ca)
+
+        # Build a figure to plot F/F0 results
+        fig_ff0, ax_ff0 = plot_test()
+        ax_ff0.set_ylabel('Arbitrary Fluorescent Units')
+        ax_ff0.yaxis.set_major_formatter(pltticker.FormatStrFormatter('%.2f'))
+        ax_ff0.set_xlabel('Time (ms)')
+
+        ax_ff0.plot(self.time_vm, signal_vm_ff0, color=color_vm, linestyle='None', marker='+', label='Vm, F/F0')
+        ax_ff0.plot(self.time_ca, signal_ca_ff0, color=color_ca, linestyle='None', marker='+', label='Ca, F/F0')
+
+        ax_ff0.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        fig_ff0.savefig(dir_tests + '/results/processing_FF0.png')
+        fig_ff0.show()
 
 
 class TestSnrSignal(unittest.TestCase):

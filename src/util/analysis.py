@@ -282,41 +282,6 @@ def map_tran_dfreq(stack_in):
        """
 
 
-def calc_ff0(signal_in, invert=False):
-    """Normalize a fluorescence signal against a resting fluorescence,
-    i.e. F_t / F0
-
-        Parameters
-        ----------
-        signal_in : ndarray
-            The array of fluorescent data (F_t) to be normalized
-        invert : bool
-            If True, expecting a resting fluorescence value greater than the signal, default is False
-
-        Returns
-        -------
-        signal_ff0 : ndarray
-            The array of F/F0 fluorescence data, dtype : float
-
-        Notes
-        -----
-            Should not be applied to normalized or drift-removed data.
-        """
-    # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-
-    # F / F0: (F_t - F0) / F0
-    f_t = signal_in
-    if invert:
-        f_0 = signal_in.max()
-    else:
-        f_0 = signal_in.min()
-    signal_ff0 = (f_t - f_0) / f_0
-
-    return signal_ff0
-
-
 def calc_phase(signal_in):
     """Convert a signal from its fluorescent value to its phase,
     i.e.

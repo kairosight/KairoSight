@@ -254,11 +254,11 @@ def filter_drift(signal_in, drift_order=2):
             raise ValueError('Drift order "{}" not implemented'.format(drift_order))
 
     def func_exp(x, a, b, c):
-        return a * np.exp(-b * x) + c
+        return a * np.exp(-b * x) + c   # a decaying exponential fit to fit to
 
     drift_range = signal_in.max() - signal_in.min()
     drift_x = np.arange(start=0, stop=len(signal_in))
-    exp_B_estimages = (0.01, 0.1)   # assumed bounds of the B constant for an exponential fit
+    exp_b_estimates = (0.01, 0.1)   # assumed bounds of the B constant for a decaying exponential fit
 
     if type(drift_order) is int:
         # np.polyfit : Least squares polynomial fit
@@ -266,8 +266,8 @@ def filter_drift(signal_in, drift_order=2):
         poly_y = poly(drift_x)
     else:
         # scipy.optimize.curve_fit : Use non-linear least squares to fit a function, f, to data
-        exp_bounds_lower = [0, exp_B_estimages[0], signal_in.min()]
-        exp_bounds_upper = [drift_range*2, exp_B_estimages[1], signal_in.max()]
+        exp_bounds_lower = [0, exp_b_estimates[0], signal_in.min()]
+        exp_bounds_upper = [drift_range*2, exp_b_estimates[1], signal_in.max()]
         try:
             # popt, pcov = curve_fit(func_exp, drift_x, signal_in)
             popt, pcov = curve_fit(func_exp, drift_x, signal_in, bounds=(exp_bounds_lower, exp_bounds_upper))
@@ -347,6 +347,38 @@ def normalize_signal(signal_in):
     xp = [signal_in.min(), signal_in.max()]
     fp = [0, 1]
     signal_out = np.interp(signal_in, xp, fp)
+
+    return signal_out
+
+
+def calc_ff0(signal_in):
+    """Normalize a fluorescence signal against a resting fluorescence,
+    i.e. F_t / F0
+
+        Parameters
+        ----------
+        signal_in : ndarray
+            The array of fluorescent data (F_t) to be normalized, dtype : uint16 or float
+        Returns
+        -------
+        signal_out : ndarray
+            The array of F/F0 fluorescence data, dtype : float
+
+        Notes
+        -----
+            Should not be applied to normalized or drift-removed data.
+        """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    # F / F0: (F_t - F0) / F0
+    f_t = signal_in
+    f_0 = signal_in.min()
+
+    signal_out = (f_t - f_0) / f_0
 
     return signal_out
 
