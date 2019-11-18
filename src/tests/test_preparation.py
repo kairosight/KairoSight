@@ -56,8 +56,8 @@ class TestPrepOpenSignal(unittest.TestCase):
         # Build a figure to plot model data
         fig_single, ax_single = plot_test()
         ax_single.set_title('An Imported Signal (fps: {})'.format(fps))
-        ax_single.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
-        ax_single.set_xlabel('Time (ms)', color=gray_heavy)
+        ax_single.set_ylabel('Arbitrary Fluorescent Units')
+        ax_single.set_xlabel('Time (ms)')
 
         # Plot aligned model data
         # ax_dual_multi.set_ylim([1500, 2500])
@@ -75,32 +75,37 @@ class TestPrepOpenSignal(unittest.TestCase):
 
 
 class TestPrepOpen(unittest.TestCase):
-    # File paths and files needed for tests
-    file_single1 = dir_tests + '/data/about1.tif'
-    file_single1_wrong = dir_tests + '/data/about1'
-    file_single2 = dir_tests + '/data/02-250_Vm.tif'
-    file_single2_wrong = dir_tests + '/data/02-250_Vm'
-    file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
-    file_meta_wrong = dir_tests + '/data/02-250.pcoraw.txt'
-    print("sys.maxsize : " + str(sys.maxsize) +
-          ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+    def setUp(self):
+        # File paths and files needed for tests
+        self.file_single1 = dir_tests + '/data/about1.tif'
+        self.file_single1_wrong = dir_tests + '/data/about1'
+        self.file_single2 = dir_tests + '/data/02-250_Vm.tif'
+        self.file_single2_wrong = dir_tests + '/data/02-250_Vm'
+        self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        self.file_meta_wrong = dir_tests + '/data/02-250.pcoraw.txt'
+        print("sys.maxsize : " + str(sys.maxsize) +
+              ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+
+        self.stack1, self.meta1 = open_stack(source=self.file_single1)
+        self.stack2, self.meta_default = open_stack(source=self.file_single2)
+        self.stack2, self.meta2 = open_stack(source=self.file_single2, meta=self.file_meta)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
-        self.assertRaises(TypeError, open_single, source=250)
-        self.assertRaises(TypeError, open_single, source=self.file_single2, meta=True)
+        self.assertRaises(TypeError, open_stack, source=250)
+        self.assertRaises(TypeError, open_stack, source=self.file_single2, meta=True)
         # Make valid errors are raised when parameters are invalid
-        self.assertRaises(FileNotFoundError, open_single, source=self.file_single1_wrong)
-        self.assertRaises(FileNotFoundError, open_single, source=self.file_single1, meta=self.file_meta_wrong)
+        self.assertRaises(FileNotFoundError, open_stack, source=self.file_single1_wrong)
+        self.assertRaises(FileNotFoundError, open_stack, source=self.file_single1, meta=self.file_meta_wrong)
 
     def test_results(self):
         # Make sure files are opened and read correctly
-        # image : ndarray
-        self.assertIsInstance(open_single(source=self.file_single1)[0], np.ndarray) # TODO is it really?! not an Array?!
+        # stack : ndarray
+        self.assertIsInstance(self.stack1, np.ndarray)  # TODO is it really?! not an Array?!
         # meta : dict
-        self.assertIsInstance(open_single(source=self.file_single1)[1], dict)
-        self.assertIsInstance(open_single(source=self.file_single2)[1], dict)
-        self.assertIsInstance(open_single(source=self.file_single2, meta=self.file_meta)[1], str)
+        self.assertIsInstance(self.meta1, dict)
+        self.assertIsInstance(self.meta_default, dict)
+        self.assertIsInstance(self.meta2, str)
 
 
 if __name__ == '__main__':

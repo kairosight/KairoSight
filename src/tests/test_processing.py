@@ -152,7 +152,7 @@ class TestFilterSpatial(unittest.TestCase):
         # file_name_pig = '2019/03/22 pigb-01, PCL 150ms'
         # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_15x15-LV-198x324.csv'
         self.file_name, self.file_stack = file_name_rat, file_stack_rat
-        self.stack_real, self.stack_real_meta = open_single(source=file_stack_rat)
+        self.stack_real, self.stack_real_meta = open_stack(source=file_stack_rat)
 
         self.frame_num = int(len(self.stack_noisy_ca) / 8)  # frame from 1/8th total time
         self.frame_noisy_ca = self.stack_noisy_ca[self.frame_num]
@@ -375,7 +375,7 @@ class TestFilterSpatial(unittest.TestCase):
                 ax.spines['bottom'].set_visible(False)
             ax_signal.plot(signal_time, signal, color=gray_heavy, linestyle='None', marker='+')
 
-        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilterReal.png')
+        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilter_Real.png')
         fig_filter_traces.show()
 
     def test_plot_all(self):
@@ -673,7 +673,7 @@ class TestFilterTemporal(unittest.TestCase):
 
         ax_filter.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
-        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilter_ca.png')
+        fig_filter.savefig(dir_tests + '/results/processing_TemporalFilter_Real.png')
         fig_filter.show()
 
 

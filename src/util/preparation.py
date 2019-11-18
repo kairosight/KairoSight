@@ -43,17 +43,21 @@ def open_signal(source, fps=500):
         data_y_counts = signal_text[1:, 1].astype(np.uint16)  # rows of the first column (skip X,Y header row)
         FRAMES = len(data_x)
         FINAL_T = floor(FPMS * FRAMES)
-        signal_data = data_y_counts
     else:
-        signal_data = signal_text[0]
+        # Single column, data only
+        data_y_counts = signal_text[0]
+        FRAMES = len(data_y_counts)
+        FINAL_T = floor(FPMS * FRAMES)
+
+    signal_data = data_y_counts
     # Generate array of timestamps
     signal_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
 
     return signal_time, signal_data
 
 
-def open_single(source, meta=None):
-    """Open images from a file containing one signal source or channel.
+def open_stack(source, meta=None):
+    """Open a stack of images from a file containing one signal source or channel.
 
        Parameters
        ----------
@@ -64,7 +68,7 @@ def open_single(source, meta=None):
 
        Returns
        -------
-       image : ndarray
+       stack : ndarray
             An array of normalized fluorescence data
        meta : dict
             A dict of metadata
@@ -82,12 +86,12 @@ def open_single(source, meta=None):
     if meta and not os.path.isfile(meta):
         raise FileNotFoundError('Optional "meta" ' + meta + ' is not a file or does not exist.')
 
+    # Open the metadata, if provided
+    stack_meta = get_reader(source).get_meta_data()
     # Open the file
     # file_source = open(source, 'rb')
     # tags = exifread.process_file(file)  # Read EXIF data
-    stack = np.array(volread(source))  # Read image data, keep this second because it closes the file after reading
-    stack_meta = get_reader(source).get_meta_data()
-    # Open the metadata, if provided
+    stack = np.array(volread(source))  # Read image data, closes the file after reading
     if meta:
         file_meta = open(meta)
         meta = file_meta.read()
