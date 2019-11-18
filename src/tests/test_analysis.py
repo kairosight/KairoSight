@@ -15,11 +15,11 @@ color_vm, color_ca = ['#FF9999', '#99FF99']
 dir_cwd = Path.cwd()
 dir_tests = str(dir_cwd)
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
-colors_times = {'Upstroke': '#FFD649',
+colors_times = {'Start': '#FFD649',
                 'Activation': '#FFA253',
                 'Peak': '#F6756B',
                 'Downstroke': '#CB587F',
-                'Restoration': '#8E4B84',
+                'End': '#8E4B84',
                 'Baseline': '#4C4076'}  # yellow -> orange -> purple
 
 
@@ -209,14 +209,16 @@ class TestEnd(unittest.TestCase):
 
 
 class TestAnalysisPoints(unittest.TestCase):
+    # TODO move to 'integration' tests?
     def setUp(self):
         # Setup data to test with
         self.signal_t = 200
-        self.zoom_t = 60
-        self.signal_t0 = 20
+        self.zoom_t = 40
+        self.signal_t0 = 10
         self.fps = 1000
         self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
-        self.time, self.signal = self.time_vm[0:self.zoom_t], invert_signal(self.signal_vm[0:self.zoom_t])
+        self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
+        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
         # self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0, fps=self.fps)
         # self.time, self.signal = self.time_ca[0:self.zoom_t], self.signal_ca[0:self.zoom_t]
         self.sample_rate = float(self.fps)
@@ -238,41 +240,50 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_points.set_title('Analysis Points\n1st and 2nd derivatives')
         ax_points.set_ylabel('Arbitrary Fluorescent Units')
         ax_points.set_xlabel('Time (ms)')
+        points_lw = 3
 
-        ax_points.plot(self.time, self.signal, color=gray_heavy, linestyle='-', marker='x',
+        ax_points.plot(self.time[0:self.zoom_t], self.signal[0:self.zoom_t], color=gray_heavy, linestyle='-', marker='x',
                        label='Vm (Model)')
 
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
         # ax_df2 = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
-        ax_dfs.baseline = ax_dfs.axhline(color=gray_light, linestyle='-.')
-        ax_dfs.set_ylabel('df/dt and d2F/dt2')  # we already handled the x-label with ax1
+        # ax_dfs.baseline = ax_dfs.axhline(color=gray_light, linestyle='-.')
+        ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
         df_smooth = filter_temporal(self.signal_df, self.sample_rate, filter_order=5)
         d2f_smooth = filter_temporal(self.signal_d2f, self.sample_rate, filter_order=5)
+
+        # self.time, self.signal = self.time[0:self.zoom_t], invert_signal(self.signal[0:self.zoom_t])
+        # df_smooth, d2f_smooth = df_smooth[0:self.zoom_t], d2f_smooth[0:self.zoom_t]
+
         ax_dfs.set_ylim([-25, 25])
         # ax_df2.set_ylim([-20, 20])
 
         # df/dt
-        ax_dfs.plot(self.time, df_smooth,
-                    color=gray_med, linestyle='--', label='df/dt')
+        ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
+                    color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
-        ax_dfs.plot(self.time, d2f_smooth,
+        ax_dfs.plot(self.time[0:self.zoom_t], d2f_smooth[0:self.zoom_t],
                     color=gray_med, linestyle=':', label='d2F/dt2')
 
-        # Upstroke
+        # Start
         df2_max1 = np.argmax(d2f_smooth)
-        ax_points.axvline(self.time[df2_max1], color=colors_times['Upstroke'],
-                          label='Upstroke')  # 1st df2 max, Upstroke
+        ax_points.axvline(self.time[df2_max1], color=colors_times['Start'], linewidth=points_lw,
+                          label='Start')  # 1st df2 max, Upstroke
         # Activation
         df_max1 = np.argmax(df_smooth)  # 1st df max, Activation
-        ax_points.axvline(self.time[df_max1], color=colors_times['Activation'],
+        ax_points.axvline(self.time[df_max1], color=colors_times['Activation'], linewidth=points_lw,
                           label='Activation')
         # Peak
-        ax_points.axvline(self.time[np.argmax(self.signal)], color=colors_times['Peak'],
+        ax_points.axvline(self.time[np.argmax(self.signal)], color=colors_times['Peak'], linewidth=points_lw,
                           label='Peak')  # max of signal, Peak
         # Downstroke
-        df2_max2 = np.argmax(d2f_smooth[df2_max1 + 3:])  # 2st df2 max, Downstroke
-        ax_points.axvline(self.time[df2_max2 + df2_max1 + 3], color=colors_times['Downstroke'],
+        df_min = np.argmin(df_smooth)  # df min, Downstroke
+        ax_points.axvline(self.time[df_min], color=colors_times['Downstroke'], linewidth=points_lw,
                           label='Downstroke')
+        # End
+        df2_max2 = np.argmax(d2f_smooth[df2_max1 + 3:])  # 2st df2 max, Downstroke
+        ax_points.axvline(self.time[df2_max2 + df2_max1 + 3], color=colors_times['End'], linewidth=points_lw,
+                          label='End')
 
         ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
