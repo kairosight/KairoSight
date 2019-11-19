@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
+from skimage.filters import try_all_threshold
 import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
@@ -176,8 +177,8 @@ class TestPrepCrop(unittest.TestCase):
         frame_in = self.stack1[0, :, :]
         frame_crop = stack_crop[0, :, :]
         cmap_frame = SCMaps.grayC.reversed()
-        img_in = axis_in.imshow(self.stack1[0, :, :], cmap=cmap_frame)
-        img_crop = axis_crop.imshow(stack_crop[0, :, :], cmap=cmap_frame)
+        img_in = axis_in.imshow(frame_in, cmap=cmap_frame)
+        img_crop = axis_crop.imshow(frame_crop, cmap=cmap_frame)
 
         axis_in.set_ylabel('{} px'.format(frame_in.shape[1]), fontsize=fontsize3)
         axis_in.set_xlabel('{} px'.format(frame_in.shape[0]), fontsize=fontsize3)
@@ -185,6 +186,81 @@ class TestPrepCrop(unittest.TestCase):
         axis_crop.set_xlabel('{} px'.format(frame_crop.shape[1]), fontsize=fontsize3)
 
         fig_crop.show()
+
+
+class TestPrepMask(unittest.TestCase):
+    def setUp(self):
+        # File paths and files needed for tests
+        self.file_single = dir_tests + '/data/02-250_Vm.tif'
+        self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        print("sys.maxsize : " + str(sys.maxsize) +
+              ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+
+        self.stack1, self.meta1 = open_stack(source=self.file_single)
+        self.frame1 = self.stack1[10, :, :]
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        # frame_in : ndarray, 2-D array (Y, X)
+        frame_bad_shape = np.full(100, 100, dtype=np.uint16)
+        frame_bad_type = np.full(self.frame1.shape, True)
+        self.assertRaises(TypeError, mask_generate, frame_in=frame_bad_shape)
+        self.assertRaises(TypeError, mask_generate, frame_in=frame_bad_type)
+        # filter_type : str
+        self.assertRaises(TypeError, mask_generate, frame_in=self.frame1, mask_type=True)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # mask_type : must be in MASK_TYPES
+        self.assertRaises(ValueError, mask_generate, frame_in=self.frame1, mask_type='gross')
+        self.assertRaises(NotImplementedError, mask_generate, frame_in=self.frame1, mask_type='Contour')
+
+    def test_results(self):
+        # Make sure results are correct
+        frame_out, mask = mask_generate(self.frame1)
+        # mask : ndarray
+        self.assertIsInstance(mask, np.ndarray)  # mask type
+        # mask : ndarray
+        self.assertIsInstance(mask, np.ndarray)  # mask type
+        self.assertEqual(mask.shape, self.frame1.shape)  # mask shape
+
+        self.assertIsInstance(mask[0, 0], bool)  # mask value typ
+
+    def test_plot(self):
+        # Make sure mask looks are correct
+        mask_type = 'Random_walk'
+        frame_masked, mask = mask_generate(self.frame1, mask_type)
+        frame_mask = mask
+
+        fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
+        axis_in = fig_mask.add_subplot(131)
+        axis_mask = fig_mask.add_subplot(132)
+        axis_masked = fig_mask.add_subplot(133)
+        # Common between the two
+        for ax in [axis_in, axis_mask, axis_masked]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        fig_mask.suptitle('Cropping (mask_type: {})'.format(mask_type))
+        axis_in.set_title('Input frame')
+        axis_mask.set_title('Mask')
+        axis_masked.set_title('Masked frame')
+
+        cmap_frame = SCMaps.grayC.reversed()
+        img_in = axis_in.imshow(self.frame1, cmap=cmap_frame)
+        img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
+        img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
+
+        fig_mask.show()
+
+    def test_plot_try_all_threshold(self):
+        fig, ax = try_all_threshold(self.frame1, figsize=(10, 8), verbose=False)
+        fig.savefig(dir_tests + '/results/prep_MaskThresholdAll.png')
+        fig.show()
 
 
 if __name__ == '__main__':

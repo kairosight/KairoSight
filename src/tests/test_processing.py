@@ -177,8 +177,9 @@ class TestFilterSpatial(unittest.TestCase):
         self.assertRaises(TypeError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=True)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # filter_type : must be in FILTERS_SPATIAL
+        # filter_type : must be in FILTERS_SPATIAL and implemented
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='gross')
+        self.assertRaises(NotImplementedError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='tv')
         # kernel : >= 3, odd
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=2)
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=8)

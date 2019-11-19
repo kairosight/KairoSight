@@ -7,7 +7,7 @@ from scipy.optimize import curve_fit
 from skimage.morphology import square
 from skimage.filters.rank import median, mean, mean_bilateral
 from skimage.filters import gaussian
-FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian']
+FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'tv']
 # TODO add TV, a non-local, and a weird filter
 
 
@@ -90,7 +90,7 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
     if type(frame_in) is not np.ndarray:
         raise TypeError('Frame type must be an "ndarray"')
     if len(frame_in.shape) is not 2:
-        raise TypeError('Frame must be a 3-D ndarray (T, X, Y)')
+        raise TypeError('Frame must be a 2-D ndarray (Y, X)')
     if frame_in.dtype not in [np.uint16, float]:
         raise TypeError('Frame values must either be "np.uint16" or "float"')
     if type(filter_type) is not str:

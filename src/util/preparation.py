@@ -2,7 +2,15 @@ import os
 from math import floor
 import numpy as np
 from imageio import volread, get_reader
-from skimage.util import img_as_uint
+from skimage.util import img_as_uint, img_as_float
+from skimage.filters import sobel, rank, threshold_otsu, threshold_mean
+from skimage.segmentation import felzenszwalb, slic, quickshift, watershed, random_walker
+from skimage.segmentation import mark_boundaries
+from skimage.exposure import rescale_intensity
+from skimage.morphology import disk
+from skimage import measure
+
+MASK_TYPES = ['Otsu_global', 'Mean', 'Watershed', 'Contour', 'Random_walk', 'best_ever']
 
 
 def open_signal(source, fps=500):
@@ -40,7 +48,7 @@ def open_signal(source, fps=500):
 
     if len(signal_text.shape) > 1:
         # Multiple columns
-        data_x = signal_text[1:, 0]     # rows of the first column (skip X,Y header row)
+        data_x = signal_text[1:, 0]  # rows of the first column (skip X,Y header row)
         data_y_counts = signal_text[1:, 1].astype(np.uint16)  # rows of the first column (skip X,Y header row)
         FRAMES = len(data_x)
         FINAL_T = floor(FPMS * FRAMES)
@@ -103,13 +111,13 @@ def open_stack(source, meta=None):
     return stack, meta
 
 
-def crop(stack_in,  d_x, d_y):
+def crop(stack_in, d_x, d_y):
     """Crop a stack (3-D array, TYX) of optical data.
 
        Parameters
        ----------
        stack_in : ndarray
-            A 3-D array (T, Y, X) of optical data
+            A 3-D array (T, Y, X) of optical data, dtype : uint16 or float
        d_x : int
             Amount of pixels to remove from the input's width.
             < 0 to crop from the left, > 0 to crop from the right
@@ -136,7 +144,7 @@ def crop(stack_in,  d_x, d_y):
 
     stack_out = np.empty_like(stack_in)
 
-    if (d_x > 0) and (d_y > 0): 
+    if (d_x > 0) and (d_y > 0):
         stack_out = stack_in[:, 0:-d_y, 0:-d_x]
     else:
         if d_y > 0:
@@ -147,23 +155,81 @@ def crop(stack_in,  d_x, d_y):
     return stack_out
 
 
-def mask_generate(stack_in, thresh_type='Otsu_global'):
-    """Generate a mask for a stack (3-D array, TYX) of grayscale optical data
+def mask_generate(frame_in, mask_type='Otsu_global'):
+    """Generate a mask for a frame 2-D array (Y, X) of grayscale optical data
     using a binary threshold algorithm (histogram-based or local).
 
        Parameters
        ----------
-       stack_in : ndarray
-            A 3-D array (T, Y, X) of optical data
-       thresh_type : str
-            The type of thresholding algorithm to use
+       frame_in : ndarray
+            A 2-D array (Y, X) of optical data, dtype : uint16 or float
+       mask_type : str
+            The type of masking thresholding algorithm to use, default : Otsu_global
 
        Returns
        -------
+       frame_out : ndarray
+            A 2-D array (Y, X) of masked optical data,  dtype : frame_in.dtype
        mask : ndarray
             A binary 2D array generated from the threshold algorithm
        """
-    pass
+    # Check parameters
+    if type(frame_in) is not np.ndarray:
+        raise TypeError('Frame type must be an "ndarray"')
+    if len(frame_in.shape) is not 2:
+        raise TypeError('Frame must be a 2-D ndarray (Y, X)')
+    if frame_in.dtype not in [np.uint16, float]:
+        raise TypeError('Frame values must either be "np.uint16" or "float"')
+    if type(mask_type) is not str:
+        raise TypeError('Filter type must be a "str"')
+
+    if mask_type not in MASK_TYPES:
+        raise ValueError('Filter type must be one of the following: {}'.format(MASK_TYPES))
+
+    frame_out = frame_in.copy()
+    frame_in_gradient = sobel(frame_in)
+
+    if mask_type is 'Otsu_global':
+        # Good for ___, but ___
+        global_otsu = threshold_otsu(frame_in)
+        binary_global = frame_in <= global_otsu
+        mask = binary_global
+        frame_out[mask] = 0
+    elif mask_type is 'Mean':
+        # Good for ___, but __
+        thresh = threshold_mean(frame_in)
+        binary_global = frame_in <= thresh
+        mask = binary_global
+        frame_out[mask] = 0
+    elif mask_type is 'Watershed':
+        segments_watershed = watershed(frame_in_gradient, markers=25, compactness=0.00001)
+        mask = mark_boundaries(frame_in, segments_watershed)
+        frame_out[segments_watershed] = 0
+    elif mask_type is 'Contour':
+        # Find contours at a constant value of 0.8
+        # contours = measure.find_contours(r, 0.8)
+        # mask = binary_global
+        pass
+    elif mask_type is 'Random_walk':
+        # The range of the binary image spans over (-1, 1).
+        # We choose the hottest and the coldest pixels as markers.
+        frame_in_float = img_as_float(frame_in)
+        frame_in_rescale = rescale_intensity(frame_in_float,
+                                             in_range=(frame_in_float.min(), frame_in_float.max()),
+                                             out_range=(-1, 1))
+        markers = np.zeros(frame_in_rescale.shape)
+        markers_bounds = (-0.90, -0.70)
+        markers[frame_in_rescale < markers_bounds[0]] = 1
+        markers[frame_in_rescale > markers_bounds[1]] = 2
+
+        # Run random walker algorithm
+        mask = random_walker(frame_in_rescale, markers, beta=10, mode='bf')
+        frame_out[mask <= 1] = 0
+        mask = markers
+    else:
+        raise NotImplementedError('Mask type "{}" not implemented'.format(mask_type))
+
+    return frame_out, mask
 
 
 def mask_apply(stack_in, mask):
