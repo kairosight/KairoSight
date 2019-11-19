@@ -7,6 +7,7 @@ from skimage.filters import sobel, rank, threshold_otsu, threshold_mean
 from skimage.segmentation import felzenszwalb, slic, quickshift, watershed, random_walker
 from skimage.segmentation import mark_boundaries
 from skimage.exposure import rescale_intensity
+from skimage.measure import label, regionprops
 from skimage.morphology import disk
 from skimage import measure
 
@@ -163,7 +164,7 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
        ----------
        frame_in : ndarray
             A 2-D array (Y, X) of optical data, dtype : uint16 or float
-       mask_type : str
+       mask_type : str  # TODO add masking via SNR
             The type of masking thresholding algorithm to use, default : Otsu_global
 
        Returns
@@ -187,6 +188,7 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         raise ValueError('Filter type must be one of the following: {}'.format(MASK_TYPES))
 
     frame_out = frame_in.copy()
+    mask = frame_in.copy()
     frame_in_gradient = sobel(frame_in)
 
     if mask_type is 'Otsu_global':
@@ -219,12 +221,23 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
                                              out_range=(-1, 1))
         markers = np.zeros(frame_in_rescale.shape)
         markers_bounds = (-0.90, -0.70)
-        markers[frame_in_rescale < markers_bounds[0]] = 1
+        markers[frame_in_rescale < markers_bounds[0]] = 1   #
         markers[frame_in_rescale > markers_bounds[1]] = 2
 
         # Run random walker algorithm
-        mask = random_walker(frame_in_rescale, markers, beta=10, mode='bf')
-        frame_out[mask <= 1] = 0
+        binary_random_walk = random_walker(frame_in_rescale, markers, beta=10, mode='bf')
+        # Keep the largest region
+        labeled_mask = label(binary_random_walk)
+        largest_mask = np.empty_like(labeled_mask)
+        largest_region_area = 0
+        for idx, region_prop in enumerate(regionprops(labeled_mask)):
+            print('Found a region, area: {} pixels'.format(region_prop.area))
+            # use the second-largest region
+            if region_prop.area > largest_region_area and region_prop.label > 1:
+                largest_region_area = region_prop.area
+                largest_mask[labeled_mask == region_prop.label] = 2
+
+        frame_out[largest_mask < 2] = 0
         mask = markers
     else:
         raise NotImplementedError('Mask type "{}" not implemented'.format(mask_type))

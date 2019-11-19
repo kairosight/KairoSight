@@ -227,7 +227,7 @@ class TestPrepMask(unittest.TestCase):
 
     def test_plot(self):
         # Make sure mask looks are correct
-        mask_type = 'Random_walk'
+        mask_type = 'Otsu_global'
         frame_masked, mask = mask_generate(self.frame1, mask_type)
         frame_mask = mask
 
