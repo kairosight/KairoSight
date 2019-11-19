@@ -1,7 +1,8 @@
 import os
 from math import floor
-from imageio import volread, get_reader
 import numpy as np
+from imageio import volread, get_reader
+from skimage.util import img_as_uint
 
 
 def open_signal(source, fps=500):
@@ -69,7 +70,7 @@ def open_stack(source, meta=None):
        Returns
        -------
        stack : ndarray
-            An array of normalized fluorescence data
+            A 3-D array (T, Y, X) of optical data, 16-bit
        meta : dict
             A dict of metadata
        """
@@ -91,7 +92,8 @@ def open_stack(source, meta=None):
     # Open the file
     # file_source = open(source, 'rb')
     # tags = exifread.process_file(file)  # Read EXIF data
-    stack = np.array(volread(source))  # Read image data, closes the file after reading
+    stack_data = np.array(volread(source))  # Read image data, closes the file after reading
+    stack = img_as_uint(stack_data)  # Read image data, closes the file after reading
     if meta:
         file_meta = open(meta)
         meta = file_meta.read()
@@ -102,7 +104,7 @@ def open_stack(source, meta=None):
 
 
 def crop(stack_in,  d_x, d_y):
-    """Crop a stack (3-D array, TYX) of grayscale optical data.
+    """Crop a stack (3-D array, TYX) of optical data.
 
        Parameters
        ----------
@@ -110,17 +112,39 @@ def crop(stack_in,  d_x, d_y):
             A 3-D array (T, Y, X) of optical data
        d_x : int
             Amount of pixels to remove from the input's width.
-            If < 0, crop from the maximal width
+            < 0 to crop from the left, > 0 to crop from the right
        d_y : int
             Amount of pixels to remove from the input's height.
-            If < 0, crop from the maximal height
+            < 0 to crop from the top, > 0 to crop from the bottom
 
        Returns
        -------
        stack_out : ndarray
-            A cropped 3-D array (T, Y, X) of optical data
+            A cropped 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
        """
-    pass
+    # Check parameters
+    if type(stack_in) is not np.ndarray:
+        raise TypeError('Stack type must be an "ndarray"')
+    if len(stack_in.shape) is not 3:
+        raise TypeError('Stack must be a 3-D ndarray (T, X, Y)')
+    if stack_in.dtype not in [np.uint16, float]:
+        raise TypeError('Stack values must either be "np.uint16" or "float"')
+    if type(d_x) is not int:
+        raise TypeError('X pixels to crop must be an "int"')
+    if type(d_y) is not int:
+        raise TypeError('Y pixels to crop must be an "int"')
+
+    stack_out = np.empty_like(stack_in)
+
+    if (d_x > 0) and (d_y > 0): 
+        stack_out = stack_in[:, 0:-d_y, 0:-d_x]
+    else:
+        if d_y > 0:
+            stack_out = stack_in[:, 0:-d_y:, -d_x:]
+        if d_x > 0:
+            stack_out = stack_in[:, -d_y:, 0:-d_x]
+
+    return stack_out
 
 
 def mask_generate(stack_in, thresh_type='Otsu_global'):

@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
+import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
@@ -101,11 +102,89 @@ class TestPrepOpen(unittest.TestCase):
     def test_results(self):
         # Make sure files are opened and read correctly
         # stack : ndarray
-        self.assertIsInstance(self.stack1, np.ndarray)  # TODO is it really?! not an Array?!
+        self.assertIsInstance(self.stack1, np.ndarray)
         # meta : dict
         self.assertIsInstance(self.meta1, dict)
         self.assertIsInstance(self.meta_default, dict)
         self.assertIsInstance(self.meta2, str)
+
+
+class TestPrepCrop(unittest.TestCase):
+    def setUp(self):
+        # File paths and files needed for tests
+        self.file_single1 = dir_tests + '/data/about1.tif'
+        self.file_single1_wrong = dir_tests + '/data/about1'
+        self.file_single2 = dir_tests + '/data/02-250_Vm.tif'
+        self.file_single2_wrong = dir_tests + '/data/02-250_Vm'
+        self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        self.file_meta_wrong = dir_tests + '/data/02-250.pcoraw.txt'
+        print("sys.maxsize : " + str(sys.maxsize) +
+              ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+
+        self.stack1, self.meta1 = open_stack(source=self.file_single2)
+        self.stack_in_shape = self.stack1.shape
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        # stack_in : ndarray, 3-D array
+        stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
+        stack_bad_type = np.full(self.stack_in_shape, True)
+        self.assertRaises(TypeError, crop, stack_in=True, d_x=10, d_y=10)
+        self.assertRaises(TypeError, crop, stack_in=stack_bad_shape, d_x=10, d_y=10)
+        self.assertRaises(TypeError, crop, stack_in=stack_bad_type, d_x=10, d_y=10)
+        # d_x : int
+        self.assertRaises(TypeError, crop, stack_in=self.stack1, d_x=5.1, d_y=10)
+        # d_y : int
+        self.assertRaises(TypeError, crop, stack_in=self.stack1, d_x=10, d_y=5.1)
+
+    def test_results(self):
+        # Make sure files are cropped correctly
+        d_x, d_y = 10, 10
+        stack_out = crop(self.stack1, d_x=d_x, d_y=d_y)
+        # stack_out : ndarray
+        self.assertIsInstance(stack_out, np.ndarray)  # A cropped 3-D array (T, Y, X)
+        self.assertEqual(len(stack_out.shape), len(self.stack_in_shape))
+        self.assertIsInstance(stack_out[0, 0], type(self.stack1[0, 0]))
+
+        # Make sure result values are valid
+        self.assertEqual((self.stack1.shape[0], self.stack1.shape[1] - d_y, self.stack1.shape[2] - d_x),
+                         stack_out.shape)
+
+    def test_plot(self):
+        # Make sure files are cropped correctly
+        d_x, d_y = -50, 50
+        stack_crop = crop(self.stack1, d_x=d_x, d_y=d_y)
+
+        fig_crop = plt.figure(figsize=(8, 5))  # _ x _ inch page
+        axis_in = fig_crop.add_subplot(121)
+        axis_crop = fig_crop.add_subplot(122)
+        # Common between the two
+        for ax in [axis_in, axis_crop]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        fig_crop.suptitle('Cropping (d_x: {}, d_y: {})'.format(d_x, d_y))
+        axis_in.set_title('Input stack')
+        axis_crop.set_title('Cropped stack')
+
+        # Frames from stacks
+        frame_in = self.stack1[0, :, :]
+        frame_crop = stack_crop[0, :, :]
+        cmap_frame = SCMaps.grayC.reversed()
+        img_in = axis_in.imshow(self.stack1[0, :, :], cmap=cmap_frame)
+        img_crop = axis_crop.imshow(stack_crop[0, :, :], cmap=cmap_frame)
+
+        axis_in.set_ylabel('{} px'.format(frame_in.shape[1]), fontsize=fontsize3)
+        axis_in.set_xlabel('{} px'.format(frame_in.shape[0]), fontsize=fontsize3)
+        axis_crop.set_ylabel('{} px'.format(frame_crop.shape[1]), fontsize=fontsize3)
+        axis_crop.set_xlabel('{} px'.format(frame_crop.shape[1]), fontsize=fontsize3)
+
+        fig_crop.show()
 
 
 if __name__ == '__main__':
