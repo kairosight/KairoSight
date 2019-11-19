@@ -465,8 +465,13 @@ def calculate_snr(signal_in, noise_count=10):
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 1:
-        raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
-    i_peak_calc = i_peaks[0].astype(int)
+        i_peak_calc = i_peaks[0].astype(int)
+        # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
+        ir_peak = i_peaks
+        print('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
+    else:
+        i_peak_calc = i_peaks[0].astype(int)
+        ir_peak = i_peak_calc
     data_peak = signal_in[i_peak_calc].astype(int)
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
 
@@ -479,7 +484,6 @@ def calculate_snr(signal_in, noise_count=10):
     rms_bounds = (noise_rms, peak_rms)
     sd_noise = noise_sd
     ir_noise = i_noise_calc
-    ir_peak = i_peak_calc
     return snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak
 
 

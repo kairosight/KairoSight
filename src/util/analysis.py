@@ -1,6 +1,8 @@
+from util.processing import *
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.misc import derivative
+
 
 
 def find_tran_start(signal_in):
@@ -299,3 +301,84 @@ def calc_phase(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
+
+
+def calc_ensemble(time_in, signal_in):
+    """Convert a signal from multiple transients to an averaged signal,
+    i.e.
+
+        Parameters
+        ----------
+        time_in : ndarray
+            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
+        signal_in : ndarray
+            The array of fluorescent data to be converted
+
+        Returns
+        -------
+        signal_time : ndarray
+            An array of timestamps (ms) corresponding to signal_out
+        signal_out : ndarray
+            The array of an ensembled transient signal, dtype : float
+        signals : list
+            The list of signal arrays used to create the ensemble
+        i_peaks : ndarray
+            The idecies of peaks from signal_in used
+        est_cycle : float
+            Estimated cycle length of ensemble, in samples
+        """
+    # Check parameters
+    if type(time_in) is not np.ndarray:
+        raise TypeError('Time data type must be an "ndarray"')
+    if time_in.dtype not in [int, float]:
+        raise TypeError('Time values must either be "int" or "float"')
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
+
+    # Calculate the number of transients in the signal
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+
+    # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
+    noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
+    i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
+    if len(i_noise_peaks) == 0:
+        i_noise_peaks = [len(signal_in)-1]
+
+    # Find indices of peak values, between peaks_window tall and with a prominence of half the signal range
+    peaks_window = (noise_height, signal_bounds[1] + signal_range/2)
+    i_peaks, _ = find_peaks(signal_in, height=peaks_window,
+                            prominence=signal_range/2)
+    if len(i_peaks) == 0:
+        raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+    if len(i_peaks) > 1:
+        # i_peak_calc = i_peaks[0].astype(int)
+        # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
+        # ir_peak = i_peaks
+        print('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
+
+    if len(i_peaks) > 1:
+        # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
+        print('{} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+    else:
+        raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+
+    i_peaks_df = np.diff(i_peaks, n=1).astype(float)
+    est_cycle = np.nanmean(i_peaks_df)
+    est_cycle_int = np.floor(est_cycle).astype(int)
+    cycle_shift = 10
+
+    signal_time = time_in[0: est_cycle_int]
+    signals_trans = []
+
+    for peak_num, peak in enumerate(i_peaks):
+        signals_trans.append(signal_in[i_peaks[peak_num] - cycle_shift:
+                                       i_peaks[peak_num] + est_cycle_int - cycle_shift])
+
+    signal_out = np.nanmean(signals_trans, axis=0)
+    signals = signals_trans
+
+    return signal_time, signal_out, signals, i_peaks, est_cycle
