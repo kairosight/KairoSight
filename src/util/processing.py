@@ -495,7 +495,7 @@ def map_snr(stack_in, noise_count=10):
         Parameters
         ----------
         stack_in : ndarray
-            A 3-D array (T, Y, X) of optical data
+            A 3-D array (T, Y, X) of optical data, dtype : uint16 or float
         noise_count : int
              The number of noise values to be used in the calculation, default is 10
 
@@ -508,7 +508,7 @@ def map_snr(stack_in, noise_count=10):
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
     if len(stack_in.shape) is not 3:
-        raise TypeError('Stack must be a 3-D ndarray (T, X, Y)')
+        raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
 

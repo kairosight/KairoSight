@@ -4,7 +4,6 @@ import sys
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
-import matplotlib.ticker as plticker
 from skimage.filters import try_all_threshold
 import util.ScientificColourMaps5 as SCMaps
 
@@ -26,7 +25,7 @@ def plot_test():
     return fig, axis
 
 
-class TestPrepOpenSignal(unittest.TestCase):
+class TestOpenSignal(unittest.TestCase):
     # File paths and files needed for tests
     file_name = '2019/04/04 rata-12-Ca, PCL 150ms'
     file_signal = dir_tests + '/data/20190404-rata-12-150_right_signal1.csv'
@@ -76,7 +75,7 @@ class TestPrepOpenSignal(unittest.TestCase):
         fig_single.show()
 
 
-class TestPrepOpen(unittest.TestCase):
+class TestOpenStack(unittest.TestCase):
     def setUp(self):
         # File paths and files needed for tests
         self.file_single1 = dir_tests + '/data/about1.tif'
@@ -110,7 +109,7 @@ class TestPrepOpen(unittest.TestCase):
         self.assertIsInstance(self.meta2, str)
 
 
-class TestPrepCrop(unittest.TestCase):
+class TestCropStack(unittest.TestCase):
     def setUp(self):
         # File paths and files needed for tests
         self.file_single1 = dir_tests + '/data/about1.tif'
@@ -123,29 +122,28 @@ class TestPrepCrop(unittest.TestCase):
               ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
 
         self.stack1, self.meta1 = open_stack(source=self.file_single2)
-        self.stack_in_shape = self.stack1.shape
 
     def test_params(self):
         # Make sure type errors are raised when necessary
-        # stack_in : ndarray, 3-D array
+        # stack_in : ndarray, 3-D array, dtype : uint16 or float
         stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
-        stack_bad_type = np.full(self.stack_in_shape, True)
-        self.assertRaises(TypeError, crop, stack_in=True, d_x=10, d_y=10)
-        self.assertRaises(TypeError, crop, stack_in=stack_bad_shape, d_x=10, d_y=10)
-        self.assertRaises(TypeError, crop, stack_in=stack_bad_type, d_x=10, d_y=10)
+        stack_bad_type = np.full(self.stack1.shape, True)
+        self.assertRaises(TypeError, crop_stack, stack_in=True, d_x=10, d_y=10)
+        self.assertRaises(TypeError, crop_stack, stack_in=stack_bad_shape, d_x=10, d_y=10)
+        self.assertRaises(TypeError, crop_stack, stack_in=stack_bad_type, d_x=10, d_y=10)
         # d_x : int
-        self.assertRaises(TypeError, crop, stack_in=self.stack1, d_x=5.1, d_y=10)
+        self.assertRaises(TypeError, crop_stack, stack_in=self.stack1, d_x=5.1, d_y=10)
         # d_y : int
-        self.assertRaises(TypeError, crop, stack_in=self.stack1, d_x=10, d_y=5.1)
+        self.assertRaises(TypeError, crop_stack, stack_in=self.stack1, d_x=10, d_y=5.1)
 
     def test_results(self):
         # Make sure files are cropped correctly
         d_x, d_y = 10, 10
-        stack_out = crop(self.stack1, d_x=d_x, d_y=d_y)
-        # stack_out : ndarray
+        stack_out = crop_stack(self.stack1, d_x=d_x, d_y=d_y)
+        # stack_out : ndarray, dtype : stack_in.dtype
         self.assertIsInstance(stack_out, np.ndarray)  # A cropped 3-D array (T, Y, X)
-        self.assertEqual(len(stack_out.shape), len(self.stack_in_shape))
-        self.assertIsInstance(stack_out[0, 0], type(self.stack1[0, 0]))
+        self.assertEqual(len(stack_out.shape), len(self.stack1.shape))
+        self.assertIsInstance(stack_out[0, 0, 0], type(self.stack1[0, 0, 0]))
 
         # Make sure result values are valid
         self.assertEqual((self.stack1.shape[0], self.stack1.shape[1] - d_y, self.stack1.shape[2] - d_x),
@@ -154,7 +152,7 @@ class TestPrepCrop(unittest.TestCase):
     def test_plot(self):
         # Make sure files are cropped correctly
         d_x, d_y = -50, 50
-        stack_crop = crop(self.stack1, d_x=d_x, d_y=d_y)
+        stack_crop = crop_stack(self.stack1, d_x=d_x, d_y=d_y)
 
         fig_crop = plt.figure(figsize=(8, 5))  # _ x _ inch page
         axis_in = fig_crop.add_subplot(121)
@@ -188,7 +186,7 @@ class TestPrepCrop(unittest.TestCase):
         fig_crop.show()
 
 
-class TestPrepMask(unittest.TestCase):
+class TestMaskGenerate(unittest.TestCase):
     def setUp(self):
         # File paths and files needed for tests
         self.file_single = dir_tests + '/data/02-250_Vm.tif'
@@ -201,7 +199,6 @@ class TestPrepMask(unittest.TestCase):
 
     def test_params(self):
         # Make sure type errors are raised when necessary
-        # mask_generate
         # frame_in : ndarray, 2-D array (Y, X)
         frame_bad_shape = np.full(100, 100, dtype=np.uint16)
         frame_bad_type = np.full(self.frame1.shape, True)
@@ -217,18 +214,17 @@ class TestPrepMask(unittest.TestCase):
 
     def test_results(self):
         # Make sure results are correct
-        frame_out, mask = mask_generate(self.frame1)
-        # mask : ndarray
-        self.assertIsInstance(mask, np.ndarray)  # mask type
-        # mask : ndarray
-        self.assertIsInstance(mask, np.ndarray)  # mask type
-        self.assertEqual(mask.shape, self.frame1.shape)  # mask shape
+        for mask_type in MASK_TYPES[:-1]:
+            frame_out, mask = mask_generate(self.frame1, mask_type)
+            # mask : ndarray, dtype : np.bool_
+            self.assertIsInstance(mask, np.ndarray)  # mask type
+            self.assertEqual(mask.shape, self.frame1.shape)  # mask shape
+            self.assertIsInstance(mask[0, 0], np.bool_)  # mask dtype
 
     def test_plot(self):
         # Make sure mask looks correct
         mask_type = 'Random_walk'
-        frame_masked, mask = mask_generate(self.frame1, mask_type)
-        frame_mask = mask
+        frame_masked, frame_mask = mask_generate(self.frame1, mask_type)
 
         fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
         axis_in = fig_mask.add_subplot(131)
@@ -257,10 +253,54 @@ class TestPrepMask(unittest.TestCase):
         fig_mask.savefig(dir_tests + '/results/prep_Mask.png')
         fig_mask.show()
 
-    def test_plot_try_all_threshold(self):
-        fig, ax = try_all_threshold(self.frame1, figsize=(10, 8), verbose=False)
-        fig.savefig(dir_tests + '/results/prep_Mask_AllThreshold.png')
-        fig.show()
+
+class TestMaskApply(unittest.TestCase):
+    def setUp(self):
+        # File paths and files needed for tests
+        self.file_single = dir_tests + '/data/02-250_Vm.tif'
+        self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        print("sys.maxsize : " + str(sys.maxsize) +
+              ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+
+        self.stack1, self.meta1 = open_stack(source=self.file_single)
+        self.frame1 = self.stack1[10, :, :]
+        self.mask_type = 'Random_walk'
+        self.frame_masked, self.frame_mask = mask_generate(self.frame1, self.mask_type)
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        # stack_in : ndarray, 3-D array, dtype : uint16 or float
+        stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
+        stack_bad_type = np.full(self.stack1.shape, True)
+        self.assertRaises(TypeError, mask_apply, stack_in=True)
+        self.assertRaises(TypeError, mask_apply, stack_in=stack_bad_shape)
+        self.assertRaises(TypeError, mask_apply, stack_in=stack_bad_type)
+        # mask : ndarray, 2-D array, dtype : np.bool_
+        mask_bad_type = np.full((100, 100), 'True')
+        mask_bad_shape = np.full(100, 100, dtype=np.bool_)
+        self.assertRaises(TypeError, mask_apply, stack_in=self.stack1, mask=True)
+        self.assertRaises(TypeError, mask_apply, stack_in=self.stack1, mask=mask_bad_type)
+        self.assertRaises(TypeError, mask_apply, stack_in=self.stack1, mask=mask_bad_shape)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # mask : must be the same size as stack_in
+        mask_wrong_shape = np.full((100, 100), False)
+        self.assertRaises(ValueError, mask_apply, stack_in=self.stack1, mask=mask_wrong_shape)
+
+    def test_results(self):
+        # Make sure results are correct
+        stack_out = mask_apply(self.stack1, self.frame_mask)
+        # stack_out : ndarray, dtype : stack_in.dtype
+        self.assertIsInstance(stack_out, np.ndarray)  # A cropped 3-D array (T, Y, X)
+        self.assertEqual(len(stack_out.shape), len(self.stack1.shape))
+        self.assertIsInstance(stack_out[0, 0, 0], type(self.stack1[0, 0, 0]))
+
+        # pixels intended to be masked are masked to be 0
+        for frame in self.stack1[:, 1, 1]:  # top-left corner of every pixel
+            old_pixel = self.stack1[frame, 1, 1]
+            new_pixel = stack_out[frame, 1, 1]
+            self.assertEqual(new_pixel, 0)
+            self.assertNotAlmostEqual(new_pixel, old_pixel, delta=old_pixel)
 
 
 if __name__ == '__main__':

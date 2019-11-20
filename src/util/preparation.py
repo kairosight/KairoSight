@@ -11,7 +11,7 @@ from skimage.measure import label, regionprops
 from skimage.morphology import disk
 from skimage import measure
 
-MASK_TYPES = ['Otsu_global', 'Mean', 'Watershed', 'Contour', 'Random_walk', 'best_ever']
+MASK_TYPES = ['Otsu_global', 'Mean', 'Random_walk', 'best_ever']
 
 
 def open_signal(source, fps=500):
@@ -112,7 +112,7 @@ def open_stack(source, meta=None):
     return stack, meta
 
 
-def crop(stack_in, d_x, d_y):
+def crop_stack(stack_in, d_x, d_y):
     """Crop a stack (3-D array, TYX) of optical data.
 
        Parameters
@@ -135,7 +135,7 @@ def crop(stack_in, d_x, d_y):
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
     if len(stack_in.shape) is not 3:
-        raise TypeError('Stack must be a 3-D ndarray (T, X, Y)')
+        raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
     if type(d_x) is not int:
@@ -172,7 +172,7 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
        frame_out : ndarray
             A 2-D array (Y, X) of masked optical data,  dtype : frame_in.dtype
        mask : ndarray
-            A binary 2D array generated from the threshold algorithm
+            A binary 2-D array generated from the threshold algorithm, dtype : np.bool_
        """
     # Check parameters
     if type(frame_in) is not np.ndarray:
@@ -219,19 +219,21 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
 
         # Run random walker algorithm
         binary_random_walk = random_walker(frame_in_rescale, markers, beta=10, mode='bf')
-        # Keep the largest region
+        # Keep the largest region, as a np.uint16
         labeled_mask = label(binary_random_walk)
-        largest_mask = np.empty_like(labeled_mask)
+        largest_mask = np.empty_like(labeled_mask, dtype=np.bool_)
         largest_region_area = 0
         for idx, region_prop in enumerate(regionprops(labeled_mask)):
             print('Found a region, area: {} pixels'.format(region_prop.area))
             # use the second-largest region
             if region_prop.area > largest_region_area and region_prop.label > 1:
                 largest_region_area = region_prop.area
-                largest_mask[labeled_mask == region_prop.label] = 2
+                largest_mask[labeled_mask == region_prop.label] = False
+                largest_mask[labeled_mask != region_prop.label] = True
 
-        frame_out[largest_mask < 2] = 0
-        mask = markers
+        frame_out[largest_mask] = 0
+        # mask = markers
+        mask = largest_mask
     else:
         raise NotImplementedError('Mask type "{}" not implemented'.format(mask_type))
 
@@ -244,13 +246,37 @@ def mask_apply(stack_in, mask):
        Parameters
        ----------
        stack_in : ndarray
-            A 3-D array (T, Y, X) of optical data
+            A 3-D array (T, Y, X) of optical data, dtype : uint16 or float
        mask : ndarray
-            A binary 2D array
+            A binary 2-D array (Y, X) to mask optical data, dtype : np.bool_
 
        Returns
        -------
        stack_out : ndarray
-            A masked 3-D array (T, Y, X) of optical data
+            A masked 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
        """
-    pass
+    # Check parameters
+    if type(stack_in) is not np.ndarray:
+        raise TypeError('Stack type must be an "ndarray"')
+    if len(stack_in.shape) is not 3:
+        raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
+    if stack_in.dtype not in [np.uint16, float]:
+        raise TypeError('Stack values must either be "np.uint16" or "float"')
+
+    if type(mask) is not np.ndarray:
+        raise TypeError('Mask type must be an "ndarray"')
+    if mask.dtype not in [np.int64, bool]:
+        raise TypeError('Stack values must either be "np.bool_"')
+    if len(mask.shape) is not 2:
+        raise TypeError('Mask must be a 2-D ndarray (Y, X)')
+
+    frame_0 = stack_in[0]
+
+    # if (mask.shape[0] is not frame_0.shape[0]) or (mask.shape[1] is not frame_0.shape[1]):
+    if mask.shape != frame_0.shape:
+        raise ValueError('Mask shape must be the same as the stack frames:'
+                         '\nMask:\t{}\nFrame:\t{}'.format(mask.shape, frame_0.shape))
+
+    stack_out = np.empty_like(stack_in)
+
+    return stack_out
