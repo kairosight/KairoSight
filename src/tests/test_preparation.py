@@ -201,6 +201,7 @@ class TestPrepMask(unittest.TestCase):
 
     def test_params(self):
         # Make sure type errors are raised when necessary
+        # mask_generate
         # frame_in : ndarray, 2-D array (Y, X)
         frame_bad_shape = np.full(100, 100, dtype=np.uint16)
         frame_bad_type = np.full(self.frame1.shape, True)
@@ -212,7 +213,7 @@ class TestPrepMask(unittest.TestCase):
         # Make sure parameters are valid, and valid errors are raised when necessary
         # mask_type : must be in MASK_TYPES
         self.assertRaises(ValueError, mask_generate, frame_in=self.frame1, mask_type='gross')
-        self.assertRaises(NotImplementedError, mask_generate, frame_in=self.frame1, mask_type='Contour')
+        self.assertRaises(NotImplementedError, mask_generate, frame_in=self.frame1, mask_type='best_ever')
 
     def test_results(self):
         # Make sure results are correct
@@ -223,11 +224,9 @@ class TestPrepMask(unittest.TestCase):
         self.assertIsInstance(mask, np.ndarray)  # mask type
         self.assertEqual(mask.shape, self.frame1.shape)  # mask shape
 
-        self.assertIsInstance(mask[0, 0], bool)  # mask value typ
-
     def test_plot(self):
-        # Make sure mask looks are correct
-        mask_type = 'Otsu_global'
+        # Make sure mask looks correct
+        mask_type = 'Random_walk'
         frame_masked, mask = mask_generate(self.frame1, mask_type)
         frame_mask = mask
 
@@ -255,11 +254,12 @@ class TestPrepMask(unittest.TestCase):
         img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
+        fig_mask.savefig(dir_tests + '/results/prep_Mask.png')
         fig_mask.show()
 
     def test_plot_try_all_threshold(self):
         fig, ax = try_all_threshold(self.frame1, figsize=(10, 8), verbose=False)
-        fig.savefig(dir_tests + '/results/prep_MaskThresholdAll.png')
+        fig.savefig(dir_tests + '/results/prep_Mask_AllThreshold.png')
         fig.show()
 
 

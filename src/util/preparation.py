@@ -158,7 +158,7 @@ def crop(stack_in, d_x, d_y):
 
 def mask_generate(frame_in, mask_type='Otsu_global'):
     """Generate a mask for a frame 2-D array (Y, X) of grayscale optical data
-    using a binary threshold algorithm (histogram-based or local).
+    using binary threshold (histogram-based or local) or segmentation algorithms.
 
        Parameters
        ----------
@@ -197,21 +197,14 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         binary_global = frame_in <= global_otsu
         mask = binary_global
         frame_out[mask] = 0
+
     elif mask_type is 'Mean':
         # Good for ___, but __
         thresh = threshold_mean(frame_in)
         binary_global = frame_in <= thresh
         mask = binary_global
         frame_out[mask] = 0
-    elif mask_type is 'Watershed':
-        segments_watershed = watershed(frame_in_gradient, markers=25, compactness=0.00001)
-        mask = mark_boundaries(frame_in, segments_watershed)
-        frame_out[segments_watershed] = 0
-    elif mask_type is 'Contour':
-        # Find contours at a constant value of 0.8
-        # contours = measure.find_contours(r, 0.8)
-        # mask = binary_global
-        pass
+
     elif mask_type is 'Random_walk':
         # The range of the binary image spans over (-1, 1).
         # We choose the hottest and the coldest pixels as markers.

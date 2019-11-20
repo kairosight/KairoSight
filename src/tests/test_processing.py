@@ -179,7 +179,7 @@ class TestFilterSpatial(unittest.TestCase):
         # Make sure parameters are valid, and valid errors are raised when necessary
         # filter_type : must be in FILTERS_SPATIAL and implemented
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='gross')
-        self.assertRaises(NotImplementedError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='tv')
+        self.assertRaises(NotImplementedError, filter_spatial, frame_in=self.frame_noisy_ca, filter_type='best_ever')
         # kernel : >= 3, odd
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=2)
         self.assertRaises(ValueError, filter_spatial, frame_in=self.frame_noisy_ca, kernel=8)
@@ -295,7 +295,7 @@ class TestFilterSpatial(unittest.TestCase):
             ax_signal.plot(self.time_noisy_ca, signal, color=gray_heavy, linestyle='None', marker='+')
 
         fig_filter_traces.show()
-        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilterTraces_ca.png')
+        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilter_Trace.png')
 
     def test_plot_trace_real(self):
         # Make sure filtered stack signals looks correct
@@ -376,13 +376,13 @@ class TestFilterSpatial(unittest.TestCase):
                 ax.spines['bottom'].set_visible(False)
             ax_signal.plot(signal_time, signal, color=gray_heavy, linestyle='None', marker='+')
 
-        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilter_Real.png')
+        fig_filter_traces.savefig(dir_tests + '/results/processing_SpatialFilter_TraceReal.png')
         fig_filter_traces.show()
 
     def test_plot_all(self):
         # Plot all filters to compare
         # Setup a figure to show a noisy frame, a spatially filtered frames, and an ideal frame
-        fig_filters = plt.figure(figsize=(8, 12))  # _ x _ inch page
+        fig_filters = plt.figure(figsize=(10, 12))  # _ x _ inch page
         # General layout
         gs0 = fig_filters.add_gridspec(2, 1)  # 2 rows, 1 column
         gs_frames = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
@@ -401,12 +401,16 @@ class TestFilterSpatial(unittest.TestCase):
         img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
 
         # Filtered frames
-        gs_filters = gs0[0].subgridspec(1, len(FILTERS_SPATIAL))  # 1 row, X columns
+        gs_filters = gs0[0].subgridspec(1, len(FILTERS_SPATIAL)-1)  # 1 row, X columns
         # Common between the two
-        for idx, filter_type in enumerate(FILTERS_SPATIAL):
+        for idx, filter_type in enumerate(FILTERS_SPATIAL[:-1]):
             filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=filter_type)
+            # Estimate the average noise standard deviation across color channels.
+            sigma_est = estimate_sigma(filtered_ca)
+
             ax = fig_filters.add_subplot(gs_filters[idx])
-            ax.set_title('{}, kernel: {}'.format(filter_type, self.kernel))
+            ax.set_title('{}\nkernel: {}\nest. noise SD:{}'
+                         .format(filter_type, self.kernel, round(sigma_est, 3)))
             img_filter = ax.imshow(filtered_ca, cmap=cmap_frames, norm=cmap_norm)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
@@ -416,6 +420,11 @@ class TestFilterSpatial(unittest.TestCase):
             ax.set_yticklabels([])
             ax.set_xticks([])
             ax.set_xticklabels([])
+
+            # Due to clipping in random_noise, the estimate will be a bit smaller than the
+            # specified sigma.
+            # print('#{} {} - Estimated Gaussian noise standard deviation = {}'
+            #       .format(idx, filter_type, sigma_est))
 
         # Ideal frame
         ax_ideal = fig_filters.add_subplot(gs_frames[1])
@@ -440,7 +449,7 @@ class TestFilterSpatial(unittest.TestCase):
             ax.set_xticks([])
             ax.set_xticklabels([])
         fig_filters.show()
-        fig_filters.savefig(dir_tests + '/results/processing_SpatialFilters_ca.png')
+        fig_filters.savefig(dir_tests + '/results/processing_SpatialFilters_All.png')
 
 
 class TestFilterTemporal(unittest.TestCase):

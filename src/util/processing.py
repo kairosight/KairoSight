@@ -5,9 +5,10 @@ from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firw
     lfilter, butter, freqs, freqz, minimum_phase
 from scipy.optimize import curve_fit
 from skimage.morphology import square
-from skimage.filters.rank import median, mean, mean_bilateral
+from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
-FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'tv']
+from skimage.filters.rank import median, mean, mean_bilateral
+FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
@@ -69,7 +70,7 @@ def isolate_transient(signal_in, i_start, i_end):
     pass
 
 
-def filter_spatial(frame_in, filter_type='median', kernel=3):
+def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
     """Spatially filter a frame (2-D array, YX) of grayscale optical data.
 
         Parameters
@@ -77,7 +78,7 @@ def filter_spatial(frame_in, filter_type='median', kernel=3):
         frame_in : ndarray
              A 2-D array (Y, X) of optical data, dtype : uint16 or float
         filter_type : str
-            The type of filter algorithm to use: convolve (default), gaussian, bilateral
+            The type of filter algorithm to use, default is gaussian
         kernel : int
             The width and height of the kernel used, must be positive and odd, default is 3
 
