@@ -13,7 +13,7 @@ RESOLUTION = 0.01       # 1 cm / 100 px
 seed(1)
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100, noise=0,
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100, noise=0,
                      num=1, cl=100, apd=None, cad=None):
     """Create a 2-D array of model 16-bit optical data of either
     murine action potentials (OAP) or a murine calcium transients (OCT).
@@ -29,7 +29,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=100, f_amp=100,
        fps : int
             Frame rate (frames per second) of optical data acquisition, default is 1000, min is 200
        f_0 : int
-            Baseline fluorescence value in counts, default is 100
+            Baseline fluorescence value in counts, default is 150
        f_amp : int
             Amplitude of the transient in counts, default is 100.
             Can be negative, e.g. cell depolarization with fast voltage dyes
