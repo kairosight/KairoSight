@@ -318,7 +318,7 @@ def invert_signal(signal_in):
         axis = np.floor(axis).astype(int)
 
     # rotate the data around it's central value
-    signal_out = axis + (axis - signal_in)
+    signal_out = (axis + (axis - signal_in)).astype(signal_in.dtype)
 
     return signal_out
 
