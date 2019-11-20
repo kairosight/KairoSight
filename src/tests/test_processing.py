@@ -820,6 +820,7 @@ class TestInvert(unittest.TestCase):
 
         # signal_out : ndarray
         self.assertIsInstance(signal_out, np.ndarray)  # inverted signal
+        self.assertEqual(signal_out.dtype, self.signal_vm.dtype)  # inverted signal
 
         # Make sure result values are valid
         self.assertAlmostEqual(signal_out.min(), self.signal_F0 - self.signal_amp, delta=self.noise * 4)  #

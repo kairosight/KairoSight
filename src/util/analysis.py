@@ -2,7 +2,7 @@ from util.processing import *
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.misc import derivative
-
+from scipy.interpolate import UnivariateSpline
 
 
 def find_tran_start(signal_in):
@@ -12,11 +12,11 @@ def find_tran_start(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
-        i_start : int
+        i_start : np.int64
             The index of the signal array corresponding to the start of the transient
         """
     # Check parameters
@@ -27,6 +27,17 @@ def find_tran_start(signal_in):
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
+
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
+    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
+    spl = UnivariateSpline(time_x, signal_in)
+    signal_spline_df = spl(time_x, nu=1)
+    signal_spline_d2f = spl(time_x, nu=2)
+
+    i_start = np.argmax(signal_spline_d2f)
+
+    return i_start
 
 
 def find_tran_act(signal_in):
@@ -36,12 +47,12 @@ def find_tran_act(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
-        i_start : int
-            The index of the signal array corresponding to the start of the transient
+        i_activation : np.int64
+            The index of the signal array corresponding to the activation of the transient
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -52,7 +63,16 @@ def find_tran_act(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-    pass
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
+    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
+    spl = UnivariateSpline(time_x, signal_in)
+    signal_spline_df = spl(time_x, nu=1)
+    signal_spline_d2f = spl(time_x, nu=2)
+
+    i_activation = np.argmax(signal_spline_df)  # 1st df max, Activation
+
+    return i_activation
 
 
 def find_tran_peak(signal_in):
@@ -62,11 +82,11 @@ def find_tran_peak(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
-        i_peak : int
+        i_peak : np.int64
             The index of the signal array corresponding to the peak of the transient
         """
     # Check parameters
@@ -87,7 +107,7 @@ def find_tran_peak(signal_in):
     if len(i_peaks) > 1:
         raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
 
-    i_peak = i_peaks[0].astype(int)
+    i_peak = i_peaks[0]
 
     return i_peak
 
@@ -99,11 +119,11 @@ def find_tran_downstroke(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
-        i_downstroke : int
+        i_downstroke : np.int64
             The index of the signal array corresponding to the downstroke of the transient
         """
     # Check parameters
@@ -112,10 +132,16 @@ def find_tran_downstroke(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
+    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
+    spl = UnivariateSpline(time_x, signal_in)
+    signal_spline_df = spl(time_x, nu=1)
+    signal_spline_d2f = spl(time_x, nu=2)
 
-    pass
+    i_downstroke = np.argmin(signal_spline_df)  # df min, Downstroke
+
+    return i_downstroke
 
 
 def find_tran_end(signal_in):
@@ -125,11 +151,11 @@ def find_tran_end(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
-        i_end : int
+        i_end : np.int64
             The index of signal array corresponding to the end of the transient
         """
     # Check parameters
@@ -138,8 +164,17 @@ def find_tran_end(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
+    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
+    spl = UnivariateSpline(time_x, signal_in)
+    signal_spline_df = spl(time_x, nu=1)
+    signal_spline_d2f = spl(time_x, nu=2)
+
+    i_max1 = np.argmax(signal_spline_d2f)
+    i_end = np.argmax(signal_spline_d2f[i_max1 + 1:])  # 2st df2 max, End
+
+    return i_end
 
 
 def calc_tran_activation(signal_in):
@@ -149,11 +184,11 @@ def calc_tran_activation(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
-        i_activation : int
+        i_activation : np.int64
             The index of the signal array corresponding to the activation of the transient
         """
 
@@ -177,13 +212,13 @@ def calc_tran_duration(signal_in, percent=50):
         Parameters
         ----------
         signal_in : ndarray
-              The array of data to be evaluated
+              The array of data to be evaluated, dtype : uint16 or float
         percent : int
               Percentage of the value from start to peak to use as the
 
         Returns
         -------
-        duration : int
+        duration : np.int64
             The % duration of the transient in number of indices
         """
     # Check parameters
@@ -196,7 +231,7 @@ def calc_tran_duration(signal_in, percent=50):
 
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
-    if any(x < 0 or x >= 100 for x in percent):
+    if any(x < 0 or x >= 100 for x in signal_in):
         raise ValueError('All signal values must be between 0-99%')
 
 
@@ -207,7 +242,7 @@ def calc_tran_tau(signal_in):
         Parameters
         ----------
          signal_in : ndarray
-              The array of data to be evaluated
+              The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
@@ -231,7 +266,7 @@ def calc_tran_di(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of data to be evaluated
+            The array of data to be evaluated, dtype : uint16 or float
 
         Returns
         -------
@@ -259,7 +294,7 @@ def map_tran_tau(stack_in):
         Parameters
         ----------
         stack_in : ndarray
-            A 3-D array (T, Y, X) of an optical transient
+            A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
 
         Returns
         -------
@@ -275,7 +310,7 @@ def map_tran_dfreq(stack_in):
         Parameters
         ----------
         stack_in : ndarray
-            A 3-D array (T, Y, X) of an optical transient
+            A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
 
         Returns
         -------
@@ -291,7 +326,7 @@ def calc_phase(signal_in):
         Parameters
         ----------
         signal_in : ndarray
-            The array of fluorescent data to be converted
+            The array of fluorescent data to be converted, dtype : uint16 or float
 
         Returns
         -------

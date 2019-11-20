@@ -39,85 +39,75 @@ def plot_test():
 
 
 class TestStart(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_t = 200
+        self.signal_t0 = 10
+        self.noise = 5  # as a % of the signal amplitude
+        time_vm, signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t,
+                                              noise=self.noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
+                                              noise=self.noise)
+        self.time, self.signal = time_vm, invert_signal(signal_vm)
 
     def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, find_tran_start, signal_in=True)
         self.assertRaises(TypeError, find_tran_start, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, find_tran_start, signal_in='word')
-        self.assertRaises(TypeError, find_tran_start, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, find_tran_start, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
-        # i_start : int
-        i_start = find_tran_start(self.signal_ca)
-        self.assertIsInstance(i_start, np.int32)  # index of start
-
-        self.assertAlmostEqual(i_start, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        # i_start : np.int64
+        i_start = find_tran_start(self.signal)
+        self.assertIsInstance(i_start, np.int64)  # index of start start
+        self.assertAlmostEqual(self.time[i_start], self.signal_t0, delta=5)  # start time
 
 
 class TestActivation(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_t = 200
+        self.signal_t0 = 10
+        self.noise = 5  # as a % of the signal amplitude
+        time_vm, signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t,
+                                              noise=self.noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
+                                              noise=self.noise)
+        self.time, self.signal = time_vm, invert_signal(signal_vm)
 
     def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        self.assertRaises(TypeError, calc_tran_activation, signal_in=True)
-        self.assertRaises(TypeError, calc_tran_activation, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, calc_tran_activation, signal_in='word')
-        self.assertRaises(TypeError, calc_tran_activation, signal_in=3j + 7)
+        # signal_in : ndarray, dtyoe : uint16 or float
+        self.assertRaises(TypeError, find_tran_act, signal_in=True)
+        self.assertRaises(TypeError, find_tran_act, signal_in=signal_bad_type)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, calc_tran_activation, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
-        # i_activation : int
-        i_activation = calc_tran_activation(self.signal_ca)
-        self.assertIsInstance(i_activation, np.int32)
-
-        self.assertAlmostEqual(i_activation, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        # i_activation : np.int64
+        i_activation = find_tran_act(self.signal)
+        self.assertIsInstance(i_activation, np.int64)  # index of activation time
+        self.assertGreater(self.time[i_activation], self.signal_t0)  # activation time
+        # self.assertLess(self.time[i_activation], self.signal_t0, delta=5)  # activation time
 
 
 class TestPeak(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+    def setUp(self):
+        # Setup data to test with
+        self.signal_t = 200
+        self.signal_t0 = 10
+        self.noise = 5  # as a % of the signal amplitude
+        time_vm, signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t,
+                                              noise=self.noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
+                                              noise=self.noise)
+        self.time, self.signal = time_vm, invert_signal(signal_vm)
 
     def test_parameters(self):
         # Make sure type errors are raised when necessary
@@ -130,12 +120,9 @@ class TestPeak(unittest.TestCase):
 
     def test_results(self):
         # Make sure result types are valid
-        i_peak = find_tran_peak(self.signal_ca)
-        # i_peak : int
-        self.assertIsInstance(i_peak, np.int32)  # index of peak
-
-        #  Make sure result values are valid
-        self.assertAlmostEqual(i_peak, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        # i_peak : np.int64
+        i_peak = find_tran_peak(self.signal)
+        self.assertIsInstance(i_peak, np.int64)  # index of peak time
 
 
 class TestDownstroke(unittest.TestCase):
@@ -152,23 +139,17 @@ class TestDownstroke(unittest.TestCase):
     def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, find_tran_downstroke, signal_in=True)
         self.assertRaises(TypeError, find_tran_downstroke, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, find_tran_downstroke, signal_in='word')
-        self.assertRaises(TypeError, find_tran_downstroke, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, find_tran_downstroke, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
         #  i_downstroke : int
-        i_downstroke = find_tran_end(self.signal_ca)
-        self.assertIsInstance(i_downstroke, np.int32)
+        i_downstroke = find_tran_downstroke(self.signal_ca)
+        self.assertIsInstance(i_downstroke, np.int64)
 
         self.assertAlmostEqual(i_downstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
 
@@ -187,29 +168,20 @@ class TestEnd(unittest.TestCase):
     def test_parameters(self):
         # Make sure type errors are raised when necessary
         signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
+        # signal_in : ndarray, dtyoe : uint16 or float
         self.assertRaises(TypeError, find_tran_end, signal_in=True)
         self.assertRaises(TypeError, find_tran_end, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, find_tran_end, signal_in='word')
-        self.assertRaises(TypeError, find_tran_end, signal_in=3j + 7)
 
         # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, find_tran_end, signal_in=signal_bad_value)
 
     def test_results(self):
         # Make sure result types are valid
         #  i_end : int
         i_end = find_tran_end(self.signal_ca)
-        self.assertIsInstance(i_end, np.int32)
-
-        self.assertAlmostEqual(i_end, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+        self.assertIsInstance(i_end, np.int64)
 
 
 class TestAnalysisPoints(unittest.TestCase):
-    # TODO move to 'integration' tests?
     def setUp(self):
         # Setup data to test with
         self.signal_t = 200
@@ -219,22 +191,10 @@ class TestAnalysisPoints(unittest.TestCase):
         self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
         self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
-        # self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0, fps=self.fps)
-        # self.time, self.signal = self.time_ca[0:self.zoom_t], self.signal_ca[0:self.zoom_t]
         self.sample_rate = float(self.fps)
-        # signal_ca = filter_temporal(signal_ca, sample_rate)
-        # dt = int(time_ca[1])
-        # TODO try derivative using spline and nu=1, nu=2
-        # spl = UnivariateSpline(time, signal)
-        # signal_df = spl(time, nu=1)
-        self.signal_df = np.diff(self.signal, n=1, prepend=int(self.signal[0])).astype(float)
-        self.signal_d2f = np.diff(self.signal, n=2, prepend=[int(self.signal[0]), int(self.signal[0])]).astype(float)
-        # signal_df = np.gradient(signal_noisy_ca, dt) / np.gradient(time_ca, dt)
-        # signal_d2f = np.gradient(signal_df, dt) / np.gradient(time_ca, dt)
 
     def test_plot(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
-        # fig_points = plt.figure(figsize=(8, 8))  # _ x _ inch page
         # General layout
         fig_points, ax_points = plot_test()
         ax_points.set_title('Analysis Points\n1st and 2nd derivatives')
@@ -242,21 +202,18 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_points.set_xlabel('Time (ms)')
         points_lw = 3
 
-        ax_points.plot(self.time[0:self.zoom_t], self.signal[0:self.zoom_t], color=gray_heavy, linestyle='-', marker='x',
-                       label='Vm (Model)')
+        ax_points.plot(self.time[0:self.zoom_t], self.signal[0:self.zoom_t], color=gray_heavy,
+                       linestyle='-', marker='x', label='Vm (Model)')
 
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
-        # ax_df2 = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
-        # ax_dfs.baseline = ax_dfs.axhline(color=gray_light, linestyle='-.')
         ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
-        df_smooth = filter_temporal(self.signal_df, self.sample_rate, filter_order=5)
-        d2f_smooth = filter_temporal(self.signal_d2f, self.sample_rate, filter_order=5)
 
-        # self.time, self.signal = self.time[0:self.zoom_t], invert_signal(self.signal[0:self.zoom_t])
-        # df_smooth, d2f_smooth = df_smooth[0:self.zoom_t], d2f_smooth[0:self.zoom_t]
+        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        spl = UnivariateSpline(time_x, self.signal)
+        df_smooth = spl(time_x, nu=1)
+        d2f_smooth = spl(time_x, nu=2)
 
         ax_dfs.set_ylim([-25, 25])
-        # ax_df2.set_ylim([-20, 20])
 
         # df/dt
         ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
@@ -266,23 +223,24 @@ class TestAnalysisPoints(unittest.TestCase):
                     color=gray_med, linestyle=':', label='d2F/dt2')
 
         # Start
-        df2_max1 = np.argmax(d2f_smooth)
-        ax_points.axvline(self.time[df2_max1], color=colors_times['Start'], linewidth=points_lw,
-                          label='Start')  # 1st df2 max, Upstroke
+        i_start = find_tran_start(self.signal)  # 1st df2 max, Start
+        ax_points.axvline(self.time[i_start], color=colors_times['Start'], linewidth=points_lw,
+                          label='Start')
         # Activation
-        df_max1 = np.argmax(df_smooth)  # 1st df max, Activation
-        ax_points.axvline(self.time[df_max1], color=colors_times['Activation'], linewidth=points_lw,
+        i_activation = find_tran_act(self.signal)   # 1st df max, Activation
+        ax_points.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
                           label='Activation')
         # Peak
-        ax_points.axvline(self.time[np.argmax(self.signal)], color=colors_times['Peak'], linewidth=points_lw,
-                          label='Peak')  # max of signal, Peak
+        i_peak = find_tran_peak(self.signal)    # max of signal, Peak
+        ax_points.axvline(self.time[i_peak], color=colors_times['Peak'], linewidth=points_lw,
+                          label='Peak')
         # Downstroke
-        df_min = np.argmin(df_smooth)  # df min, Downstroke
-        ax_points.axvline(self.time[df_min], color=colors_times['Downstroke'], linewidth=points_lw,
+        i_downstroke = find_tran_downstroke(self.signal)  # df min, Downstroke
+        ax_points.axvline(self.time[i_downstroke], color=colors_times['Downstroke'], linewidth=points_lw,
                           label='Downstroke')
         # End
-        df2_max2 = np.argmax(d2f_smooth[df2_max1 + 3:])  # 2st df2 max, Downstroke
-        ax_points.axvline(self.time[df2_max2 + df2_max1 + 3], color=colors_times['End'], linewidth=points_lw,
+        i_end = find_tran_downstroke(self.signal)  # 2st df2 max, End
+        ax_points.axvline(self.time[i_end], color=colors_times['End'], linewidth=points_lw,
                           label='End')
 
         ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
