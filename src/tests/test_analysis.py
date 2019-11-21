@@ -1,11 +1,18 @@
 import unittest
 
+from matplotlib.patches import Circle
+
+from util.datamodel import *
 from util.analysis import *
 from util.processing import *
-from util.datamodel import model_transients
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as pltticker
+import matplotlib.colors as colors
+from matplotlib.patches import Circle, Rectangle
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
@@ -22,6 +29,11 @@ colors_times = {'Start': '#FFD649',
                 'End': '#8E4B84',
                 'Baseline': '#4C4076'}  # yellow -> orange -> purple
 
+# Create normalization range for map (0 and max rounded up to the nearest 10)
+cmap_activation = SCMaps.tokyo
+# cmap_norm_activation = colors.Normalize(vmin=0, vmax=round(analysis_max + 5.1, -1))
+cmap_norm_activation = colors.Normalize(vmin=0, vmax=80)
+
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue
 
@@ -36,6 +48,26 @@ def plot_test():
     plt.rc('xtick', labelsize=fontsize2)
     plt.rc('ytick', labelsize=fontsize2)
     return fig, axis
+
+
+def plot_map():
+    # Setup a figure to show a frame and a map generated from that frame
+    fig = plt.figure(figsize=(8, 5))  # _ x _ inch page
+    axis_img = fig.add_subplot(121)
+    axis_map = fig.add_subplot(122)
+    # Common between the two
+    for ax in [axis_img, axis_map]:
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+
+    return fig, axis_img, axis_map
+
 
 
 class TestStart(unittest.TestCase):
@@ -361,6 +393,7 @@ class TestDI(unittest.TestCase):
 
 
 #  class TestMapTau(unittest.TestCase):
+#  class TestMapTau(unittest.TestCase):
 
 #  class TestDFreq(unittest.TestCase):
 
@@ -455,10 +488,10 @@ class TestEnsemble(unittest.TestCase):
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         spl_ensemble = UnivariateSpline(time_ensemble, signal_ensemble)
         spline_ensemble = spl_ensemble(time_ensemble)
-        ax_ensemble.plot(time_ensemble, spline_ensemble, color=gray_heavy,
-                         linestyle='-', label='Ensemble spline')
+        # ax_ensemble.plot(time_ensemble, spline_ensemble, color=gray_heavy,
+        #                  linestyle='-', label='Ensemble spline')
         ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
-                         linestyle='None', marker='+', label='Ensemble signal')
+                         linestyle='-', marker='+', label='Ensemble signal')
         # Activation
         i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
         ax_ensemble.axvline(time_ensemble[i_activation], color=colors_times['Activation'], linewidth=3,
@@ -466,9 +499,10 @@ class TestEnsemble(unittest.TestCase):
         signals_activations = []
 
         for signal in signals:
-            spl_signal = UnivariateSpline(time_ensemble, signal)
-            spline_signal = spl_signal(time_ensemble)
-            ax_ensemble.plot(time_ensemble, spline_signal, color=gray_light, linestyle='-')
+            # spl_signal = UnivariateSpline(time_ensemble, signal)
+            # spline_signal = spl_signal(time_ensemble)
+            # ax_ensemble.plot(time_ensemble, spline_signal, color=gray_light, linestyle='-')
+            ax_ensemble.plot(time_ensemble, signal, color=gray_light, linestyle='-')
             signal_act = find_tran_act(signal)
             signals_activations.append(signal_act)
             ax_ensemble.plot(time_ensemble[signal_act], signal[signal_act],
@@ -483,6 +517,97 @@ class TestEnsemble(unittest.TestCase):
 
         fig_ensemble.savefig(dir_tests + '/results/analysis_Ensemble.png')
         fig_ensemble.show()
+
+
+class TestMapAnalysis(unittest.TestCase):
+    def setUp(self):
+        # Setup data to test with, a propagating stack of varying SNR
+        self.f_0 = 1000
+        self.f_amp = 200
+        self.noise = 1
+        self.d_noise = 10  # as a % of the signal amplitude
+        self.velocity = 15
+        # self.noise_count = 100
+        self.time_ca, self.stack_ca = model_stack_propagation(
+            model_type='Ca', f_0=self.f_0, f_amp=self.f_amp, noise=self.noise,
+            velocity=self.velocity)
+        self.FRAMES = self.stack_ca.shape[0]
+        self.HEIGHT, self.WIDTH = (self.stack_ca.shape[1], self.stack_ca.shape[2])
+        self.frame_shape = (self.HEIGHT, self.WIDTH)
+        self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
+        self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        # stack_in : ndarray
+        self.assertRaises(TypeError, map_tran_analysis, time_in=True, stack_in=self.stack_ca)
+        # stack_in : ndarray, 3-D array
+        stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
+        stack_bad_type = np.full(self.stack_ca.shape, True)
+        self.assertRaises(TypeError, map_tran_analysis, time_in=self.time_ca, stack_in=stack_bad_shape)
+        self.assertRaises(TypeError, map_tran_analysis, time_in=self.time_ca, stack_in=stack_bad_type)
+        # analysis_type : method
+        # self.assertRaises(TypeError, map_tran_analysis, stack_in=self.stack_ca, analysis_type=True)
+
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        # analysis_type : an analysis method
+        # self.assertRaises(ValueError, map_tran_analysis, stack_in=self.stack_ca, analysis_type='activation')
+
+    def test_results(self):
+        # Make sure SNR Map results are correct
+        analysis_map = map_tran_analysis(self.time_ca, self.stack_ca, find_tran_act)
+        self.assertIsInstance(analysis_map, np.ndarray)  # snr map type
+        self.assertEqual(analysis_map.shape, self.frame_shape)  # snr map shape
+        self.assertIsInstance(analysis_map[0, 0], float)  # snr map value type
+
+    def test_plot(self):
+        # Make sure analysis map looks correct
+        # Plot a frame from the stack and the SNR map of that frame
+        fig_map_snr, ax_img_snr, ax_map_snr = plot_map()
+
+        analysis_map = map_tran_analysis(self.time_ca, self.stack_ca, find_tran_act)
+        analysis_max = np.nanmax(analysis_map)
+        analysis_min = np.nanmin(analysis_map)
+        # print('Activation Map: ')
+
+        ax_img_snr.set_title('Model Data (Velocity: {})'.format(self.velocity))
+        ax_map_snr.set_title('Activation Map')
+        # Frame from stack
+        frame_num = int(analysis_max / 2 * self.time_ca[1])     # interesting frame
+        cmap_frame = SCMaps.grayC.reversed()
+        img_frame = ax_img_snr.imshow(self.stack_ca[frame_num, :, :], cmap=cmap_frame)
+        # Draw circles showing borders of SNR variance
+        for idx, div_border in enumerate(self.div_borders):
+            div_circle = Circle((self.origin_x, self.origin_y), radius=div_border,
+                                fc=None, fill=None, ec=gray_light, lw=1, linestyle='--')
+            ax_img_snr.add_artist(div_circle)
+        ax_img_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
+        ax_img_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
+        ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
+        ax_map_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
+        # Add colorbar (lower right of frame)
+        ax_ins_img = inset_axes(ax_img_snr, width="5%", height="80%", loc=5,
+                                bbox_to_anchor=(0.2, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
+                                borderpad=0)
+        cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+        # Analysis Map
+        img_snr = ax_map_snr.imshow(analysis_map, norm=cmap_norm_activation, cmap=cmap_activation)
+        # Add colorbar (lower right of map)
+        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="80%", loc=5,
+                                bbox_to_anchor=(0.2, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
+                                borderpad=0)
+        cb1_map = plt.colorbar(img_snr, cax=ax_ins_map, orientation="vertical")
+        cb1_map.ax.set_xlabel('Activation\ntime (ms)', fontsize=fontsize3)
+        cb1_map.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
+        cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb1_map.ax.tick_params(labelsize=fontsize3)
+
+        fig_map_snr.savefig(dir_tests + '/results/processing_MapActivation.png')
+        fig_map_snr.show()
 
 
 class TestPhase(unittest.TestCase):

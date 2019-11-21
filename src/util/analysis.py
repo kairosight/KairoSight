@@ -287,6 +287,49 @@ def calc_tran_di(signal_in):
         raise ValueError('All signal values must be >= 0')
 
 
+def map_tran_analysis(time_in, stack_in, analysis_type):
+    """Map an analysis point's values for a stack of transient fluorescent data
+        i.e.
+        Parameters
+        ----------
+        time_in : ndarray
+            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
+        stack_in : ndarray
+            A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
+        analysis_type : method
+            The type of analysis to be mapped
+
+        Returns
+        -------
+        map_analysis : ndarray
+            A 2-D array of analysis values
+        """
+    # Check parameters
+    if type(stack_in) is not np.ndarray:
+        raise TypeError('Stack type must be an "ndarray"')
+    if len(stack_in.shape) is not 3:
+        raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
+    if stack_in.dtype not in [np.uint16, float]:
+        raise TypeError('Stack values must either be "np.uint16" or "float"')
+
+    # if type(analysis_type) is not classmethod:
+    #     raise TypeError('Analysis type must be a "classmethod"')
+
+    map_shape = stack_in.shape[1:]
+    map_out = np.empty(map_shape)
+    # Assign a value to each pixel
+    for iy, ix in np.ndindex(map_shape):
+        pixel_data = stack_in[:, iy, ix]
+        # pixel_ensemble = calc_ensemble(time_in, pixel_data)
+        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        # Set every pixel's values to the analysis value of the signal at that pixel
+        # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
+        map_out[iy, ix] = analysis_type(pixel_data)
+
+    return map_out
+
+
 def map_tran_tau(stack_in):
     """Map the decay constant (tau) values for a stack of transient fluorescent data
     i.e.
@@ -340,7 +383,7 @@ def calc_phase(signal_in):
 
 def calc_ensemble(time_in, signal_in):
     """Convert a signal from multiple transients to an averaged signal,
-    i.e.
+    segmented by activation times
 
         Parameters
         ----------
@@ -378,15 +421,15 @@ def calc_ensemble(time_in, signal_in):
     signal_range = signal_bounds[1] - signal_bounds[0]
 
     # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
-    noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
+    noise_height = signal_bounds[0] + signal_range / 2  # assumes max noise/signal amps. of 1 / 2
     i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
     if len(i_noise_peaks) == 0:
-        i_noise_peaks = [len(signal_in)-1]
+        i_noise_peaks = [len(signal_in) - 1]
 
     # Find indices of peak values, between peaks_window tall and with a prominence of half the signal range
-    peaks_window = (noise_height, signal_bounds[1] + signal_range/2)
+    peaks_window = (noise_height, signal_bounds[1] + signal_range / 2)
     i_peaks, _ = find_peaks(signal_in, height=peaks_window,
-                            prominence=signal_range/2)
+                            prominence=signal_range / 2)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 1:
@@ -409,12 +452,22 @@ def calc_ensemble(time_in, signal_in):
 
     signal_time = time_in[0: est_cycle_int]
     signals_trans = []
+    signals_trans_act = []
 
     for peak_num, peak in enumerate(i_peaks):
         signals_trans.append(signal_in[i_peaks[peak_num] - cycle_shift:
                                        i_peaks[peak_num] + est_cycle_int - cycle_shift])
 
+    # With that peak detection, find activation times
+    for act_num, signal in enumerate(signals_trans):
+        i_start = find_tran_start(signal)
+        i_act = find_tran_act(signal)
+        signals_trans_act.append(signal_in[i_act - 3:
+                                           i_act + est_cycle_int - 3])
+
     signal_out = np.nanmean(signals_trans, axis=0)
     signals = signals_trans
+    # signal_out = np.nanmean(signals_trans_act, axis=0)
+    # signals = signals_trans_act
 
     return signal_time, signal_out, signals, i_peaks, est_cycle
