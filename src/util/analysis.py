@@ -360,7 +360,7 @@ def calc_ensemble(time_in, signal_in):
         i_peaks : ndarray
             The idecies of peaks from signal_in used
         est_cycle : float
-            Estimated cycle length of ensemble, in samples
+            Estimated cycle length (ms) of transients in signal_in
         """
     # Check parameters
     if type(time_in) is not np.ndarray:
@@ -402,9 +402,10 @@ def calc_ensemble(time_in, signal_in):
         raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
     i_peaks_df = np.diff(i_peaks, n=1).astype(float)
-    est_cycle = np.nanmean(i_peaks_df)
-    est_cycle_int = np.floor(est_cycle).astype(int)
-    cycle_shift = 10
+    est_cycle_i = np.nanmean(i_peaks_df)
+    est_cycle = est_cycle_i * (time_in[1] - time_in[0])
+    est_cycle_int = np.floor(est_cycle_i).astype(int)
+    cycle_shift = min(i_peaks[0], np.floor(est_cycle_int / 2).astype(int))
 
     signal_time = time_in[0: est_cycle_int]
     signals_trans = []

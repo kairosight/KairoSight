@@ -14,6 +14,7 @@ import matplotlib.ticker as pltticker
 import matplotlib.colors as colors
 from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits import mplot3d
 import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
@@ -147,6 +148,7 @@ class TestFilterSpatial(unittest.TestCase):
 
         # Test temporal filtering on real signal data
         # File paths and files needed for the test
+        # TODO get spatial resolution
         file_name_rat = '201-/--/-- rat-04, PCL 240ms'
         file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
         # file_name_pig = '2019/03/22 pigb-01, PCL 150ms'
@@ -401,7 +403,7 @@ class TestFilterSpatial(unittest.TestCase):
         img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
 
         # Filtered frames
-        gs_filters = gs0[0].subgridspec(1, len(FILTERS_SPATIAL)-1)  # 1 row, X columns
+        gs_filters = gs0[0].subgridspec(1, len(FILTERS_SPATIAL) - 1)  # 1 row, X columns
         # Common between the two
         for idx, filter_type in enumerate(FILTERS_SPATIAL[:-1]):
             filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=filter_type)
@@ -625,7 +627,8 @@ class TestFilterTemporal(unittest.TestCase):
 
         fig_filter, ax_filter = plot_test()
         ax_filter.set_title('Temporal Filtering\n'
-                            '(noise SD: {}, {} Hz lowpass, filter order: {})'.format(self.noise, freq_cutoff, filter_order))
+                            '(noise SD: {}, {} Hz lowpass, filter order: {})'.format(self.noise, freq_cutoff,
+                                                                                     filter_order))
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
         # ax_filter.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
@@ -1219,6 +1222,65 @@ class TestSnrMap(unittest.TestCase):
 
         fig_map_snr.show()
         fig_map_snr.savefig(dir_tests + '/results/processing_SNRMap_ca.png')
+
+#
+# class TestSNRCube(unittest.TestCase):
+#     def setUp(self):
+#         # Setup data to test with, a propagating stack of varying SNR
+#         self.f_0 = 1000
+#         self.f_amp = 100
+#         self.noise = 1
+#         self.d_noise = 10  # as a % of the signal amplitude
+#         self.noise_count = 100
+#         self.time_ca, self.stack_ca = model_stack_propagation(
+#             size=(10, 10), model_type='Ca', d_noise=self.d_noise, f_0=self.f_0,
+#             f_amp=self.f_amp, noise=self.noise)
+#         self.time, self.stack = self.time_ca, self.stack_ca
+#         self.FRAMES = self.stack.shape[0]
+#         self.HEIGHT, self.WIDTH = (self.stack.shape[1], self.stack.shape[2])
+#         self.frame_shape = (self.HEIGHT, self.WIDTH)
+#         self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
+#         self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
+#
+#     def test_plot3d(self):
+#         fig_3d = plt.figure(figsize=(8, 5))  # _ x _ inch page
+#         # Frame from stack
+#         ax_frame = fig_3d.add_subplot(121)
+#         cmap_frame = SCMaps.grayC.reversed()
+#         img_frame = ax_frame.imshow(self.stack[0, :, :], cmap=cmap_frame)
+#
+#         ax = fig_3d.add_subplot(122, projection='3d')
+#         spacing = 1
+#         # ax = axis.axes(projection='3d')
+#         for Y in range(self.HEIGHT):
+#             for X in range(self.WIDTH):
+#                 signal = self.stack[:, Y, X]
+#                 time_x = self.time
+#                 # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+#                 # signal_spl = UnivariateSpline(time_x, signal)
+#                 # df_smooth = spl(time_x, nu=1)
+#                 # signal_df = signal_spl(time_x, nu=1)
+#                 ax.plot3D(X+spacing, Y+spacing, time_x, 'gray')
+#                 # ax.plot3D(signal, signal, time_x, 'gray')
+#                 ax.set_zlim(ax.get_zlim()[0], ax.get_zlim()[1])
+#
+#                 # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
+#                 # ax.plot3D(X, Y, time_x, 'gray')
+#
+#                 # Data for a three-dimensional line
+#                 # zline = np.linspace(0, 15, 1000)
+#                 # xline = np.sin(zline)
+#                 # yline = np.cos(zline)
+#                 # ax.plot3D(xline, yline, zline, 'gray')
+#
+#                 # Data for three-dimensional scattered points
+#                 # zdata = 15 * np.random.random(100)
+#                 # xdata = np.sin(zdata) + 0.1 * np.random.randn(100)
+#                 # ydata = np.cos(zdata) + 0.1 * np.random.randn(100)
+#
+#                 # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
+#
+#         fig_3d.show()
 
 
 class TestErrorSignal(unittest.TestCase):

@@ -2,6 +2,7 @@ from math import pi, floor, ceil, sqrt
 import numpy as np
 from random import gauss, seed
 from scipy import interpolate
+from scipy.interpolate import UnivariateSpline
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)

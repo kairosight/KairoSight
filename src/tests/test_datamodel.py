@@ -5,6 +5,7 @@ import time
 from math import pi
 import numpy as np
 from scipy import interpolate
+from scipy.interpolate import UnivariateSpline
 from scipy.signal import find_peaks
 from imageio import volwrite
 import matplotlib.pyplot as plt

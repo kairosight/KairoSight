@@ -227,11 +227,11 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_points.axvline(self.time[i_start], color=colors_times['Start'], linewidth=points_lw,
                           label='Start')
         # Activation
-        i_activation = find_tran_act(self.signal)   # 1st df max, Activation
+        i_activation = find_tran_act(self.signal)  # 1st df max, Activation
         ax_points.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
                           label='Activation')
         # Peak
-        i_peak = find_tran_peak(self.signal)    # max of signal, Peak
+        i_peak = find_tran_peak(self.signal)  # max of signal, Peak
         ax_points.axvline(self.time[i_peak], color=colors_times['Peak'], linewidth=points_lw,
                           label='Peak')
         # Downstroke
@@ -402,23 +402,23 @@ class TestEnsemble(unittest.TestCase):
         time_out, signal_out, signals, i_peaks, est_cycle = calc_ensemble(self.time, self.signal)
         # time_out : ndarray
         self.assertIsInstance(time_out, np.ndarray)  # ensembled signal
-        self.assertAlmostEqual(len(time_out), est_cycle, delta=10)  #
+        self.assertAlmostEqual(len(time_out), est_cycle * (self.fps / 1000), delta=10)  #
 
         # signal_out : ndarray
         self.assertIsInstance(signal_out, np.ndarray)  # ensembled signal
-        self.assertEqual(len(signal_out), len(signal_out)) #
+        self.assertEqual(len(signal_out), len(signal_out))  #
 
         # signals : list
         self.assertIsInstance(signals, list)  # ensembled signal
-        self.assertEqual(len(signals), self.signal_num) #
+        self.assertEqual(len(signals), self.signal_num)  #
 
         # i_peaks : ndarray
         self.assertIsInstance(i_peaks, np.ndarray)  # indicies of peaks
         self.assertEqual(len(i_peaks), self.signal_num)
 
         # est_cycle : float
-        self.assertIsInstance(est_cycle, float)  # estimated cycle length of ensemble
-        self.assertAlmostEqual(est_cycle, self.cycle_length * (self.fps / 1000), delta=10)  #
+        self.assertIsInstance(est_cycle, float)  # estimated cycle length (ms) of ensemble
+        self.assertAlmostEqual(est_cycle, self.cycle_length, delta=5)  #
 
     def test_plot(self):
         # Make sure ensembled transient looks correct
@@ -426,8 +426,8 @@ class TestEnsemble(unittest.TestCase):
 
         # Build a figure to plot SNR results
         # fig_snr, ax_snr = plot_test()
-        fig_ensemble = plt.figure(figsize=(8, 10))  # _ x _ inch page
-        gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.5, 0.5])  # 2 rows, 1 column
+        fig_ensemble = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.2, 0.8])  # 2 rows, 1 column
         ax_signal = fig_ensemble.add_subplot(gs0[0])
         ax_ensemble = fig_ensemble.add_subplot(gs0[1])
 
@@ -438,42 +438,50 @@ class TestEnsemble(unittest.TestCase):
         plt.rc('xtick', labelsize=fontsize2)
         plt.rc('ytick', labelsize=fontsize2)
 
-        ax_signal.set_title('Ensemble Averaging')
+        fig_ensemble.suptitle('Ensemble Averaging')
         ax_signal.set_ylabel('Arbitrary Fluorescent Units')
         ax_signal.set_xlabel('Time (ms)')
         # ax_snr.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
 
-        ax_signal.plot(self.time, self.signal, color=gray_light, linestyle='None', marker='+', label='Ca pixel data')
-        ax_signal.plot(self.time[signal_peaks], self.signal[signal_peaks], "x", color='g', markersize=10, label='Peaks')
+        ax_signal.plot(self.time, self.signal, color=gray_light,
+                       linestyle='None', marker='+', label='Ca pixel data')
+        ax_signal.plot(self.time[signal_peaks], self.signal[signal_peaks],
+                       "x", color='g', markersize=10, label='Peaks')
+
+        ax_ensemble.set_ylabel('Arbitrary Fluorescent Units')
+        ax_ensemble.text(0.65, 0.5, 'PCL (samples): {}'.format(est_cycle_length),
+                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        ax_ensemble.text(0.65, 0.55, '# Peaks : {}'.format(len(signal_peaks)),
+                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        spl_ensemble = UnivariateSpline(time_ensemble, signal_ensemble)
+        spline_ensemble = spl_ensemble(time_ensemble)
+        ax_ensemble.plot(time_ensemble, spline_ensemble, color=gray_heavy,
+                         linestyle='-', label='Ensemble spline')
+        ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
+                         linestyle='None', marker='+', label='Ensemble signal')
+        # Activation
+        i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
+        ax_ensemble.axvline(time_ensemble[i_activation], color=colors_times['Activation'], linewidth=3,
+                            label='Activation')
+        signals_activations = []
 
         for signal in signals:
-            ax_ensemble.plot(time_ensemble, signal, color=gray_light, linestyle='None', marker='+')
-        ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy, linestyle='None', marker='+', label='Ensembled signal')
-        # ax_snr.plot(ir_noise, self.signal[ir_noise], "x", color='r', markersize=2, label='Noise')
-        # ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_F0,
-        #                                         color=gray_light, linestyle='--', label='Noise (actual)')
-        # ax_snr.plot_rms_noise = ax_snr.axhline(y=rms_bounds[0],
-        #                                        color=gray_med, linestyle='-.', label='Noise RMS')
-        #
-        # ax_snr.plot_real_peak = ax_snr.axhline(y=np.nanmax(self.signal),
-        #                                        color=gray_light, linestyle='--', label='Peak (actual)')
-        # ax_snr.plot_rms_peak = ax_snr.axhline(y=rms_bounds[1],
-        #                                       color=gray_med, linestyle='-.', label='Peak RMS')
+            spl_signal = UnivariateSpline(time_ensemble, signal)
+            spline_signal = spl_signal(time_ensemble)
+            ax_ensemble.plot(time_ensemble, spline_signal, color=gray_light, linestyle='-')
+            signal_act = find_tran_act(signal)
+            signals_activations.append(signal_act)
+            ax_ensemble.plot(time_ensemble[signal_act], signal[signal_act],
+                             "x", color=colors_times['Activation'], markersize=10, label='Peaks')
+        # # Activation error bar
+        # error_act = np.mean(signals_activations).astype(int)
+        # ax_ensemble.errorbar(time_ensemble[error_act],
+        #                      signal_ensemble[error_act],
+        #                      xerr=statistics.stdev(signals_activations), fmt="x",
+        #                      color=colors_times['Activation'], lw=3,
+        #                      capsize=4, capthick=1.0)
 
-        # ax_signal.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_signal.text(0.65, 0.5, '# Peaks : {}'.format(len(signal_peaks)),
-                       color=gray_med, fontsize=fontsize2, transform=ax_signal.transAxes)
-        ax_signal.text(0.65, 0.6, 'PCL (samples): {}'.format(est_cycle_length),
-                       color=gray_med, fontsize=fontsize2, transform=ax_signal.transAxes)
-        # ax_snr.text(0.65, 0.5, 'SNR (Noise SD, Actual) : {}'.format(self.noise),
-        #             color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
-        # ax_snr.text(0.65, 0.45, 'SNR (Noise SD, Calculated) : {}'.format(round(sd_noise, 3)),
-        #             color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
-        # ax_snr.text(0.65, 0.4, 'SNR : {}'.format(round(snr, 5)),
-        #             color=gray_heavy, fontsize=fontsize2, transform=ax_snr.transAxes)
-        # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
-
-        # fig_ensemble.savefig(dir_tests + '/results/processing_SNRDetection.png')
+        fig_ensemble.savefig(dir_tests + '/results/analysis_Ensemble.png')
         fig_ensemble.show()
 
 
