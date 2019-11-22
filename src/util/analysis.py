@@ -1,4 +1,5 @@
 from util.processing import *
+import time
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.misc import derivative
@@ -64,11 +65,21 @@ def find_tran_act(signal_in):
         raise ValueError('All signal values must be >= 0')
 
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
+    # signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
     # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
+    # print('Starting analysis splines')
+    # print('** Starting UnivariateSpline')
+    # start = time.process_time()
     spl = UnivariateSpline(time_x, signal_in)
+    # end = time.process_time()
+    # print('** Finished UnivariateSpline', end - start)
+    # print('** Starting spl')
+    # start = time.process_time()
     signal_spline_df = spl(time_x, nu=1)
-    signal_spline_d2f = spl(time_x, nu=2)
+    # end = time.process_time()
+    # print('** Finished spl', end - start)
+    # print('Done with analysis splines')
+    # print('Timing, test_tiff, Vm : ', end - start)
 
     i_activation = np.argmax(signal_spline_df)  # 1st df max, Activation
 
@@ -319,6 +330,7 @@ def map_tran_analysis(time_in, stack_in, analysis_type):
     map_out = np.empty(map_shape)
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
+        print('Activation of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
         pixel_data = stack_in[:, iy, ix]
         # pixel_ensemble = calc_ensemble(time_in, pixel_data)
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)

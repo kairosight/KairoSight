@@ -114,7 +114,8 @@ class TestCropStack(unittest.TestCase):
         # File paths and files needed for tests
         self.file_single1 = dir_tests + '/data/about1.tif'
         self.file_single1_wrong = dir_tests + '/data/about1'
-        self.file_single2 = dir_tests + '/data/02-250_Vm.tif'
+        # self.file_single2 = dir_tests + '/data/02-250_Vm.tif'
+        self.file_single2 = dir_tests + '/data/20190320-04-240_tagged.tif'
         self.file_single2_wrong = dir_tests + '/data/02-250_Vm'
         self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
         self.file_meta_wrong = dir_tests + '/data/02-250.pcoraw.txt'
@@ -151,7 +152,7 @@ class TestCropStack(unittest.TestCase):
 
     def test_plot(self):
         # Make sure files are cropped correctly
-        d_x, d_y = -50, 50
+        d_x, d_y = -80, -50
         stack_crop = crop_stack(self.stack1, d_x=d_x, d_y=d_y)
 
         fig_crop = plt.figure(figsize=(8, 5))  # _ x _ inch page

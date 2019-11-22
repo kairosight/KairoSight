@@ -323,6 +323,32 @@ def invert_signal(signal_in):
     return signal_out
 
 
+def invert_stack(stack_in):
+    # Check parameters
+    if type(stack_in) is not np.ndarray:
+        raise TypeError('Stack type must be an "ndarray"')
+    if len(stack_in.shape) is not 3:
+        raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
+    if stack_in.dtype not in [np.uint16, float]:
+        raise TypeError('Stack values must either be "np.uint16" or "float"')
+
+    stack_out = np.empty_like(stack_in)
+    map_shape = stack_in.shape[1:]
+    # Assign a value to each pixel
+    for iy, ix in np.ndindex(map_shape):
+        print('Inve of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
+        pixel_data = stack_in[:, iy, ix]
+        # pixel_ensemble = calc_ensemble(time_in, pixel_data)
+        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        # Set every pixel's values to the analysis value of the signal at that pixel
+        # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
+        pixel_data_inv = invert_signal(pixel_data)
+        stack_out[:, iy, ix] = pixel_data_inv
+
+    return stack_out
+
+
 def normalize_signal(signal_in):
     """Normalize the values of a signal array to range from 0 to 1.
 
