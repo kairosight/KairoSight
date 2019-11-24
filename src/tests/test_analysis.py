@@ -570,7 +570,8 @@ class TestMapAnalysis(unittest.TestCase):
         analysis_min = np.nanmin(analysis_map)
         # print('Activation Map: ')
 
-        ax_img_snr.set_title('Model Data (Velocity: {})'.format(self.velocity))
+        ax_img_snr.set_title('Model Data\n(noise SD: {}, velocity: {} cm/s)'
+                             .format(self.noise, self.velocity))
         ax_map_snr.set_title('Activation Map')
         # Frame from stack
         frame_num = int(analysis_max / 2 * self.time_ca[1])     # interesting frame

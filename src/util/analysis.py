@@ -329,8 +329,9 @@ def map_tran_analysis(time_in, stack_in, analysis_type):
     map_shape = stack_in.shape[1:]
     map_out = np.empty(map_shape)
     # Assign a value to each pixel
+    print('Generating map with {} ...'.format(analysis_type))
     for iy, ix in np.ndindex(map_shape):
-        print('Activation of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
+        print('\rRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]), end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         # pixel_ensemble = calc_ensemble(time_in, pixel_data)
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
