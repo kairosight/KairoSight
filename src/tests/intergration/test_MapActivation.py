@@ -21,7 +21,7 @@ color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths  and files needed for tests
 dir_cwd = Path.cwd()
-dir_tests = str(dir_cwd)
+dir_tests = str(dir_cwd.parent)
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 colors_times = {'Start': '#FFD649',
                 'Activation': '#FFA253',
@@ -30,9 +30,11 @@ colors_times = {'Start': '#FFD649',
                 'End': '#8E4B84',
                 'Baseline': '#4C4076'}  # yellow -> orange -> purple
 
-# colors_times = ['#003EDC', '#FB2595', '#FF6172', '#FFD067', '#FFF92', '#000000']  # redish -> purple -> blue
+# colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
 
-# colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue
+# colors_times = ['#003EDC', '#FB2595', '#FF6172', '#FFD067', '#FFF92', '#000000']  # redish -> purple -> blue?
+
+# colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue?
 
 
 def plot_test():
@@ -79,21 +81,22 @@ class TestMapAnalysis(unittest.TestCase):
             model_type='Ca', f_0=self.f_0, f_amp=self.f_amp, noise=self.noise,
             velocity=self.velocity)
 
-        file_name_rat = '201-/--/-- rat-04, PCL 240ms'
-        file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
-        # file_name_pig = '2019/03/22 pigb-01, PCL 150ms'
-        # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_15x15-LV-198x324.csv'
-        self.file_name, self.file_stack = file_name_rat, file_stack_rat
-        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_rat)
+        # file_name_rat = '201-/--/-- rat-04, PCL 240ms'
+        # file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
+        file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        self.file_name, self.file_stack = file_name_pig, file_stack_pig
+        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
         self.stack_real = self.stack_real_full.copy()
 
         ## Prep
         # # Crop (to be _X x _Y)
-        new_width, new_height = 50, 80
-        d_x, d_y = -90, -50
+        new_width, new_height = 300, 300
+        d_x, d_y = -127, -154     # coordinates of top left corner
         self.stack_real = crop_stack(self.stack_real, d_x=d_x, d_y=d_y)
         d_x, d_y = self.stack_real.shape[2] - new_width, self.stack_real.shape[1] - new_height
         self.stack_real = crop_stack(self.stack_real, d_x=d_x, d_y=d_y)
+        stack_out = self.stack_real.copy()
         # Mask
         # for idx, frame in enumerate(self.stack_real):
         #     print('Filtering Frame:\t{}\t/ {}'.format(idx, self.FRAMES))
@@ -102,27 +105,26 @@ class TestMapAnalysis(unittest.TestCase):
         #     self.stack_real[idx] = frame_masked
 
         ## Process
-        map_shape = self.stack_real.shape[1:]
-        stack_out = np.empty_like(self.stack_real)
-        # Invert
-        # self.stack_real = invert_stack(self.stack_real)
-        # Assign a value to each pixel
-        for iy, ix in np.ndindex(map_shape):
-            print('Inve of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
-            pixel_data = self.stack_real[:, iy, ix]
-            # pixel_ensemble = calc_ensemble(time_in, pixel_data)
-            # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-            # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-            # Set every pixel's values to the analysis value of the signal at that pixel
-            # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
-            pixel_data_inv = invert_signal(pixel_data)
-            stack_out[:, iy, ix] = pixel_data_inv
+        # stack_out = np.empty_like(self.stack_real)
+        # # Invert
+        # # self.stack_real = invert_stack(self.stack_real)
+        # # Assign a value to each pixel
+        # for iy, ix in np.ndindex(map_shape):
+        #     print('Inve of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
+        #     pixel_data = self.stack_real[:, iy, ix]
+        #     # pixel_ensemble = calc_ensemble(time_in, pixel_data)
+        #     # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        #     # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        #     # Set every pixel's values to the analysis value of the signal at that pixel
+        #     # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
+        #     pixel_data_inv = invert_signal(pixel_data)
+        #     stack_out[:, iy, ix] = pixel_data_inv
 
         # Filter
         # stack_out = filter_spatial(stack_out)
         for idx, frame in enumerate(stack_out):
             print('Filtering Frame:\t{}\t/ {}'.format(idx, stack_out.shape[0]))
-            f_filtered = filter_spatial(frame)
+            f_filtered = filter_spatial(frame, kernel=15)
             stack_out[idx, :, :] = f_filtered
 
         fps = 800
@@ -208,7 +210,7 @@ class TestMapAnalysis(unittest.TestCase):
 
         ax_act_hist.hist(analysis_map.flatten(), 40, histtype='stepfilled',
                          orientation='horizontal', color='gray')
-        fig_map_snr.savefig(dir_tests + '/results/integration_MapActivation.png')
+        # fig_map_snr.savefig(dir_tests + '/results/integration_MapActivation.png')
         fig_map_snr.show()
 
 
