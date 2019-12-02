@@ -10,12 +10,14 @@ from imageio import volwrite
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 
-fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
-gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths needed for tests
 dir_tests = str(Path.cwd().parent)
 dir_unit = str(Path.cwd())
+
+fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+
+gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
 def plot_test():
@@ -82,28 +84,28 @@ class TestModelTransients(unittest.TestCase):
         self.assertGreaterEqual(model_transients(t=100)[1].all(), 0)  # no negative values
         self.assertLess(model_transients(model_type='Ca')[1].all(), 2 ** 16 - 1)  # no values >= 16-bit max
         self.assertGreaterEqual(2000,
-                                model_transients(model_type='Vm', f_0=2000)[1].max())  # Vm amplitude handled properly
+                                model_transients(model_type='Vm', f0=2000)[1].max())  # Vm amplitude handled properly
         self.assertLessEqual(2000,
-                             model_transients(model_type='Ca', f_0=2000)[1].min())  # Ca amplitude handled properly
+                             model_transients(model_type='Ca', f0=2000)[1].min())  # Ca amplitude handled properly
 
         # Test multiple transient generation
         f_amp = 250
         num = 4
         peak_min_height = f_amp / 2
 
-        time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=f_amp, num=num)
+        time_vm, data_vm = model_transients(t=500, f0=2000, famp=f_amp, num=num)
         data_vm_inv = (-(data_vm - 2000)) + 2000
         peaks_vm, _ = find_peaks(data_vm_inv, height=peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num, peaks_vm.size)  # detected peaks matches number of generated transients
 
-        time_ca, data_ca = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=f_amp, num=num)
+        time_ca, data_ca = model_transients(model_type='Ca', t=500, f0=1000, famp=f_amp, num=num)
         # peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, distance=len(data_ca)/num)
         peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num, peaks_ca.size)  # detected peaks matches number of generated transients
 
         # time_ca_full, data_ca_full = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num='full')
         num_full = 5000 / 100
-        time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f_0=1000, f_amp=f_amp, num='full')
+        time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f0=1000, famp=f_amp, num='full')
         peaks_ca, _ = find_peaks(data_ca_full, height=peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num_full, peaks_ca.size)  # detected peaks matches calculated transients for 'full'
 
@@ -157,9 +159,9 @@ class TestModelTransients(unittest.TestCase):
 
     def test_plot_fps(self):
         # Test model Ca single transient data, at different fps
-        time_ca_1, data_ca_1 = model_transients(model_type='Ca', fps=250, f_0=1000, f_amp=250)
-        time_ca_2, data_ca_2 = model_transients(model_type='Ca', fps=500, f_0=1000, f_amp=250)
-        time_ca_3, data_ca_3 = model_transients(model_type='Ca', fps=1000, f_0=1000, f_amp=250)
+        time_ca_1, data_ca_1 = model_transients(model_type='Ca', fps=250, f0=1000, famp=250)
+        time_ca_2, data_ca_2 = model_transients(model_type='Ca', fps=500, f0=1000, famp=250)
+        time_ca_3, data_ca_3 = model_transients(model_type='Ca', fps=1000, f0=1000, famp=250)
 
         # Build a figure to plot model data
         fig_dual_fps, ax_dual_fps = plot_test()
@@ -207,9 +209,9 @@ class TestModelTransients(unittest.TestCase):
     def test_plot_cyclelength(self):
         # Test model Vm multi transient data, at different Cycle Lengths
         num = 4
-        time_vm1, data_vm1 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=50)
-        time_vm2, data_vm2 = model_transients(t=500, f_0=2000, f_amp=250, num=num)
-        time_vm3, data_vm3 = model_transients(t=500, f_0=2000, f_amp=250, num=num, cl=150)
+        time_vm1, data_vm1 = model_transients(t=500, f0=2000, famp=250, num=num, cl=50)
+        time_vm2, data_vm2 = model_transients(t=500, f0=2000, famp=250, num=num)
+        time_vm3, data_vm3 = model_transients(t=500, f0=2000, famp=250, num=num, cl=150)
 
         # Build a figure to plot model data
         fig_cyclelength, ax_old = plot_test()
@@ -235,8 +237,8 @@ class TestModelTransients(unittest.TestCase):
 
     def test_plot_dual(self):
         # Test model Vm and Ca single transient data
-        time_vm, data_vm = model_transients(f_0=2000, f_amp=250)
-        time_ca, data_ca = model_transients(model_type='Ca', f_0=1000, f_amp=250)
+        time_vm, data_vm = model_transients(f0=2000, famp=250)
+        time_ca, data_ca = model_transients(model_type='Ca', f0=1000, famp=250)
         self.assertEqual(time_vm.size, data_vm.size)  # data and time arrays returned as a tuple
 
         # Build a figure to plot model data
@@ -260,8 +262,8 @@ class TestModelTransients(unittest.TestCase):
     def test_plot_dual_multi(self):
         # Test model Vm and Ca multi-transient data, with noise
         num = 4
-        time_vm, data_vm = model_transients(t=500, t0=25, f_0=2000, f_amp=250, num=num)
-        time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, f_0=1000, f_amp=250, num=num)
+        time_vm, data_vm = model_transients(t=500, t0=25, f0=2000, famp=250, num=num)
+        time_ca, data_ca = model_transients(model_type='Ca', t=500, t0=25, f0=1000, famp=250, num=num)
 
         # Build a figure to plot model data
         fig_dual_multi, ax_dual_multi = plot_test()

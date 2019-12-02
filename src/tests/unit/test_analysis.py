@@ -14,14 +14,15 @@ from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
 
-fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
-gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
-color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths needed for tests
 dir_tests = str(Path.cwd().parent)
 dir_unit = str(Path.cwd())
-# colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
+
+fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+
+gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 colors_times = {'Start': '#FFD649',
                 'Activation': '#FFA253',
                 'Peak': '#F6756B',
@@ -29,13 +30,9 @@ colors_times = {'Start': '#FFD649',
                 'End': '#8E4B84',
                 'Baseline': '#4C4076'}  # yellow -> orange -> purple
 
-# Create normalization range for map (0 and max rounded up to the nearest 10)
+# Colormap and normalization range for activation maps
 cmap_activation = SCMaps.tokyo
-# cmap_norm_activation = colors.Normalize(vmin=0, vmax=round(analysis_max + 5.1, -1))
 cmap_norm_activation = colors.Normalize(vmin=0, vmax=80)
-
-
-# colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue
 
 
 def plot_test():
@@ -69,17 +66,18 @@ def plot_map():
     return fig, axis_img, axis_map
 
 
-
 class TestStart(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
+        # Create data to test with
         self.signal_t = 200
         self.signal_t0 = 10
-        self.noise = 5  # as a % of the signal amplitude
-        time_vm, signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t,
-                                              noise=self.noise)
-        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
-                                              noise=self.noise)
+        self.signal_noise = 5  # as a % of the signal amplitude
+
+        time_vm, signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                              noise=self.signal_noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                              noise=self.signal_noise)
+
         self.time, self.signal = time_vm, invert_signal(signal_vm)
 
     def test_parameters(self):
@@ -101,14 +99,15 @@ class TestStart(unittest.TestCase):
 
 class TestActivation(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
+        # Create data to test with
         self.signal_t = 200
         self.signal_t0 = 10
-        self.noise = 5  # as a % of the signal amplitude
-        time_vm, signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t,
-                                              noise=self.noise)
-        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
-                                              noise=self.noise)
+        self.signal_noise = 5  # as a % of the signal amplitude
+
+        time_vm, signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                              noise=self.signal_noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                              noise=self.signal_noise)
         self.time, self.signal = time_vm, invert_signal(signal_vm)
 
     def test_parameters(self):
@@ -131,14 +130,15 @@ class TestActivation(unittest.TestCase):
 
 class TestPeak(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
+        # Create data to test with
         self.signal_t = 200
         self.signal_t0 = 10
-        self.noise = 5  # as a % of the signal amplitude
-        time_vm, signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t,
-                                              noise=self.noise)
-        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
-                                              noise=self.noise)
+        self.signal_noise = 5  # as a % of the signal amplitude
+
+        time_vm, signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                              noise=self.signal_noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                              noise=self.signal_noise)
         self.time, self.signal = time_vm, invert_signal(signal_vm)
 
     def test_parameters(self):
@@ -157,73 +157,77 @@ class TestPeak(unittest.TestCase):
         self.assertIsInstance(i_peak, np.int64)  # index of peak time
 
 
-class TestDownstroke(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : uint16 or float
-        self.assertRaises(TypeError, find_tran_downstroke, signal_in=True)
-        self.assertRaises(TypeError, find_tran_downstroke, signal_in=signal_bad_type)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-
-    def test_results(self):
-        # Make sure result types are valid
-        #  i_downstroke : int
-        i_downstroke = find_tran_downstroke(self.signal_ca)
-        self.assertIsInstance(i_downstroke, np.int64)
-
-        self.assertAlmostEqual(i_downstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
-
-
-class TestEnd(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : uint16 or float
-        self.assertRaises(TypeError, find_tran_end, signal_in=True)
-        self.assertRaises(TypeError, find_tran_end, signal_in=signal_bad_type)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-
-    def test_results(self):
-        # Make sure result types are valid
-        #  i_end : int
-        i_end = find_tran_end(self.signal_ca)
-        self.assertIsInstance(i_end, np.int64)
+# class TestDownstroke(unittest.TestCase):
+#     # Setup data to test with
+#     signal_F0 = 1000
+#     signal_amp = 100
+#     signal_t0 = 20
+#     signal_time = 500
+#     noise = 5  # as a % of the signal amplitude
+#     noise_count = 100
+#     time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp, noise=noise)
+#
+#     def test_parameters(self):
+#         # Make sure type errors are raised when necessary
+#         signal_bad_type = np.full(100, True)
+#         # signal_in : ndarray, dtyoe : uint16 or float
+#         self.assertRaises(TypeError, find_tran_downstroke, signal_in=True)
+#         self.assertRaises(TypeError, find_tran_downstroke, signal_in=signal_bad_type)
+#
+#         # Make sure parameters are valid, and valid errors are raised when necessary
+#
+#     def test_results(self):
+#         # Make sure result types are valid
+#         #  i_downstroke : int
+#         i_downstroke = find_tran_downstroke(self.signal_ca)
+#         self.assertIsInstance(i_downstroke, np.int64)
+#
+#         self.assertAlmostEqual(i_downstroke, self.signal_t0 + 10, delta=5)  # time to peak of an OAP/OCT
+#
+#
+# class TestEnd(unittest.TestCase):
+#     # Setup data to test with
+#     signal_F0 = 1000
+#     signal_amp = 100
+#     signal_t0 = 20
+#     signal_time = 500
+#     noise = 5  # as a % of the signal amplitude
+#     noise_count = 100
+#     time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp, noise=noise)
+#
+#     def test_parameters(self):
+#         # Make sure type errors are raised when necessary
+#         signal_bad_type = np.full(100, True)
+#         # signal_in : ndarray, dtyoe : uint16 or float
+#         self.assertRaises(TypeError, find_tran_end, signal_in=True)
+#         self.assertRaises(TypeError, find_tran_end, signal_in=signal_bad_type)
+#
+#         # Make sure parameters are valid, and valid errors are raised when necessary
+#
+#     def test_results(self):
+#         # Make sure result types are valid
+#         #  i_end : int
+#         i_end = find_tran_end(self.signal_ca)
+#         self.assertIsInstance(i_end, np.int64)
 
 
 class TestAnalysisPoints(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
+        # Create data to test with
         self.signal_t = 200
-        self.zoom_t = 40
         self.signal_t0 = 10
-        self.fps = 1000
-        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
-        self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.fps)
+        self.signal_fps = 1000
+
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps)
+        self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
-        self.sample_rate = float(self.fps)
+
+        self.sample_rate = float(self.signal_fps)
+        self.zoom_t = 40
 
     def test_plot(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
@@ -282,114 +286,114 @@ class TestAnalysisPoints(unittest.TestCase):
         fig_points.show()
 
 
-class TestDuration(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        #  percent : int
-        self.assertRaises(TypeError, calc_tran_duration, signal_in=True, percent=True)
-        self.assertRaises(TypeError, calc_tran_duration, signal_in=signal_bad_type, percent='500')
-        self.assertRaises(TypeError, calc_tran_duration, signal_in='word', percent=3j + 7)
-        self.assertRaises(TypeError, calc_tran_duration, signal_in=3j + 7)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        # percent : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        percent_bad_value = -1
-        self.assertRaises(ValueError, calc_tran_duration, signal_in=signal_bad_value, percent=percent_bad_value)
-
-    def test_results(self):
-        # Make sure result types are valid
-        #  duration : int
-        duration = calc_tran_duration(self.signal_ca)
-        self.assertIsInstance(duration, np.int32)
-
-        self.assertAlmostEqual(duration, self.signal_t0)
-
-
-class TestTau(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        self.assertRaises(TypeError, calc_tran_di, signal_in=True)
-        self.assertRaises(TypeError, calc_tran_di, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, calc_tran_di, signal_in='word')
-        self.assertRaises(TypeError, calc_tran_di, signal_in=3j + 7)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, calc_tran_tau, signal_in=signal_bad_value)
-
-        # should not be applied to signal data containing at least one transient
-
-    def test_results(self):
-        # Make sure result types are valid
-        #  di : float
-        di = calc_tran_duration(self.signal_ca)
-        self.assertIsInstance(di, np.float32)
-
-        self.assertAlmostEqual(di, self.signal_t0)
+# class TestDuration(unittest.TestCase):
+#     # Setup data to test with
+#     signal_F0 = 1000
+#     signal_amp = 100
+#     signal_t0 = 20
+#     signal_time = 500
+#     noise = 5  # as a % of the signal amplitude
+#     noise_count = 100
+#     time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp, noise=noise)
+#
+#     def test_parameters(self):
+#         # Make sure type errors are raised when necessary
+#         signal_bad_type = np.full(100, True)
+#         # signal_in : ndarray, dtyoe : int or float
+#         #  percent : int
+#         self.assertRaises(TypeError, calc_tran_duration, signal_in=True, percent=True)
+#         self.assertRaises(TypeError, calc_tran_duration, signal_in=signal_bad_type, percent='500')
+#         self.assertRaises(TypeError, calc_tran_duration, signal_in='word', percent=3j + 7)
+#         self.assertRaises(TypeError, calc_tran_duration, signal_in=3j + 7)
+#
+#         # Make sure parameters are valid, and valid errors are raised when necessary
+#         # signal_in : >=0
+#         # percent : >=0
+#         signal_bad_value = np.full(100, 10)
+#         signal_bad_value[20] = signal_bad_value[20] - 50
+#         percent_bad_value = -1
+#         self.assertRaises(ValueError, calc_tran_duration, signal_in=signal_bad_value, percent=percent_bad_value)
+#
+#     def test_results(self):
+#         # Make sure result types are valid
+#         #  duration : int
+#         duration = calc_tran_duration(self.signal_ca)
+#         self.assertIsInstance(duration, np.int32)
+#
+#         self.assertAlmostEqual(duration, self.signal_t0)
 
 
-class TestDI(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 20
-    signal_time = 500
-    noise = 5  # as a % of the signal amplitude
-    noise_count = 100
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp, noise=noise)
+# class TestTau(unittest.TestCase):
+#     # Setup data to test with
+#     signal_F0 = 1000
+#     signal_amp = 100
+#     signal_t0 = 20
+#     signal_time = 500
+#     noise = 5  # as a % of the signal amplitude
+#     noise_count = 100
+#     time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp, noise=noise)
+#
+#     def test_parameters(self):
+#         # Make sure type errors are raised when necessary
+#         signal_bad_type = np.full(100, True)
+#         # signal_in : ndarray, dtyoe : int or float
+#         self.assertRaises(TypeError, calc_tran_di, signal_in=True)
+#         self.assertRaises(TypeError, calc_tran_di, signal_in=signal_bad_type)
+#         self.assertRaises(TypeError, calc_tran_di, signal_in='word')
+#         self.assertRaises(TypeError, calc_tran_di, signal_in=3j + 7)
+#
+#         # Make sure parameters are valid, and valid errors are raised when necessary
+#         # signal_in : >=0
+#         signal_bad_value = np.full(100, 10)
+#         signal_bad_value[20] = signal_bad_value[20] - 50
+#         self.assertRaises(ValueError, calc_tran_tau, signal_in=signal_bad_value)
+#
+#         # should not be applied to signal data containing at least one transient
+#
+#     def test_results(self):
+#         # Make sure result types are valid
+#         #  di : float
+#         di = calc_tran_duration(self.signal_ca)
+#         self.assertIsInstance(di, np.float32)
+#
+#         self.assertAlmostEqual(di, self.signal_t0)
 
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        self.assertRaises(TypeError, calc_tran_tau, signal_in=True)
-        self.assertRaises(TypeError, calc_tran_tau, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, calc_tran_tau, signal_in='word')
-        self.assertRaises(TypeError, calc_tran_tau, signal_in=3j + 7)
 
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, calc_tran_tau, signal_in=signal_bad_value)
-
-    def test_results(self):
-        # Make sure result types are valid
-        #  tau : float
-        tau = calc_tran_duration(self.signal_ca)
-        self.assertIsInstance(tau, np.float32)
-
-        self.assertAlmostEqual(tau, self.signal_t0)
+# class TestDI(unittest.TestCase):
+#     # Setup data to test with
+#     signal_F0 = 1000
+#     signal_amp = 100
+#     signal_t0 = 20
+#     signal_time = 500
+#     noise = 5  # as a % of the signal amplitude
+#     noise_count = 100
+#     time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp, noise=noise)
+#
+#     def test_parameters(self):
+#         # Make sure type errors are raised when necessary
+#         signal_bad_type = np.full(100, True)
+#         # signal_in : ndarray, dtyoe : int or float
+#         self.assertRaises(TypeError, calc_tran_tau, signal_in=True)
+#         self.assertRaises(TypeError, calc_tran_tau, signal_in=signal_bad_type)
+#         self.assertRaises(TypeError, calc_tran_tau, signal_in='word')
+#         self.assertRaises(TypeError, calc_tran_tau, signal_in=3j + 7)
+#
+#         # Make sure parameters are valid, and valid errors are raised when necessary
+#         # signal_in : >=0
+#         signal_bad_value = np.full(100, 10)
+#         signal_bad_value[20] = signal_bad_value[20] - 50
+#         self.assertRaises(ValueError, calc_tran_tau, signal_in=signal_bad_value)
+#
+#     def test_results(self):
+#         # Make sure result types are valid
+#         #  tau : float
+#         tau = calc_tran_duration(self.signal_ca)
+#         self.assertIsInstance(tau, np.float32)
+#
+#         self.assertAlmostEqual(tau, self.signal_t0)
 
 
 #  class TestMapTau(unittest.TestCase):
@@ -399,19 +403,20 @@ class TestDI(unittest.TestCase):
 
 class TestEnsemble(unittest.TestCase):
     def setUp(self):
-        self.signal_F0 = 1000
-        self.signal_amp = 100
-        self.signal_t0 = 50
+        # Create data to test with
         self.signal_t = 800
-        self.fps = 500
+        self.signal_t0 = 50
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_fps = 500
+        self.signal_noise = 5  # as a % of the signal amplitude
         self.signal_num = 5
-        self.cycle_length = 150
-        self.noise = 5  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_vm, self.signal_vm = model_transients(t0=self.signal_t0, t=self.signal_t, fps=self.fps,
-                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                        noise=self.noise, num=self.signal_num,
-                                                        cl=self.cycle_length)
+        self.signal_cl = 150
+
+        self.time_vm, self.signal_vm =\
+            model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+                             f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+                             num=self.signal_num, cl=self.signal_cl)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
 
     def test_params(self):
@@ -435,7 +440,7 @@ class TestEnsemble(unittest.TestCase):
         time_out, signal_out, signals, i_peaks, est_cycle = calc_ensemble(self.time, self.signal)
         # time_out : ndarray
         self.assertIsInstance(time_out, np.ndarray)  # ensembled signal
-        self.assertAlmostEqual(len(time_out), est_cycle * (self.fps / 1000), delta=10)  #
+        self.assertAlmostEqual(len(time_out), est_cycle * (self.signal_fps / 1000), delta=10)  #
 
         # signal_out : ndarray
         self.assertIsInstance(signal_out, np.ndarray)  # ensembled signal
@@ -451,7 +456,7 @@ class TestEnsemble(unittest.TestCase):
 
         # est_cycle : float
         self.assertIsInstance(est_cycle, float)  # estimated cycle length (ms) of ensemble
-        self.assertAlmostEqual(est_cycle, self.cycle_length, delta=5)  #
+        self.assertAlmostEqual(est_cycle, self.signal_cl, delta=5)  #
 
     def test_plot(self):
         # Make sure ensembled transient looks correct
@@ -486,8 +491,8 @@ class TestEnsemble(unittest.TestCase):
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         ax_ensemble.text(0.65, 0.55, '# Peaks : {}'.format(len(signal_peaks)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        spl_ensemble = UnivariateSpline(time_ensemble, signal_ensemble)
-        spline_ensemble = spl_ensemble(time_ensemble)
+        # spl_ensemble = UnivariateSpline(time_ensemble, signal_ensemble)
+        # spline_ensemble = spl_ensemble(time_ensemble)
         # ax_ensemble.plot(time_ensemble, spline_ensemble, color=gray_heavy,
         #                  linestyle='-', label='Ensemble spline')
         ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
@@ -521,13 +526,13 @@ class TestEnsemble(unittest.TestCase):
 
 class TestMapAnalysis(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with, a propagating stack of varying SNR
+        # Create data to test with, a propagating stack of varying SNR
         self.f_0 = 1000
         self.f_amp = 200
         self.noise = 1
         self.d_noise = 10  # as a % of the signal amplitude
         self.velocity = 15
-        # self.noise_count = 100
+
         self.time_ca, self.stack_ca = model_stack_propagation(
             model_type='Ca', f_0=self.f_0, f_amp=self.f_amp, noise=self.noise,
             velocity=self.velocity)
@@ -574,7 +579,7 @@ class TestMapAnalysis(unittest.TestCase):
                              .format(self.noise, self.velocity))
         ax_map_snr.set_title('Activation Map')
         # Frame from stack
-        frame_num = int(analysis_max / 2 * self.time_ca[1])     # interesting frame
+        frame_num = int(analysis_max / 2 * self.time_ca[1])  # interesting frame
         cmap_frame = SCMaps.grayC.reversed()
         img_frame = ax_img_snr.imshow(self.stack_ca[frame_num, :, :], cmap=cmap_frame)
         # Draw circles showing borders of SNR variance
@@ -611,47 +616,47 @@ class TestMapAnalysis(unittest.TestCase):
         fig_map_snr.show()
 
 
-class TestPhase(unittest.TestCase):
-    # Setup data to test with
-    signal_F0 = 1000
-    signal_amp = 100
-    signal_t0 = 50
-    signal_time = 1000
-    signal_num = 5
-    noise = 2  # as a % of the signal amplitude
-    noise_count = 100
-    time_vm, signal_vm = model_transients(t0=signal_t0, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp,
-                                          noise=noise, num=signal_num)
-    time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
-                                          f_0=signal_F0, f_amp=signal_amp,
-                                          noise=noise, num=signal_num)
-
-    def test_parameters(self):
-        # Make sure type errors are raised when necessary
-        signal_bad_type = np.full(100, True)
-        # signal_in : ndarray, dtyoe : int or float
-        self.assertRaises(TypeError, calc_phase, signal_in=True)
-        self.assertRaises(TypeError, calc_phase, signal_in=signal_bad_type)
-        self.assertRaises(TypeError, calc_phase, signal_in='word')
-        self.assertRaises(TypeError, calc_phase, signal_in=3j + 7)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # signal_in : >=0
-        signal_bad_value = np.full(100, 10)
-        signal_bad_value[20] = signal_bad_value[20] - 50
-        self.assertRaises(ValueError, calc_phase, signal_in=signal_bad_value)
-
-    def test_results(self):
-        # Make sure result types are valid
-        signal_vm_phase = calc_phase(self.signal_vm)
-        signal_ca_phase = calc_phase(self.signal_ca)
-        # signal_FF0 : ndarray, dtyoe : float
-        self.assertIsInstance(signal_ca_phase, np.ndarray)  # The array of phase
-        self.assertIsInstance(signal_ca_phase[0], float)  # dtyoe : float
-
-        # Make sure result values are valid
-        self.assertAlmostEqual(signal_ca_phase.min(), signal_vm_phase.max(), delta=0.01)
+# class TestPhase(unittest.TestCase):
+#     # Setup data to test with
+#     signal_F0 = 1000
+#     signal_amp = 100
+#     signal_t0 = 50
+#     signal_time = 1000
+#     signal_num = 5
+#     noise = 2  # as a % of the signal amplitude
+#     noise_count = 100
+#     time_vm, signal_vm = model_transients(t0=signal_t0, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp,
+#                                           noise=noise, num=signal_num)
+#     time_ca, signal_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
+#                                           f0=signal_F0, famp=signal_amp,
+#                                           noise=noise, num=signal_num)
+#
+#     def test_parameters(self):
+#         # Make sure type errors are raised when necessary
+#         signal_bad_type = np.full(100, True)
+#         # signal_in : ndarray, dtyoe : int or float
+#         self.assertRaises(TypeError, calc_phase, signal_in=True)
+#         self.assertRaises(TypeError, calc_phase, signal_in=signal_bad_type)
+#         self.assertRaises(TypeError, calc_phase, signal_in='word')
+#         self.assertRaises(TypeError, calc_phase, signal_in=3j + 7)
+#
+#         # Make sure parameters are valid, and valid errors are raised when necessary
+#         # signal_in : >=0
+#         signal_bad_value = np.full(100, 10)
+#         signal_bad_value[20] = signal_bad_value[20] - 50
+#         self.assertRaises(ValueError, calc_phase, signal_in=signal_bad_value)
+#
+#     def test_results(self):
+#         # Make sure result types are valid
+#         signal_vm_phase = calc_phase(self.signal_vm)
+#         signal_ca_phase = calc_phase(self.signal_ca)
+#         # signal_FF0 : ndarray, dtyoe : float
+#         self.assertIsInstance(signal_ca_phase, np.ndarray)  # The array of phase
+#         self.assertIsInstance(signal_ca_phase[0], float)  # dtyoe : float
+#
+#         # Make sure result values are valid
+#         self.assertAlmostEqual(signal_ca_phase.min(), signal_vm_phase.max(), delta=0.01)
 
 
 if __name__ == '__main__':

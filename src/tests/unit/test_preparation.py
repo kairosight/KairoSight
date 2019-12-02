@@ -6,12 +6,14 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import util.ScientificColourMaps5 as SCMaps
 
-fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
-gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths needed for tests
 dir_tests = str(Path.cwd().parent)
 dir_unit = str(Path.cwd())
+
+fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+
+gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
 def plot_test():
@@ -19,6 +21,8 @@ def plot_test():
     axis = fig.add_subplot(111)
     axis.spines['right'].set_visible(False)
     axis.spines['top'].set_visible(False)
+    axis.tick_params(axis='x', which='minor', length=3, bottom=True)
+    axis.tick_params(axis='x', which='major', length=8, bottom=True)
     plt.rc('xtick', labelsize=fontsize2)
     plt.rc('ytick', labelsize=fontsize2)
     return fig, axis

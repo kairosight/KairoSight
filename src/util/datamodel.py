@@ -14,7 +14,7 @@ RESOLUTION = 0.01       # 1 cm / 100 px
 seed(1)
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100, noise=0,
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, noise=0,
                      num=1, cl=100, apd=None, cad=None):
     """Create a 2-D array of model 16-bit optical data of either
     murine action potentials (OAP) or a murine calcium transients (OCT).
@@ -29,9 +29,9 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
             Start time (ms) of first transient, default is 0
        fps : int
             Frame rate (frames per second) of optical data acquisition, default is 1000, min is 200
-       f_0 : int
+       f0 : int
             Baseline fluorescence value in counts, default is 150
-       f_amp : int
+       famp : int
             Amplitude of the transient in counts, default is 100.
             Can be negative, e.g. cell depolarization with fast voltage dyes
        noise : int
@@ -59,7 +59,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
         raise ValueError("The model type must either be 'Vm' or 'Ca'")
     if (type(t) is not int) or (type(t0) is not int):
         raise TypeError('All time parameters must be ints')
-    if (type(fps) is not int) or (type(f_0) is not int) or (type(f_amp) is not int):
+    if (type(fps) is not int) or (type(f0) is not int) or (type(famp) is not int):
         raise TypeError('All fps and fluorescent parameters must be ints')
     if type(num) not in [int, str]:
         raise TypeError('Number of transients must be an int or "full"')
@@ -73,17 +73,17 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
     if fps <= 200 or fps > 1000:
         raise ValueError('The fps must be > 200 or <= 1000')
 
-    if f_amp < 0:
+    if famp < 0:
         raise ValueError('The amplitude must >=0')
-    if f_0 > FL_16BIT_MAX:
+    if f0 > FL_16BIT_MAX:
         raise ValueError('The baseline fluorescence (f0) must be less than 2^16 - 1 (65535)')
-    if abs(f_amp) > FL_16BIT_MAX:
+    if abs(famp) > FL_16BIT_MAX:
         raise ValueError('The amplitude (f_amp) must be less than 2^16 - 1 (65535)')
-    if f_0 + f_amp > FL_16BIT_MAX:
+    if f0 + famp > FL_16BIT_MAX:
         raise ValueError('The peak (f_0 + f_amp) must be less than 2^16 - 1 (65535)')
-    if f_0 + f_amp + noise > FL_16BIT_MAX:
-        raise ValueError('Model data may overflow 16-bit limit: f_0:{}, f_amp:{}, noise:{}'.format(f_amp, f_0, noise))
-    if model_type is 'Vm' and (f_0 - f_amp < 0):
+    if f0 + famp + noise > FL_16BIT_MAX:
+        raise ValueError('Model data may overflow 16-bit limit: f_0:{}, f_amp:{}, noise:{}'.format(famp, f0, noise))
+    if model_type is 'Vm' and (f0 - famp < 0):
         raise ValueError('Effective Vm amplitude is too negative')
 
     if type(num) not in [str]:
@@ -113,21 +113,21 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
 
     # Initialize full model arrays
     model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)     # time array
-    model_data = np.full(int(FPMS * t), f_0, dtype=np.uint16)      # data array, default value is f_0
+    model_data = np.full(int(FPMS * t), f0, dtype=np.uint16)      # data array, default value is f_0
     if not np.equal(model_time.size, model_data.size):
         raise ArithmeticError('Lengths of time and data arrays not equal!')
 
     if model_type is 'Vm':
         # With voltage dyes, depolarization transients have a negative deflection and return to baseline
         # Initialize a single OAP array (50 ms) + 50 ms to sync with Ca
-        vm_amp = -f_amp
+        vm_amp = -famp
         # Depolarization phase
         model_dep_period = 5  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
         # Generate high-fidelity data
-        model_dep_full = np.full(model_dep_period, f_0, dtype=np.uint16)
+        model_dep_full = np.full(model_dep_period, f0, dtype=np.uint16)
         for i in range(0, model_dep_period):
-            model_dep_full[i] = f_0 + (vm_amp * np.exp(-(((i - model_dep_period) / 3) ** 2)))  # a simplified Gaussian
+            model_dep_full[i] = f0 + (vm_amp * np.exp(-(((i - model_dep_period) / 3) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
         model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
 
@@ -136,22 +136,22 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         apd_ratio = 0.8
         m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period     # slope of this phase
-        model_rep1 = np.full(model_rep1_frames, f_0, dtype=np.uint16)
+        model_rep1 = np.full(model_rep1_frames, f0, dtype=np.uint16)
         for i in range(0, model_rep1_frames):
-            model_rep1[i] = ((m_rep1 * i) + vm_amp + f_0)    # linear
+            model_rep1[i] = ((m_rep1 * i) + vm_amp + f0)    # linear
 
         # Late repolarization phase
         model_rep2_period = 50 - model_dep_period - model_rep1_period  # remaining OAP time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, 50, model_rep2_frames)
-        A, B, C = vm_amp * 0.8, (5 / m_rep1), f_0     # exponential decay parameters
+        A, B, C = vm_amp * 0.8, (5 / m_rep1), f0     # exponential decay parameters
         # model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
         tauFall = 10
         model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave down, using tauFall
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
         # Pad the end with 50 ms of baseline
         model_rep2Pad_frames = floor(50 / FRAME_T)
-        model_rep2Pad = np.full(model_rep2Pad_frames, f_0, dtype=np.uint16)
+        model_rep2Pad = np.full(model_rep2Pad_frames, f0, dtype=np.uint16)
         model_rep2 = np.concatenate((model_rep2, model_rep2Pad), axis=None)
 
     else:
@@ -161,9 +161,9 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
         model_dep_period = 10  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
         # Generate high-fidelity data
-        model_dep_full = np.full(model_dep_period, f_0, dtype=np.uint16)
+        model_dep_full = np.full(model_dep_period, f0, dtype=np.uint16)
         for i in range(0, model_dep_period):
-            model_dep_full[i] = f_0 + (f_amp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian
+            model_dep_full[i] = f0 + (famp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
         model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
 
@@ -171,11 +171,11 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
         model_rep1_period = cad['40']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         cad_ratio = 0.6
-        m_rep1 = -(f_amp - (f_amp * cad_ratio)) / model_rep1_period     # slope of this phase
-        model_rep1_full = np.full(model_rep1_period, f_0, dtype=np.uint16)
+        m_rep1 = -(famp - (famp * cad_ratio)) / model_rep1_period     # slope of this phase
+        model_rep1_full = np.full(model_rep1_period, f0, dtype=np.uint16)
         # Generate high-fidelity data
         for i in range(0, model_rep1_period):
-            model_rep1_full[i] = ((m_rep1 * i) + f_amp + f_0)    # linear
+            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)    # linear
         # Under-sample the high-fidelity data
         model_rep1 = model_rep1_full[::floor(model_rep1_period/model_rep1_frames)][:model_rep1_frames]
 
@@ -183,7 +183,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
         model_rep2_period = 100 - model_dep_period - model_rep1_period  # remaining OCT time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, 100, model_rep2_frames)
-        A, B, C = f_amp * cad_ratio, (0.8 / m_rep1), f_0     # exponential decay parameters
+        A, B, C = famp * cad_ratio, (0.8 / m_rep1), f0     # exponential decay parameters
         # model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
         tauFall = 30
         model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave up, using tauFall
@@ -200,7 +200,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
     else:
         # Pad the transient array
         tranPad_frames = floor((cl - 100) / FRAME_T)
-        tranPad = np.full(tranPad_frames, f_0, dtype=np.uint16)
+        tranPad = np.full(tranPad_frames, f0, dtype=np.uint16)
         model_tran = np.concatenate((model_tran, tranPad), axis=None)
 
     # Assemble the train of transients
@@ -220,7 +220,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f_0=150, f_amp=100,
     model_data = spline(model_time)
 
     # Add gaussian noise, mean: 0, standard deviation: noise% of peak, length
-    model_noise = np.random.normal(0, (noise/100) * f_amp, model_data.size)
+    model_noise = np.random.normal(0, (noise/100) * famp, model_data.size)
     # create white noise series
     white_noise = [gauss(0.0, noise) for i in range(len(model_data))]
 

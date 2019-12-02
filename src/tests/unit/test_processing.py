@@ -7,19 +7,21 @@ from math import pi
 import numpy as np
 import statistics
 import matplotlib.pyplot as plt
-import matplotlib.ticker as pltticker
+import matplotlib.ticker as plticker
 import matplotlib.colors as colors
 from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
 
-fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
-gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_ideal, color_raw, color_filtered = [gray_med, '#FC0352', '#03A1FC']
-color_vm, color_ca = ['#FF9999', '#99FF99']
 # File paths needed for tests
 dir_tests = str(Path.cwd().parent)
 dir_unit = str(Path.cwd())
+
+fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+
+gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
+color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
 def plot_test():
@@ -101,7 +103,7 @@ def plot_stats_scatter():
     return fig, axis
 
 
-def run_trials_snr(self, trials_count, noise=0):
+def run_trials_snr(self, trials_count, trial_noise):
     # SNR Trials
     trials_snr = np.empty(trials_count)
     trials_peak_peak = np.empty(trials_count)
@@ -110,10 +112,10 @@ def run_trials_snr(self, trials_count, noise=0):
                'peak_peak': {'array': trials_peak_peak, 'mean': 0, 'sd': 0},
                'sd_noise': {'array': trials_sd_noise, 'mean': 0, 'sd': 0}}
     for trial in range(0, trials_count):
-        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
-                                              f_0=self.signal_F0, f_amp=self.signal_amp, noise=noise)
+        time_ca, signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
+                                              f0=self.signal_f0, famp=self.signal_famp, noise=trial_noise)
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak \
-            = calculate_snr(signal_ca, noise_count=self.noise_count)
+            = calculate_snr(signal_ca)
 
         trials_snr[trial] = snr
         trials_peak_peak[trial] = peak_peak
@@ -130,17 +132,14 @@ def run_trials_snr(self, trials_count, noise=0):
 
 class TestFilterSpatial(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with, a propagating stack of varying SNR
-        self.filter_type = 'gaussian'
-        self.kernel = 5
-
-        self.f_0 = 1000
-        self.f_amp = 100
-        self.noise = 5
+        # Create data to test with, a propagating stack of known SNR
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 5
         self.time_noisy_ca, self.stack_noisy_ca = model_stack_propagation(
-            model_type='Ca', f_0=self.f_0, f_amp=self.f_amp, noise=self.noise)
+            model_type='Ca', f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
         self.time_ideal_ca, self.stack_ideal_ca = model_stack_propagation(
-            model_type='Ca', f_0=self.f_0, f_amp=self.f_amp)
+            model_type='Ca', f0=self.signal_f0, famp=self.signal_famp)
 
         # Test temporal filtering on real signal data
         # File paths and files needed for the test
@@ -160,6 +159,9 @@ class TestFilterSpatial(unittest.TestCase):
         self.HEIGHT, self.WIDTH = (self.stack_ca_shape[1], self.stack_ca_shape[2])
         self.frame_shape = (self.HEIGHT, self.WIDTH)
         self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
+
+        self.filter_type = 'gaussian'
+        self.kernel = 5
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -205,7 +207,7 @@ class TestFilterSpatial(unittest.TestCase):
         cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
                                      vmax=round(frames_max + 5.1, -1))
         # Noise frame
-        ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.noise))
+        ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.signal_noise))
         img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
         # Draw shape and size of spatial filter kernel
 
@@ -221,8 +223,8 @@ class TestFilterSpatial(unittest.TestCase):
                                      bbox_transform=ax_ideal.transAxes, borderpad=0)
         cb_filtered = plt.colorbar(img_ideal, cax=ax_ins_filtered, orientation="vertical")
         cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
-        cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
-        cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb_filtered.ax.tick_params(labelsize=fontsize3)
 
         fig_filtered.show()
@@ -241,7 +243,7 @@ class TestFilterSpatial(unittest.TestCase):
         # General layout
         fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
         gs0 = fig_filter_traces.add_gridspec(1, 3)  # 1 row, 3 columns
-        titles = ['Noisy Model Data\n(noise SD: {})'.format(self.noise),
+        titles = ['Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
                   'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel),
                   'Model Data']
         # Create normalization colormap range for all frames (round up to nearest 10)
@@ -276,8 +278,8 @@ class TestFilterSpatial(unittest.TestCase):
                                              bbox_transform=ax_frame.transAxes, borderpad=0)
                 cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
                 cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
-                cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
-                cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+                cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+                cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
                 cb_filtered.ax.tick_params(labelsize=fontsize3)
             # Signal trace
             ax_signal = fig_filter_traces.add_subplot(gs_frame_signal[1])
@@ -300,12 +302,8 @@ class TestFilterSpatial(unittest.TestCase):
         fps = 800
         frame_num = int(len(self.stack_real) / 8)  # frame from 1/8th total time
         frame_real = self.stack_real[frame_num]
-        # self.frame_ideal_ca = self.stack_ideal_ca[self.frame_num]
-        stack_shape = self.stack_real.shape
         FRAMES = self.stack_real.shape[0]
         HEIGHT, WIDTH = (self.stack_real.shape[1], self.stack_real.shape[2])
-        frame_shape = (HEIGHT, WIDTH)
-        origin_x, origin_y = WIDTH / 2, HEIGHT / 2
 
         signal_x, signal_y = (int(WIDTH / 3), int(HEIGHT / 3))
         signal_r = self.kernel / 2
@@ -335,7 +333,6 @@ class TestFilterSpatial(unittest.TestCase):
             frame = stack[frame_num]
             # Generate array of timestamps
             FPMS = fps / 1000
-            FRAME_T = 1 / FPMS
             FINAL_T = floor(FPMS * FRAMES)
             signal_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
             signal = stack[:, signal_y, signal_x]
@@ -358,8 +355,8 @@ class TestFilterSpatial(unittest.TestCase):
                                              bbox_transform=ax_frame.transAxes, borderpad=0)
                 cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
                 cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
-                cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
-                cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+                cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+                cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
                 cb_filtered.ax.tick_params(labelsize=fontsize3)
             # Signal trace
             ax_signal = fig_filter_traces.add_subplot(gs_frame_signal[1])
@@ -395,7 +392,7 @@ class TestFilterSpatial(unittest.TestCase):
 
         # Noisy frame
         ax_noisy = fig_filters.add_subplot(gs_frames[0])
-        ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.noise))
+        ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.signal_noise))
         img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
 
         # Filtered frames
@@ -433,8 +430,8 @@ class TestFilterSpatial(unittest.TestCase):
                            bbox_transform=ax_ideal.transAxes, borderpad=0)
         cb_filtered = plt.colorbar(img_filter, cax=ax_cb, orientation="vertical")
         cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
-        cb_filtered.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
-        cb_filtered.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb_filtered.ax.tick_params(labelsize=fontsize3)
 
         for ax in [ax_noisy, ax_ideal]:
@@ -452,19 +449,22 @@ class TestFilterSpatial(unittest.TestCase):
 
 class TestFilterTemporal(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.t = 200
-        self.t0 = 50
-        self.fps = 1000
-        self.signal_F0 = 200
+        # Create data to test with
+        self.signal_t = 200
+        self.signal_t0 = 50
+        self.signal_fps = 1000
+        self.signal_f0 = 200
         self.signal_amp = 100
-        self.noise = 5
-        self.time_noisy_ca, self.signal_noisy_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
-                                                                    f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                                    noise=self.noise)
-        self.time_ideal_ca, self.signal_ideal_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
-                                                                    f_0=self.signal_F0, f_amp=self.signal_amp)
-        self.sample_rate = float(self.fps)
+        self.signal_noise = 5
+
+        self.time_noisy_ca, self.signal_noisy_ca =\
+            model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                             fps=self.signal_fps, f0=self.signal_f0, famp=self.signal_amp, noise=self.signal_noise)
+        self.time_ideal_ca, self.signal_ideal_ca =\
+            model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                             fps=self.signal_fps, f0=self.signal_f0, famp=self.signal_amp)
+
+        self.sample_rate = float(self.signal_fps)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -623,7 +623,7 @@ class TestFilterTemporal(unittest.TestCase):
 
         fig_filter, ax_filter = plot_test()
         ax_filter.set_title('Temporal Filtering\n'
-                            '(noise SD: {}, {} Hz lowpass, filter order: {})'.format(self.noise, freq_cutoff,
+                            '(noise SD: {}, {} Hz lowpass, filter order: {})'.format(self.signal_noise, freq_cutoff,
                                                                                      filter_order))
         ax_filter.set_ylabel('Arbitrary Fluorescent Units')
         ax_filter.set_xlabel('Time (ms)')
@@ -688,18 +688,18 @@ class TestFilterTemporal(unittest.TestCase):
 
 class TestFilterDrift(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.t = 500
-        self.t0 = 200
-        self.fps = 1000
-        self.signal_F0 = 1000
-        self.signal_amp = 100
-        self.noise = 3
-        self.time_noisy_ca, self.signal_noisy_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
-                                                                    f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                                    noise=self.noise)
-        self.time_ideal_ca, self.signal_ideal_ca = model_transients(model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
-                                                                    f_0=self.signal_F0, f_amp=self.signal_amp)
+        # Create data to test with
+        self.signal_t = 500
+        self.signal_t0 = 200
+        self.signal_fps = 1000
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 3
+
+        self.time_noisy_ca, self.signal_noisy_ca =\
+            model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+                             f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
+
         self.time, self.signal_ideal = self.time_noisy_ca, self.signal_noisy_ca
 
         # # Polynomial drift
@@ -711,7 +711,7 @@ class TestFilterDrift(unittest.TestCase):
         # Exponential drift
         self.poly_ideal_order = 'exp'
         exp_b = 0.03
-        self.exp_ideal = self.signal_amp * np.exp(-exp_b * self.time) + self.signal_F0
+        self.exp_ideal = self.signal_famp * np.exp(-exp_b * self.time) + self.signal_f0
         self.drift_ideal_y = self.exp_ideal
         drift_ideal_d = self.drift_ideal_y - self.drift_ideal_y.min()
 
@@ -755,7 +755,7 @@ class TestFilterDrift(unittest.TestCase):
         # Build a figure to plot new signal
         fig_drift, ax_drift = plot_test()
         ax_drift.set_title('Filter - Drift Removal\n'
-                           '(noise SD: {}, polynomial order: {})'.format(self.noise, self.poly_ideal_order))
+                           '(noise SD: {}, polynomial order: {})'.format(self.signal_noise, self.poly_ideal_order))
         ax_drift.set_ylabel('Arbitrary Fluorescent Units')
         ax_drift.set_xlabel('Time (ms)')
 
@@ -774,7 +774,7 @@ class TestFilterDrift(unittest.TestCase):
         error, error_mean, error_sd = calculate_error(self.signal_ideal, signal_filtered)
         ax_error = ax_drift.twinx()  # instantiate a second axes that shares the same x-axis
         ax_error.set_ylabel('% Error')  # we already handled the x-label with ax1
-        ax_error.yaxis.set_major_locator(pltticker.MultipleLocator(5))
+        ax_error.yaxis.set_major_locator(plticker.MultipleLocator(5))
         ax_error.set_ylim([-10, 10])
         ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
         ax_error.plot(self.time_noisy_ca, error,
@@ -788,21 +788,16 @@ class TestFilterDrift(unittest.TestCase):
 
 class TestInvert(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.signal_F0 = 1000
-        self.signal_amp = 100
+        # Create data to test with
+        self.signal_t = 1000
         self.signal_t0 = 50
-        self.signal_time = 1000
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 2  # as a % of the signal amplitude
         self.signal_num = 5
-        self.noise = 2  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_vm, self.signal_vm = model_transients(t0=self.signal_t0, t=self.signal_time,
-                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                        noise=self.noise, num=self.signal_num)
-
-        # time_ca, signal_noisy_ca = model_transients(model_type='Ca', t0=signal_t0 + 15, t=signal_time,
-        #                                       f_0=signal_F0, f_amp=signal_amp,
-        #                                       noise=noise, num=signal_num)
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        f0=self.signal_f0, famp=self.signal_famp,
+                                                        noise=self.signal_noise, num=self.signal_num)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -822,8 +817,8 @@ class TestInvert(unittest.TestCase):
         self.assertEqual(signal_out.dtype, self.signal_vm.dtype)  # inverted signal
 
         # Make sure result values are valid
-        self.assertAlmostEqual(signal_out.min(), self.signal_F0 - self.signal_amp, delta=self.noise * 4)  #
-        self.assertAlmostEqual(signal_out.max(), self.signal_F0, delta=self.noise * 4)  #
+        self.assertAlmostEqual(signal_out.min(), self.signal_f0 - self.signal_famp, delta=self.signal_noise * 4)  #
+        self.assertAlmostEqual(signal_out.max(), self.signal_f0, delta=self.signal_noise * 4)  #
 
     def test_plot_single(self):
         # Make sure signal inversion looks correct
@@ -851,15 +846,16 @@ class TestInvert(unittest.TestCase):
 
 class TestNormalize(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.signal_F0 = 1000
-        self.signal_amp = 100
+        # Create data to test with
+        self.signal_t = 500
         self.signal_t0 = 20
-        self.signal_time = 500
-        self.noise = 5  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
-                                                        f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 5  # as a % of the signal amplitude
+
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                                        f0=self.signal_f0, famp=self.signal_famp,
+                                                        noise=self.signal_noise)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -898,21 +894,21 @@ class TestNormalize(unittest.TestCase):
 
 class TestFF0(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.signal_F0 = 1000
-        self.signal_amp = 100
+        # Create data to test with
+        self.signal_t = 500
         self.signal_t0 = 50
-        self.signal_time = 500
+        self.signal_f0 = 1000
+        self.signal_famp = 100
         self.signal_num = 'full'
         self.signal_cl = 100
-        self.noise = 2  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_vm, self.signal_vm = model_transients(t0=self.signal_t0, t=self.signal_time,
-                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                        noise=self.noise, num=self.signal_num, cl=self.signal_cl)
-        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t0=self.signal_t0 + 15, t=self.signal_time,
-                                                        f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                        noise=self.noise, num=self.signal_num, cl=self.signal_cl)
+        self.signal_noise = 2  # as a % of the signal amplitude
+
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        f0=self.signal_f0, famp=self.signal_famp,
+                                                        noise=self.signal_noise, num=self.signal_num, cl=self.signal_cl)
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0 + 15,
+                                                        f0=self.signal_f0, famp=self.signal_famp,
+                                                        noise=self.signal_noise, num=self.signal_num, cl=self.signal_cl)
 
     def test_parameters(self):
         # Make sure type errors are raised when necessary
@@ -942,7 +938,7 @@ class TestFF0(unittest.TestCase):
         # Build a figure to plot F/F0 results
         fig_ff0, ax_ff0 = plot_test()
         ax_ff0.set_ylabel('Arbitrary Fluorescent Units')
-        ax_ff0.yaxis.set_major_formatter(pltticker.FormatStrFormatter('%.2f'))
+        ax_ff0.yaxis.set_major_formatter(plticker.FormatStrFormatter('%.2f'))
         ax_ff0.set_xlabel('Time (ms)')
 
         ax_ff0.plot(self.time_vm, signal_vm_ff0, color=color_vm, linestyle='None', marker='+', label='Vm, F/F0')
@@ -955,15 +951,16 @@ class TestFF0(unittest.TestCase):
 
 class TestSnrSignal(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.signal_F0 = 1000
-        self.signal_amp = 100
+        # Create data to test with
+        self.signal_t = 500
         self.signal_t0 = 20
-        self.signal_time = 500
-        self.noise = 5  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
-                                                        f_0=self.signal_F0, f_amp=self.signal_amp, noise=self.noise)
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 5  # as a % of the signal amplitude
+
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                                        f0=self.signal_f0, famp=self.signal_famp,
+                                                        noise=self.signal_noise)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -977,7 +974,7 @@ class TestSnrSignal(unittest.TestCase):
 
         # Make sure parameters are valid, and valid errors are raised when necessary
         # i_noise : < t, > 0
-        self.assertRaises(ValueError, calculate_snr, signal_in=self.signal_ca, noise_count=self.signal_time - 1)
+        self.assertRaises(ValueError, calculate_snr, signal_in=self.signal_ca, noise_count=self.signal_t - 1)
         self.assertRaises(ValueError, calculate_snr, signal_in=self.signal_ca, noise_count=-4)
 
         # Make sure difficult data is identified
@@ -989,52 +986,52 @@ class TestSnrSignal(unittest.TestCase):
     def test_results(self):
         # Make sure SNR results are correct
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak \
-            = calculate_snr(self.signal_ca, noise_count=self.noise_count)
+            = calculate_snr(self.signal_ca)
         self.assertIsInstance(snr, float)  # snr
         self.assertIsInstance(rms_bounds, tuple)  # signal_range
         self.assertIsInstance(peak_peak, float)  # Peak to Peak value aka amplitude
-        self.assertAlmostEqual(peak_peak, self.signal_amp, delta=self.noise * 4)
+        self.assertAlmostEqual(peak_peak, self.signal_famp, delta=self.signal_noise * 4)
 
         self.assertIsInstance(sd_noise, float)  # sd of noise
-        self.assertAlmostEqual(sd_noise, self.noise, delta=1)  # noise, as a % of the signal amplitude
+        self.assertAlmostEqual(sd_noise, self.signal_noise, delta=1)  # noise, as a % of the signal amplitude
         self.assertIsInstance(ir_noise, np.ndarray)  # indicies of noise
         self.assertIsInstance(ir_peak, np.int32)  # index of peak
 
         # Make sure a normalized signal (0.0 - 1.0) is handled properly
         signal_norm = normalize_signal(self.signal_ca)
         snr_norm, rms_bounds, peak_peak, sd_noise_norm, ir_noise, ir_peak = \
-            calculate_snr(signal_norm, noise_count=self.noise_count)
+            calculate_snr(signal_norm)
         self.assertAlmostEqual(snr_norm, snr, delta=1)  # snr
-        self.assertAlmostEqual(sd_noise_norm * self.signal_amp, sd_noise, delta=1)  # noise ratio, as a % of
+        self.assertAlmostEqual(sd_noise_norm * self.signal_famp, sd_noise, delta=1)  # noise ratio, as a % of
 
     def test_plot_single(self):
         # Make sure auto-detection of noise and peak regions looks correct
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak \
-            = calculate_snr(self.signal_ca, noise_count=self.noise_count)
+            = calculate_snr(self.signal_ca)
 
         # Build a figure to plot SNR results
         fig_snr, ax_snr = plot_test()
         ax_snr.set_title('SNR Calculation')
         ax_snr.set_ylabel('Arbitrary Fluorescent Units')
         ax_snr.set_xlabel('Time (ms)')
-        ax_snr.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
+        ax_snr.set_ylim([self.signal_f0 - 20, self.signal_f0 + self.signal_famp + 20])
 
         ax_snr.plot(self.time_ca, self.signal_ca, color=gray_light, linestyle='None', marker='+', label='Ca pixel data')
 
         ax_snr.plot(ir_noise, self.signal_ca[ir_noise], "x", color='r', markersize=2, label='Noise')
-        ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_F0,
+        ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_f0,
                                                 color=gray_light, linestyle='--', label='Noise (actual)')
         ax_snr.plot_rms_noise = ax_snr.axhline(y=rms_bounds[0],
                                                color=gray_med, linestyle='-.', label='Noise RMS')
 
         ax_snr.plot(ir_peak, self.signal_ca[ir_peak], "x", color='g', markersize=10, label='Peaks')
-        ax_snr.plot_real_peak = ax_snr.axhline(y=self.signal_F0 + self.signal_amp,
+        ax_snr.plot_real_peak = ax_snr.axhline(y=self.signal_f0 + self.signal_famp,
                                                color=gray_light, linestyle='--', label='Peak (actual)')
         ax_snr.plot_rms_peak = ax_snr.axhline(y=rms_bounds[1],
                                               color=gray_med, linestyle='-.', label='Peak RMS')
 
         ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_snr.text(0.65, 0.5, 'SNR (Noise SD, Actual) : {}'.format(self.noise),
+        ax_snr.text(0.65, 0.5, 'SNR (Noise SD, Actual) : {}'.format(self.signal_noise),
                     color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
         ax_snr.text(0.65, 0.45, 'SNR (Noise SD, Calculated) : {}'.format(round(sd_noise, 3)),
                     color=gray_med, fontsize=fontsize2, transform=ax_snr.transAxes)
@@ -1054,7 +1051,7 @@ class TestSnrSignal(unittest.TestCase):
         trials = [5, 10, 25, 30, 50, 100, 150, 200]
         results = []
         for trial_count in trials:
-            result = run_trials_snr(self, trial_count, self.noise)
+            result = run_trials_snr(self, trial_count, self.signal_noise)
             results.append(result)
 
         # Build a figure to plot stats comparison
@@ -1069,7 +1066,7 @@ class TestSnrSignal(unittest.TestCase):
             x_tick = (1 / len(results)) * i
             ax_sd_noise_bar.bar(x_tick, results[i]['sd_noise']['mean'], width, color=gray_med, fill=True,
                                 yerr=results[i]['sd_noise']['sd'], error_kw=dict(lw=1, capsize=4, capthick=1.0))
-        ax_sd_noise_bar.real_sd_noise = ax_sd_noise_bar.axhline(y=self.noise, color=gray_light, linestyle='--',
+        ax_sd_noise_bar.real_sd_noise = ax_sd_noise_bar.axhline(y=self.signal_noise, color=gray_light, linestyle='--',
                                                                 label='Noise SD (Actual)')
         ax_sd_noise_bar.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
@@ -1086,7 +1083,7 @@ class TestSnrSignal(unittest.TestCase):
                                          yerr=results[i]['sd_noise']['sd'], fmt="x",
                                          color=gray_heavy, lw=1, capsize=4, capthick=1.0)
 
-        ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.noise, color=gray_light,
+        ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.signal_noise, color=gray_light,
                                                                         linestyle='--', label='Noise SD (Actual)')
         ax_sd_noise_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
@@ -1133,14 +1130,15 @@ class TestSnrSignal(unittest.TestCase):
 
 class TestSnrMap(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with, a propagating stack of varying SNR
-        self.f_0 = 1000
-        self.f_amp = 100
-        self.noise = 3
+        # Create data to test with, a propagating stack of varying SNR
         self.d_noise = 10  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_ca, self.stack_ca = model_stack_propagation(
-            model_type='Ca', d_noise=self.d_noise, f_0=self.f_0, f_amp=self.f_amp, noise=self.noise)
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 3   # as a % of the signal amplitude
+
+        self.time_ca, self.stack_ca =\
+            model_stack_propagation(model_type='Ca', d_noise=self.d_noise,
+                                    f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
         self.FRAMES = self.stack_ca.shape[0]
         self.HEIGHT, self.WIDTH = (self.stack_ca.shape[1], self.stack_ca.shape[2])
         self.frame_shape = (self.HEIGHT, self.WIDTH)
@@ -1178,7 +1176,8 @@ class TestSnrMap(unittest.TestCase):
 
         # Plot a frame from the stack and the SNR map of that frame
         fig_map_snr, ax_img_snr, ax_map_snr = plot_map()
-        ax_img_snr.set_title('Noisy Model Data (noise SD: {}-{})'.format(self.noise, self.noise + self.d_noise))
+        ax_img_snr.set_title('Noisy Model Data (noise SD: {}-{})'.
+                             format(self.signal_noise, self.signal_noise + self.d_noise))
         ax_map_snr.set_title('SNR Map')
         # Frame from stack
         cmap_frame = SCMaps.grayC.reversed()
@@ -1198,8 +1197,8 @@ class TestSnrMap(unittest.TestCase):
                                 borderpad=0)
         cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
         cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
-        cb_img.ax.yaxis.set_major_locator(pltticker.LinearLocator(2))
-        cb_img.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb_img.ax.tick_params(labelsize=fontsize3)
         # SNR Map
         # Create normalization range for map (0 and max rounded up to the nearest 10)
@@ -1212,8 +1211,8 @@ class TestSnrMap(unittest.TestCase):
                                 borderpad=0)
         cb1_map = plt.colorbar(img_snr, cax=ax_ins_map, orientation="vertical")
         cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(pltticker.LinearLocator(5))
-        cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
+        cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
+        cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
         fig_map_snr.show()
@@ -1223,14 +1222,14 @@ class TestSnrMap(unittest.TestCase):
 # class TestSNRCube(unittest.TestCase):
 #     def setUp(self):
 #         # Setup data to test with, a propagating stack of varying SNR
-#         self.f_0 = 1000
-#         self.f_amp = 100
+#         self.f0 = 1000
+#         self.famp = 100
 #         self.noise = 1
 #         self.d_noise = 10  # as a % of the signal amplitude
 #         self.noise_count = 100
 #         self.time_ca, self.stack_ca = model_stack_propagation(
-#             size=(10, 10), model_type='Ca', d_noise=self.d_noise, f_0=self.f_0,
-#             f_amp=self.f_amp, noise=self.noise)
+#             size=(10, 10), model_type='Ca', d_noise=self.d_noise, f0=self.f0,
+#             famp=self.famp, noise=self.noise)
 #         self.time, self.stack = self.time_ca, self.stack_ca
 #         self.FRAMES = self.stack.shape[0]
 #         self.HEIGHT, self.WIDTH = (self.stack.shape[1], self.stack.shape[2])
@@ -1281,19 +1280,18 @@ class TestSnrMap(unittest.TestCase):
 
 class TestErrorSignal(unittest.TestCase):
     def setUp(self):
-        # Setup data to test with
-        self.signal_F0 = 1000
-        self.signal_amp = 100
+        # Create data to test with
+        self.signal_t = 500
         self.signal_t0 = 20
-        self.signal_time = 500
-        self.noise = 10  # as a % of the signal amplitude
-        self.noise_count = 100
-        self.time_ca_ideal, self.signal_ca_ideal = model_transients(model_type='Ca', t0=self.signal_t0,
-                                                                    t=self.signal_time,
-                                                                    f_0=self.signal_F0, f_amp=self.signal_amp)
-        self.time_ca_mod, self.signal_ca_mod = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
-                                                                f_0=self.signal_F0, f_amp=self.signal_amp,
-                                                                noise=self.noise)
+        self.signal_f0 = 1000
+        self.signal_famp = 100
+        self.signal_noise = 10  # as a % of the signal amplitude
+
+        self.time_ca_ideal, self.signal_ca_ideal = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                                                    f0=self.signal_f0, famp=self.signal_famp)
+        self.time_ca_mod, self.signal_ca_mod = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+                                                                f0=self.signal_f0, famp=self.signal_famp,
+                                                                noise=self.signal_noise)
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -1312,9 +1310,9 @@ class TestErrorSignal(unittest.TestCase):
         self.assertIsInstance(error_mean, float)  # error_mean
         self.assertIsInstance(error_sd, float)  # error_sd
 
-        self.assertAlmostEqual(error.max(), self.noise / 3, delta=1)
+        self.assertAlmostEqual(error.max(), self.signal_noise / 3, delta=1)
         self.assertAlmostEqual(error_mean, 0, delta=0.1)
-        self.assertAlmostEqual(error_sd, self.noise / 10, delta=1)  # error_sd
+        self.assertAlmostEqual(error_sd, self.signal_noise / 10, delta=1)  # error_sd
 
     def test_plot(self):
         # Make sure error calculation looks correct
@@ -1329,7 +1327,7 @@ class TestErrorSignal(unittest.TestCase):
         ax_error_signal.plot(self.time_ca_ideal, self.signal_ca_ideal, color=gray_light, linestyle='-',
                              label='Ca, ideal')
         ax_error_signal.plot(self.time_ca_mod, self.signal_ca_mod, color=gray_med, linestyle='None', marker='+',
-                             label='Ca, {}% noise'.format(self.noise))
+                             label='Ca, {}% noise'.format(self.signal_noise))
 
         ax_error = ax_error_signal.twinx()  # instantiate a second axes that shares the same x-axis
         ax_error.set_ylabel('%')  # we already handled the x-label with ax1
@@ -1351,8 +1349,8 @@ class TestErrorSignal(unittest.TestCase):
         results = []
         for noise in noises:
             result = {'error': {'array': np.empty(10), 'mean': 0, 'sd': 0}}
-            time_ca_mod, signal_ca_mod = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_time,
-                                                          f_0=self.signal_F0, f_amp=self.signal_amp,
+            time_ca_mod, signal_ca_mod = model_transients(model_type='Ca', t0=self.signal_t0, t=self.signal_t,
+                                                          f0=self.signal_f0, famp=self.signal_famp,
                                                           noise=noise)
             error, error_mean, error_sd = calculate_error(self.signal_ca_ideal, signal_ca_mod)
             result['error']['array'] = error
