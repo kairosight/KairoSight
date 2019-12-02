@@ -5,7 +5,6 @@ import time
 from math import pi
 import numpy as np
 from scipy import interpolate
-from scipy.interpolate import UnivariateSpline
 from scipy.signal import find_peaks
 from imageio import volwrite
 import matplotlib.pyplot as plt
@@ -14,6 +13,9 @@ import matplotlib.ticker as plticker
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_vm, color_ca = ['#FF9999', '#99FF99']
+# File paths needed for tests
+dir_tests = str(Path.cwd().parent)
+dir_unit = str(Path.cwd())
 
 
 def plot_test():
@@ -78,7 +80,7 @@ class TestModelTransients(unittest.TestCase):
         self.assertEqual(model_transients(t=150)[1].size, 150)  # length is correct
         self.assertEqual(model_transients(t=1000, t0=10, fps=223)[1].size, 223)  # length is correct with odd fps
         self.assertGreaterEqual(model_transients(t=100)[1].all(), 0)  # no negative values
-        self.assertLess(model_transients(model_type='Ca')[1].all(), 2 ** 16-1)  # no values >= 16-bit max
+        self.assertLess(model_transients(model_type='Ca')[1].all(), 2 ** 16 - 1)  # no values >= 16-bit max
         self.assertGreaterEqual(2000,
                                 model_transients(model_type='Vm', f_0=2000)[1].max())  # Vm amplitude handled properly
         self.assertLessEqual(2000,
@@ -91,18 +93,18 @@ class TestModelTransients(unittest.TestCase):
 
         time_vm, data_vm = model_transients(t=500, f_0=2000, f_amp=f_amp, num=num)
         data_vm_inv = (-(data_vm - 2000)) + 2000
-        peaks_vm, _ = find_peaks(data_vm_inv, height=peak_min_height, prominence=f_amp/2)
+        peaks_vm, _ = find_peaks(data_vm_inv, height=peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num, peaks_vm.size)  # detected peaks matches number of generated transients
 
         time_ca, data_ca = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=f_amp, num=num)
         # peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, distance=len(data_ca)/num)
-        peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, prominence=f_amp/2)
+        peaks_ca, _ = find_peaks(data_ca, height=1000 + peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num, peaks_ca.size)  # detected peaks matches number of generated transients
 
         # time_ca_full, data_ca_full = model_transients(model_type='Ca', t=500, f_0=1000, f_amp=250, num='full')
         num_full = 5000 / 100
         time_ca_full, data_ca_full = model_transients(model_type='Ca', t=5000, f_0=1000, f_amp=f_amp, num='full')
-        peaks_ca, _ = find_peaks(data_ca_full, height=peak_min_height, prominence=f_amp/2)
+        peaks_ca, _ = find_peaks(data_ca_full, height=peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num_full, peaks_ca.size)  # detected peaks matches calculated transients for 'full'
 
     def test_plot_single(self):
@@ -221,14 +223,14 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        data_vm1_align, data_vm2_align, data_vm3_align =\
+        data_vm1_align, data_vm2_align, data_vm3_align = \
             -(data_vm1 - data_vm1.max()), -(data_vm2 - data_vm2.max()), -(data_vm3 - data_vm3.max())
         plot_vm_1, = ax_cyclelength1.plot(time_vm1, data_vm1_align, gray_light, marker='1', label='Vm, CL: 50')
         plot_vm_2, = ax_cyclelength2.plot(time_vm2, data_vm2_align, gray_med, marker='+', label='Vm, CL: 100')
         plot_vm_3, = ax_cyclelength3.plot(time_vm3, data_vm3_align, gray_heavy, marker='2', label='Vm, CL: 150')
         # plot_baseline = ax_cyclelength.axhline(color='gray', linestyle='--', label='baseline')
         fig_cyclelength.legend(title='Cycle Length Variations',
-                              loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+                               loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_cyclelength.show()
 
     def test_plot_dual(self):
@@ -280,10 +282,6 @@ class TestModelTransients(unittest.TestCase):
 
 
 class TestModelStack(unittest.TestCase):
-    # File paths  and files needed for tests
-    cwd = Path.cwd()
-    tests = str(cwd)
-
     def test_params(self):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack, size=20)  # size must be a tuple, e.g. (100, 50)
@@ -312,17 +310,13 @@ class TestModelStack(unittest.TestCase):
     def test_tiff(self):
         # Make sure this stack is similar to a 16-bit .tif/.tiff
         time_vm, data_vm = model_stack(t=1000)
-        volwrite(self.tests + '/results/ModelStack_vm.tif', data_vm)
+        volwrite(dir_unit + '/results/ModelStack_vm.tif', data_vm)
 
         time_ca, data_ca = model_stack(model_type='Ca', t=1000)
-        volwrite(self.tests + '/results/ModelStack_ca.tif', data_ca)
+        volwrite(dir_unit + '/results/ModelStack_ca.tif', data_ca)
 
 
 class TestModelStackPropagation(unittest.TestCase):
-    # File paths  and files needed for tests
-    cwd = Path.cwd()
-    tests = str(cwd)
-
     def test_params(self):
         # Make sure type errors are raised when necessary
         self.assertRaises(TypeError, model_stack_propagation, size=20)  # size must be a tuple, e.g. (100, 50)
@@ -358,9 +352,9 @@ class TestModelStackPropagation(unittest.TestCase):
         time_vm, data_vm = model_stack_propagation()
         end = time.process_time()
         print('Timing, test_tiff, Vm : ', end - start)
-        volwrite(self.tests + '/results/ModelStackPropagation_vm.tif', data_vm)
+        volwrite(dir_tests + '/results/ModelStackPropagation_vm.tif', data_vm)
         time_ca, data_ca = model_stack_propagation(model_type='Ca')
-        volwrite(self.tests + '/results/ModelStackPropagation_ca.tif', data_ca)
+        volwrite(dir_tests + '/results/ModelStackPropagation_ca.tif', data_ca)
 
     def test_tiff_noise(self):
         # Make sure this stack is similar to a noisy 16-bit .tif/.tiff
@@ -368,9 +362,9 @@ class TestModelStackPropagation(unittest.TestCase):
         time_vm, data_vm = model_stack_propagation(noise=5, velocity=50, t0=50)
         end = time.process_time()
         print('Timing, test_tiff_noise, Vm : ', end - start)
-        volwrite(self.tests + '/results/ModelStackPropagationNoise_vm.tif', data_vm)
+        volwrite(dir_unit + '/results/ModelStackPropagationNoise_vm.tif', data_vm)
         time_ca, data_ca = model_stack_propagation(noise=5, model_type='Ca', velocity=50, t0=50)
-        volwrite(self.tests + '/results/ModelStackPropagationNoise_ca.tif', data_ca)
+        volwrite(dir_unit + '/results/ModelStackPropagationNoise_ca.tif', data_ca)
 
     def test_tiff_snr(self):
         # Make sure this stack is similar to a variably noisy 16-bit .tif/.tiff
@@ -378,9 +372,9 @@ class TestModelStackPropagation(unittest.TestCase):
         time_vm, data_vm = model_stack_propagation(d_noise=10, noise=5, num='full')
         end = time.process_time()
         print('Timing, test_tiff_snr, Vm : ', end - start)
-        volwrite(self.tests + '/results/ModelStackPropagationSNR_vm.tif', data_vm)
+        volwrite(dir_unit + '/results/ModelStackPropagationSNR_vm.tif', data_vm)
         time_ca, data_ca = model_stack_propagation(model_type='Ca', d_noise=10, noise=5, num='full')
-        volwrite(self.tests + '/results/ModelStackPropagationSNR_ca.tif', data_ca)
+        volwrite(dir_unit + '/results/ModelStackPropagationSNR_ca.tif', data_ca)
 
 
 # Example tests

@@ -18,9 +18,9 @@ fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
-# File paths  and files needed for tests
-dir_cwd = Path.cwd()
-dir_tests = str(dir_cwd)
+# File paths needed for tests
+dir_tests = str(Path.cwd().parent)
+dir_unit = str(Path.cwd())
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 colors_times = {'Start': '#FFD649',
                 'Activation': '#FFA253',
@@ -278,7 +278,7 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
-        fig_points.savefig(dir_tests + '/results/analysis_AnalysisPoints.png')
+        fig_points.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
         fig_points.show()
 
 
@@ -515,7 +515,7 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        fig_ensemble.savefig(dir_tests + '/results/analysis_Ensemble.png')
+        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
         fig_ensemble.show()
 
 
@@ -607,7 +607,7 @@ class TestMapAnalysis(unittest.TestCase):
         cb1_map.ax.yaxis.set_minor_locator(pltticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
-        fig_map_snr.savefig(dir_tests + '/results/processing_MapActivation.png')
+        fig_map_snr.savefig(dir_unit + '/results/processing_MapActivation.png')
         fig_map_snr.show()
 
 

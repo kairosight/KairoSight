@@ -4,15 +4,14 @@ import sys
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
-from skimage.filters import try_all_threshold
 import util.ScientificColourMaps5 as SCMaps
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_vm, color_ca = ['#FF9999', '#99FF99']
-# File paths  and files needed for tests
-dir_cwd = Path.cwd()
-dir_tests = str(dir_cwd)
+# File paths needed for tests
+dir_tests = str(Path.cwd().parent)
+dir_unit = str(Path.cwd())
 
 
 def plot_test():
@@ -71,7 +70,7 @@ class TestOpenSignal(unittest.TestCase):
                        color=gray_med, fontsize=fontsize2, transform=ax_single.transAxes)
         # ax_single.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
-        fig_single.savefig(dir_tests + '/results/prep_OpenSingle.png')
+        fig_single.savefig(dir_unit + '/results/prep_OpenSingle.png')
         fig_single.show()
 
 
@@ -251,7 +250,7 @@ class TestMaskGenerate(unittest.TestCase):
         img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
-        fig_mask.savefig(dir_tests + '/results/prep_Mask.png')
+        fig_mask.savefig(dir_unit + '/results/prep_Mask.png')
         fig_mask.show()
 
 
