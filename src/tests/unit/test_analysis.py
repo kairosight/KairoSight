@@ -71,14 +71,16 @@ class TestStart(unittest.TestCase):
         # Create data to test with
         self.signal_t = 200
         self.signal_t0 = 10
-        self.signal_noise = 5  # as a % of the signal amplitude
+        self.signal_fps = 1000
+        self.signal_noise = 3
 
-        time_vm, signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
-                                              noise=self.signal_noise)
-        time_ca, signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
-                                              noise=self.signal_noise)
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps, noise=self.signal_noise)
+        self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps)
+        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
 
-        self.time, self.signal = time_vm, invert_signal(signal_vm)
+        self.zoom_t = 40
 
     def test_parameters(self):
         # Make sure type errors are raised when necessary
@@ -95,6 +97,49 @@ class TestStart(unittest.TestCase):
         i_start = find_tran_start(self.signal)
         self.assertIsInstance(i_start, np.int64)  # index of start start
         self.assertAlmostEqual(self.time[i_start], self.signal_t0, delta=5)  # start time
+
+    def test_plot(self):
+        # Build a figure to plot the signal, it's derivatives, and any analysis points
+        # General layout
+        fig_points, ax_points = plot_test()
+        ax_points.set_title('Analysis Point: Start')
+        ax_points.set_ylabel('Arbitrary Fluorescent Units')
+        ax_points.set_xlabel('Time (ms)')
+        points_lw = 3
+
+        ax_points.plot(self.time[0:self.zoom_t], self.signal[0:self.zoom_t], color=gray_heavy,
+                       linestyle='-', marker='x', label='Vm (Model)')
+
+        ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
+
+        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        spl = UnivariateSpline(time_x, self.signal)
+        df_smooth = spl(time_x, nu=1)
+        d2f_smooth = spl(time_x, nu=2)
+
+        # ax_dfs.set_ylim([-25, 25])
+
+        # df/dt
+        ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
+                    color=gray_med, linestyle='--', label='dF/dt')
+        # d2f/dt2
+        # signal_d2f = np.diff(self.signal, n=2, prepend=[int(self.signal[0]), int(self.signal[0])]).astype(float)
+        # signal_d2f_smooth = UnivariateSpline(time_x, signal_d2f)(time_x)
+
+        ax_dfs.plot(self.time[0:self.zoom_t], d2f_smooth[0:self.zoom_t],
+                    color=gray_med, linestyle=':', label='d2F/dt2')
+
+        # Start
+        i_start = find_tran_start(self.signal)  # 1st df2 max, Start
+        ax_points.axvline(self.time[i_start], color=colors_times['Start'], linewidth=points_lw,
+                          label='Start')
+
+        ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        # fig_points.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
+        fig_points.show()
 
 
 class TestActivation(unittest.TestCase):
@@ -221,7 +266,7 @@ class TestAnalysisPoints(unittest.TestCase):
         self.signal_fps = 1000
 
         self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
-                                                        fps=self.signal_fps)
+                                                        fps=self.signal_fps, noise=1)
         self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0,
                                                         fps=self.signal_fps)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
@@ -255,6 +300,8 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
+        # signal_d2f = np.diff(self.signal, n=2, prepend=[int(self.signal[0]), int(self.signal[0])]).astype(float)
+        # ax_dfs.plot(self.time[0:self.zoom_t], signal_d2f[0:self.zoom_t],
         ax_dfs.plot(self.time[0:self.zoom_t], d2f_smooth[0:self.zoom_t],
                     color=gray_med, linestyle=':', label='d2F/dt2')
 

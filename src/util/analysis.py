@@ -30,13 +30,35 @@ def find_tran_start(signal_in):
         raise ValueError('All signal values must be >= 0')
 
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
-    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
-    spl = UnivariateSpline(time_x, signal_in)
-    signal_spline_df = spl(time_x, nu=1)
-    signal_spline_d2f = spl(time_x, nu=2)
 
-    i_start = np.argmax(signal_spline_d2f)
+    # Limit search to right before the peak and activation
+    i_peak = find_tran_peak(signal_in)
+    i_act = find_tran_act(signal_in)
+    search_min = int(i_act/3)
+    search_max = i_act
+    time_x_search = time_x[search_min:search_max]
+    signal_search = signal_in[search_min:search_max]
+
+    signal_smooth = savgol_filter(y, 51, 3)
+    signal_search_smooth = signal_smooth[search_min:search_max]
+
+    spl = UnivariateSpline(time_x_search, signal_search_smooth)
+    # df_smooth = spl(time_x_search, nu=1)
+    signal_spline_d2f = spl(time_x_search, nu=2)
+    # signal_d2f = np.diff(signal_search, n=2, prepend=[int(signal_search[0]), int(signal_search[0])]).astype(float)
+    # signal_spline_d2f = UnivariateSpline(time_x_search, signal_d2f)(time_x_search)
+
+    # signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
+    # signal_spline_d2f = UnivariateSpline(time_x, signal_d2f)(time_x)
+
+    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
+    # spl = UnivariateSpline(time_x, signal_in)
+    # signal_spline_df = spl(time_x, nu=1)
+    # signal_spline_d2f = spl(time_x, nu=2)
+
+    # i_start = np.argmax(signal_d2f)
+    i_start_search = np.argmax(signal_spline_d2f)
+    i_start = search_min + i_start_search
 
     return i_start
 
