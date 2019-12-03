@@ -1,8 +1,8 @@
 import statistics
 import numpy as np
 from numpy import linalg
-from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2,\
-    lfilter, butter, freqs, freqz, minimum_phase
+from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2, \
+    lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
 from scipy.optimize import curve_fit
 from skimage.morphology import square
 from skimage.restoration import denoise_tv_chambolle, estimate_sigma
@@ -128,7 +128,7 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
 
 
 def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='auto'):
-    """Apply a lowpass filter to array of optical data.
+    """Apply a lowpass filter to an array of optical data.
 
         Parameters
         ----------
@@ -211,6 +211,15 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
         taps = firwin(numtaps=n_order + 1, cutoff=freq_cutoff, window=(window, beta), fs=sample_rate)
         # signal_out = lfilter(taps, 1.0, signal_in)   # for FIR, a=1
         signal_out = filtfilt(taps, 1, signal_in, method="gust")   # for FIR, a=1
+        # # Savitzky Golay
+        # window_coef = int(nyq_rate / 50)
+        #
+        # if window_coef % 2 > 0:
+        #     window = window_coef
+        # else:
+        #     window = window_coef + 1
+        #
+        # signal_out = savgol_filter(signal_in, window, 3)
     else:
         raise ValueError('Filter order "{}" not implemented'.format(filter_order))
 
