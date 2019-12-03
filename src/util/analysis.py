@@ -87,13 +87,16 @@ def find_tran_act(signal_in):
     # print('** Finished UnivariateSpline', end - start)
     # print('** Starting spl')
     # start = time.process_time()
-    signal_spline_df = spl(time_x, nu=1)
+    df_spline = spl(time_x, nu=1)
+    # smooth the 1st with a Savitzky Golay filter
+    # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
+    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
     # end = time.process_time()
     # print('** Finished spl', end - start)
     # print('Done with analysis splines')
     # print('Timing, test_tiff, Vm : ', end - start)
 
-    i_activation = np.argmax(signal_spline_df)  # 1st df max, Activation
+    i_activation = np.argmax(df_smooth)  # 1st df max, Activation
 
     return i_activation
 
@@ -155,14 +158,25 @@ def find_tran_downstroke(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
-    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
-    spl = UnivariateSpline(time_x, signal_in)
-    signal_spline_df = spl(time_x, nu=1)
-    signal_spline_d2f = spl(time_x, nu=2)
+    # Limit search to after the peak and before the end
+    i_peak = find_tran_peak(signal_in)
+    search_min = i_peak
+    # first index after peak where the signal < before its start value,
+    # e.g. at signal[((i_peak - i_act) * 3)] before the activation
+    i_peak = find_tran_peak(signal_in)
+    i_act = find_tran_act(signal_in)
+    i_baseline = i_act - int((i_peak - i_act) * 3)
+    search_max = i_peak + int(min(np.argwhere(signal_in[i_peak:] < signal_in[i_baseline])))
 
-    i_downstroke = np.argmin(signal_spline_df)  # df min, Downstroke
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    spl = UnivariateSpline(time_x, signal_in)
+    df_spline = spl(time_x, nu=1)
+    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+
+    # find the 2nd derivative max within the search area
+    search_df_smooth = df_smooth[search_min:search_max]
+    i_start_search = np.argmin(search_df_smooth)   # df min, Downstroke
+    i_downstroke = search_min + i_start_search
 
     return i_downstroke
 
@@ -187,15 +201,30 @@ def find_tran_end(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
-    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
-    spl = UnivariateSpline(time_x, signal_in)
-    signal_spline_df = spl(time_x, nu=1)
-    signal_spline_d2f = spl(time_x, nu=2)
+    # Limit search to after the Downstroke and before a return to baseline
+    i_downstroke = find_tran_downstroke(signal_in)
+    search_min = i_downstroke
+    # first index after peak where the signal < before its start value,
+    # e.g. at signal[((i_peak - i_act) * 3)] before the activation
+    i_peak = find_tran_peak(signal_in)
+    i_act = find_tran_act(signal_in)
+    i_baseline = i_act - int((i_peak - i_act) * 3)
+    search_max = i_peak + int(min(np.argwhere(signal_in[i_peak:] < signal_in[i_baseline])))
 
-    i_max1 = np.argmax(signal_spline_d2f)
-    i_end = np.argmax(signal_spline_d2f[i_max1 + 1:])  # 2st df2 max, End
+    # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
+    # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    spl = UnivariateSpline(time_x, signal_in)
+    df_spline = spl(time_x, nu=1)
+    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+
+    spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+    d2f_smooth = spl_df_smooth(time_x, nu=1)
+
+    search_d2f_smooth = d2f_smooth[search_min: search_max]
+
+    i_end_search = np.argmax(search_d2f_smooth)  # 2st df2 max, End
+    i_end = search_min + i_end_search
 
     return i_end
 

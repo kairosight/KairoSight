@@ -107,8 +107,9 @@ class TestStart(unittest.TestCase):
         ax_points.set_xlabel('Time (ms)')
         points_lw = 3
 
-        ax_points.plot(self.time[0:self.zoom_t], self.signal[0:self.zoom_t], color=gray_heavy,
+        ax_points.plot(self.time, self.signal, color=gray_heavy,
                        linestyle='-', marker='x', label='Vm (Model)')
+        ax_points.set_xlim(0, self.zoom_t)
 
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
         ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
@@ -123,10 +124,10 @@ class TestStart(unittest.TestCase):
         d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
-        ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
+        ax_dfs.plot(self.time, df_smooth,
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
-        ax_dfs.plot(self.time[0:self.zoom_t], d2f_smooth[0:self.zoom_t],
+        ax_dfs.plot(self.time, d2f_smooth,
                     color=gray_med, linestyle=':', label='d2F/dt2')
         df_max = round(max(max(df_smooth, key=abs), max(d2f_smooth, key=abs)) + 5.1, -1)
         ax_dfs.set_ylim([-df_max, df_max])
@@ -147,13 +148,16 @@ class TestActivation(unittest.TestCase):
         # Create data to test with
         self.signal_t = 200
         self.signal_t0 = 10
-        self.signal_noise = 5  # as a % of the signal amplitude
+        self.signal_fps = 1000
+        self.signal_noise = 3
 
-        time_vm, signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
-                                              noise=self.signal_noise)
-        time_ca, signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
-                                              noise=self.signal_noise)
-        self.time, self.signal = time_vm, invert_signal(signal_vm)
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps, noise=self.signal_noise)
+        self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps)
+        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+
+        self.zoom_t = 40
 
     def test_parameters(self):
         # Make sure type errors are raised when necessary
@@ -171,6 +175,50 @@ class TestActivation(unittest.TestCase):
         self.assertIsInstance(i_activation, np.int64)  # index of activation time
         self.assertGreater(self.time[i_activation], self.signal_t0)  # activation time
         # self.assertLess(self.time[i_activation], self.signal_t0, delta=5)  # activation time
+
+    def test_plot(self):
+        # Build a figure to plot the signal, it's derivatives, and any analysis points
+        # General layout
+        fig_points, ax_points = plot_test()
+        ax_points.set_title('Analysis Point: Activation')
+        ax_points.set_ylabel('Arbitrary Fluorescent Units')
+        ax_points.set_xlabel('Time (ms)')
+        points_lw = 3
+
+        ax_points.plot(self.time, self.signal, color=gray_heavy,
+                       linestyle='-', marker='x', label='Vm (Model)')
+        ax_points.set_xlim(0, self.zoom_t)
+
+        ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
+        ax_dfs.set_ylabel('dF/dt')
+
+        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        spl = UnivariateSpline(time_x, self.signal)
+
+        df_spline = spl(time_x, nu=1)
+        df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+        # spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+
+        # d2f_smooth = spl_df_smooth(time_x, nu=1)
+
+        # df/dt
+        ax_dfs.plot(self.time, df_smooth,
+                    color=gray_med, linestyle='--', label='dF/dt')
+        # d2f/dt2
+        # ax_dfs.plot(self.time, d2f_smooth,
+        #             color=gray_med, linestyle=':', label='d2F/dt2')
+        df_max = round(max(df_smooth, key=abs) + 5.1, -1)
+        ax_dfs.set_ylim([-df_max, df_max])
+
+        # Start
+        i_start = find_tran_act(self.signal)  # 1st df max, Activation
+        ax_points.axvline(self.time[i_start], color=colors_times['Activation'], linewidth=points_lw,
+                          label='Activation')
+
+        ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_points.show()
 
 
 class TestPeak(unittest.TestCase):
@@ -264,46 +312,49 @@ class TestAnalysisPoints(unittest.TestCase):
         self.signal_t = 200
         self.signal_t0 = 10
         self.signal_fps = 1000
+        self.signal_noise = 3
 
         self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
-                                                        fps=self.signal_fps, noise=1)
+                                                        fps=self.signal_fps, noise=self.signal_noise)
         self.time_ca, self.signal_ca = model_transients(t=self.signal_t, t0=self.signal_t0,
                                                         fps=self.signal_fps)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
 
-        self.sample_rate = float(self.signal_fps)
-        self.zoom_t = 40
+        self.zoom_t = 50
 
     def test_plot(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout
         fig_points, ax_points = plot_test()
-        ax_points.set_title('Analysis Points\n1st and 2nd derivatives')
+        ax_points.set_title('Analysis Points')
         ax_points.set_ylabel('Arbitrary Fluorescent Units')
         ax_points.set_xlabel('Time (ms)')
         points_lw = 3
 
-        ax_points.plot(self.time[0:self.zoom_t], self.signal[0:self.zoom_t], color=gray_heavy,
+        ax_points.plot(self.time, self.signal, color=gray_heavy,
                        linestyle='-', marker='x', label='Vm (Model)')
+        ax_points.set_xlim(0, self.zoom_t)
 
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
         ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
 
         time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
         spl = UnivariateSpline(time_x, self.signal)
-        df_smooth = spl(time_x, nu=1)
-        d2f_smooth = spl(time_x, nu=2)
 
-        ax_dfs.set_ylim([-25, 25])
+        df_spline = spl(time_x, nu=1)
+        df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+        spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+
+        d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
-        ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
+        ax_dfs.plot(self.time, df_smooth,
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
-        # signal_d2f = np.diff(self.signal, n=2, prepend=[int(self.signal[0]), int(self.signal[0])]).astype(float)
-        # ax_dfs.plot(self.time[0:self.zoom_t], signal_d2f[0:self.zoom_t],
-        ax_dfs.plot(self.time[0:self.zoom_t], d2f_smooth[0:self.zoom_t],
+        ax_dfs.plot(self.time, d2f_smooth,
                     color=gray_med, linestyle=':', label='d2F/dt2')
+        df_max = round(max(max(df_smooth, key=abs), max(d2f_smooth, key=abs)) + 5.1, -1)
+        ax_dfs.set_ylim([-df_max, df_max])
 
         # Start
         i_start = find_tran_start(self.signal)  # 1st df2 max, Start
@@ -322,12 +373,12 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_points.axvline(self.time[i_downstroke], color=colors_times['Downstroke'], linewidth=points_lw,
                           label='Downstroke')
         # End
-        i_end = find_tran_downstroke(self.signal)  # 2st df2 max, End
+        i_end = find_tran_end(self.signal)  # 2st df2 max, End
         ax_points.axvline(self.time[i_end], color=colors_times['End'], linewidth=points_lw,
                           label='End')
 
-        ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
+        ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
 
         fig_points.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
         fig_points.show()
