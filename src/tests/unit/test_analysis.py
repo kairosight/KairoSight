@@ -115,20 +115,21 @@ class TestStart(unittest.TestCase):
 
         time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
         spl = UnivariateSpline(time_x, self.signal)
-        df_smooth = spl(time_x, nu=1)
-        d2f_smooth = spl(time_x, nu=2)
 
-        # ax_dfs.set_ylim([-25, 25])
+        df_spline = spl(time_x, nu=1)
+        df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+        spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+
+        d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
         ax_dfs.plot(self.time[0:self.zoom_t], df_smooth[0:self.zoom_t],
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
-        # signal_d2f = np.diff(self.signal, n=2, prepend=[int(self.signal[0]), int(self.signal[0])]).astype(float)
-        # signal_d2f_smooth = UnivariateSpline(time_x, signal_d2f)(time_x)
-
         ax_dfs.plot(self.time[0:self.zoom_t], d2f_smooth[0:self.zoom_t],
                     color=gray_med, linestyle=':', label='d2F/dt2')
+        df_max = round(max(max(df_smooth, key=abs), max(d2f_smooth, key=abs)) + 5.1, -1)
+        ax_dfs.set_ylim([-df_max, df_max])
 
         # Start
         i_start = find_tran_start(self.signal)  # 1st df2 max, Start
@@ -138,7 +139,6 @@ class TestStart(unittest.TestCase):
         ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
-        # fig_points.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
         fig_points.show()
 
 

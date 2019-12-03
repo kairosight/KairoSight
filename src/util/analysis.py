@@ -1,7 +1,7 @@
 from util.processing import *
 import time
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, savgol_filter
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
@@ -29,35 +29,25 @@ def find_tran_start(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-
-    # Limit search to right before the peak and activation
+    # Limit search to ((i_peak - i_act) * 3) before the activation
     i_peak = find_tran_peak(signal_in)
     i_act = find_tran_act(signal_in)
-    search_min = int(i_act/3)
+    search_min = i_act - int((i_peak - i_act) * 3)
     search_max = i_act
-    time_x_search = time_x[search_min:search_max]
-    signal_search = signal_in[search_min:search_max]
 
-    signal_smooth = savgol_filter(y, 51, 3)
-    signal_search_smooth = signal_smooth[search_min:search_max]
+    # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
+    # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
+    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
+    spl = UnivariateSpline(time_x, signal_in)
+    df_spline = spl(time_x, nu=1)
+    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
 
-    spl = UnivariateSpline(time_x_search, signal_search_smooth)
-    # df_smooth = spl(time_x_search, nu=1)
-    signal_spline_d2f = spl(time_x_search, nu=2)
-    # signal_d2f = np.diff(signal_search, n=2, prepend=[int(signal_search[0]), int(signal_search[0])]).astype(float)
-    # signal_spline_d2f = UnivariateSpline(time_x_search, signal_d2f)(time_x_search)
+    spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+    d2f_smooth = spl_df_smooth(time_x, nu=1)
 
-    # signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
-    # signal_spline_d2f = UnivariateSpline(time_x, signal_d2f)(time_x)
-
-    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
-    # spl = UnivariateSpline(time_x, signal_in)
-    # signal_spline_df = spl(time_x, nu=1)
-    # signal_spline_d2f = spl(time_x, nu=2)
-
-    # i_start = np.argmax(signal_d2f)
-    i_start_search = np.argmax(signal_spline_d2f)
+    # find the 2nd derivative max within the search area
+    signal_search_d2f_smooth = d2f_smooth[search_min:search_max]
+    i_start_search = np.argmax(signal_search_d2f_smooth)
     i_start = search_min + i_start_search
 
     return i_start
