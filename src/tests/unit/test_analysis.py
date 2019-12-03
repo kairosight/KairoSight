@@ -13,6 +13,7 @@ import matplotlib.colors as colors
 from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
+import util.vikO as SCMapsViko
 
 # File paths needed for tests
 dir_tests = str(Path.cwd().parent)
@@ -29,6 +30,10 @@ colors_times = {'Start': '#FFD649',
                 'Downstroke': '#CB587F',
                 'End': '#8E4B84',
                 'Baseline': '#4C4076'}  # yellow -> orange -> purple
+
+cmap_times = SCMapsViko
+# colors_times = [SCMapsViko[0], SCMapsViko[0], SCMapsViko[0],
+#                 SCMapsViko[0], SCMapsViko[0], SCMapsViko[0]]  # redish -> purple -> blue
 
 # Colormap and normalization range for activation maps
 cmap_activation = SCMaps.tokyo
