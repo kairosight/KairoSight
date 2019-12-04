@@ -199,8 +199,23 @@ class TestActivation(unittest.TestCase):
                        linestyle='-', marker='x', label='Vm (Model)')
         ax_points.set_xlim(0, self.zoom_t)
 
+        # show the workings of this analysis
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
         ax_dfs.set_ylabel('dF/dt')
+        # Limit search to before the peak and after the first non-prominent point (baseline) before the peak
+        # Characterize the signal
+        signal_bounds = (self.signal.min(), self.signal.max())
+        signal_range = signal_bounds[1] - signal_bounds[0]
+        # find the peak
+        i_peaks, properties = find_peaks(self.signal, prominence=(signal_range / 2))
+        i_peak = i_peaks[0]  # the first detected peak
+        # use the prominence of the peak to find a baseline
+        prominece_floor = self.signal[i_peak] - (properties['prominences'][0] * 0.8)
+        i_baslines = np.where(self.signal[:i_peak] <= prominece_floor)
+        i_baseline = np.max(i_baslines)
+
+        search_min = i_baseline
+        search_max = i_peak
 
         time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
         spl = UnivariateSpline(time_x, self.signal)
@@ -222,6 +237,8 @@ class TestActivation(unittest.TestCase):
 
         # Activation
         i_start = find_tran_act(self.signal)  # 1st df max, Activation
+        ax_points.hlines(self.signal[i_baseline], xmin=search_min, xmax=search_max,
+                          color=colors_times['Activation'], linewidth=points_lw/2, label='Search Area')
         ax_points.axvline(self.time[i_start], color=colors_times['Activation'], linewidth=points_lw,
                           label='Activation')
 
@@ -639,7 +656,7 @@ class TestMapAnalysis(unittest.TestCase):
         self.fps = 500
         self.f0 = 1000
         self.famp = 200
-        self.noise = 3
+        self.noise = 10
         self.velocity = 10
 
         time_ca, stack_ca = model_stack_propagation(

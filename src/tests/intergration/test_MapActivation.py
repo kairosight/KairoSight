@@ -24,12 +24,17 @@ fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
-colors_times = {'Start': '#FFD649',
-                'Activation': '#FFA253',
-                'Peak': '#F6756B',
-                'Downstroke': '#CB587F',
-                'End': '#8E4B84',
-                'Baseline': '#4C4076'}  # yellow -> orange -> purple
+
+colors_times = {'Start': '#C07B60',
+                'Activation': '#842926',
+                'Peak': '#4B133D',
+                'Downstroke': '#436894',
+                'End': '#94B0C3',
+                'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
+# Colormap and normalization range for activation maps
+cmap_activation = SCMaps.lajolla
+ACT_MAX = 100
+cmap_norm_activation = colors.Normalize(vmin=0, vmax=ACT_MAX)
 
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
@@ -92,11 +97,13 @@ class TestMapAnalysis(unittest.TestCase):
         #     stack_out[:, iy, ix] = pixel_data_inv
 
         # # Filter
-        # stack_out = filter_spatial(stack_out)
+        print('Filtering stack ...')
+        self.kernel = 5
         for idx, frame in enumerate(stack_out):
-            print('Filtering Frame:\t{}\t/ {}'.format(idx, stack_out.shape[0]))
-            f_filtered = filter_spatial(frame, kernel=15)
+            print('\r\tFrame:\t{}\t/ {}'.format(idx, stack_out.shape[0]), end='', flush=True)
+            f_filtered = filter_spatial(frame, kernel=self.kernel)
             stack_out[idx, :, :] = f_filtered
+        print('\nFiltering stack DONE')
 
         fps = 800
         frame_num = int(len(self.stack_real) / 8)  # frame from 1/8th total time
@@ -129,21 +136,19 @@ class TestMapAnalysis(unittest.TestCase):
 
         gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('Real Data\n({})'.format(self.file_name))
+        ax_frame.set_title('{}\n(Spatial filter kernel:{})'.format(self.file_name, self.kernel))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
         ax_map.set_title('Activation Map')
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
 
-        # Calculate the activation map
-        analysis_map = map_tran_analysis(self.time, self.stack, find_tran_act)
-        analysis_max = np.nanmax(analysis_map)
-        analysis_min = np.nanmin(analysis_map)
-        # print('Activation Map: ')
+        # Calculate the activation map, returns timestamps
+        analysis_map = map_tran_analysis(self.stack, find_tran_act, self.time)
+        analysis_max_time = np.nanmax(analysis_map)
 
         # Frame from stack
-        frame_num = int(analysis_max / 2 * self.time[1])  # interesting frame
+        frame_num = int(self.stack.shape[0] / 4)  # interesting frame
         cmap_frame = SCMaps.grayC.reversed()
         cmap_norm_frame = colors.Normalize(vmin=self.stack_real_full.min(), vmax=self.stack_real_full.max())
         img_frame = ax_frame.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)
@@ -160,10 +165,11 @@ class TestMapAnalysis(unittest.TestCase):
                                    fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
         ax_frame.add_artist(frame_signal_spot)
         ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
+
         # signal activation
         i_activation = find_tran_act(signal)  # 1st df max, Activation
-        ax_signal.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=3,
-                          label='Activation')
+        ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
+                       color=colors_times['Activation'], label='Activation')
 
         # Add colorbar (right of frame)
         ax_ins_img = inset_axes(ax_frame, width="3%", height="80%", loc=5,
@@ -176,9 +182,6 @@ class TestMapAnalysis(unittest.TestCase):
         cb_img.ax.tick_params(labelsize=fontsize3)
 
         # Analysis Map
-        # Create normalization range for map (0 and max rounded up to the nearest 10)
-        cmap_activation = SCMaps.tokyo
-        cmap_norm_activation = colors.Normalize(vmin=0, vmax=round(analysis_max + 5.1, -1))
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_activation, cmap=cmap_activation)
         # Add colorbar (right of map)
         ax_ins_map = inset_axes(ax_map, width="3%", height="80%", loc=5,
@@ -197,7 +200,7 @@ class TestMapAnalysis(unittest.TestCase):
         ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
         ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
         ax_act_hist.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation.png')
+        # fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation.png')
         fig_map_snr.show()
 
 
