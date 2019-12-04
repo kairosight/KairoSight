@@ -193,12 +193,18 @@ class TestCropStack(unittest.TestCase):
 class TestMaskGenerate(unittest.TestCase):
     def setUp(self):
         # File paths and files needed for tests
-        self.file_single = dir_tests + '/data/02-250_Vm.tif'
-        self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        # Load data to test with
+        file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        self.file_name, self.file_stack = file_name_pig, file_stack_pig
+        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+
+        # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
+        # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
         print("sys.maxsize : " + str(sys.maxsize) +
               ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
 
-        self.stack1, self.meta1 = open_stack(source=self.file_single)
+        self.stack1, self.meta1 = open_stack(source=self.file_stack)
         self.frame1 = self.stack1[10, :, :]
 
     def test_params(self):
@@ -244,7 +250,7 @@ class TestMaskGenerate(unittest.TestCase):
             ax.set_yticklabels([])
             ax.set_xticks([])
             ax.set_xticklabels([])
-        fig_mask.suptitle('Cropping (mask_type: {})'.format(mask_type))
+        fig_mask.suptitle('Masking (type: {})'.format(mask_type))
         axis_in.set_title('Input frame')
         axis_mask.set_title('Mask')
         axis_masked.set_title('Masked frame')
@@ -303,7 +309,7 @@ class TestMaskApply(unittest.TestCase):
         for frame in self.stack1[:, 1, 1]:  # top-left corner of every pixel
             old_pixel = self.stack1[frame, 1, 1]
             new_pixel = stack_out[frame, 1, 1]
-            self.assertEqual(new_pixel, FL_16BIT_MAX)
+            self.assertEqual(new_pixel, 0)
             self.assertNotAlmostEqual(new_pixel, old_pixel, delta=old_pixel)
 
 

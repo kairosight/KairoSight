@@ -284,7 +284,7 @@ def mask_apply(stack_in, mask):
 
     for i_frame, frame in enumerate(stack_in):
         frame_out = frame.copy()
-        frame_out[mask] = FL_16BIT_MAX
+        frame_out[mask] = 0
         stack_out[i_frame] = frame_out
 
     return stack_out
