@@ -4,7 +4,7 @@ from matplotlib.patches import Circle
 
 from util.datamodel import *
 from util.analysis import *
-from util.preparation import open_stack, crop_stack, mask_generate
+from util.preparation import *
 from util.processing import *
 from pathlib import Path
 import numpy as np
@@ -33,9 +33,9 @@ colors_times = {'Start': '#C07B60',
                 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
 # Colormap and normalization range for activation maps
 cmap_activation = SCMaps.lajolla
+cmap_activation.set_bad(color=gray_light)
 ACT_MAX = 100
 cmap_norm_activation = colors.Normalize(vmin=0, vmax=ACT_MAX)
-
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 # colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
@@ -65,20 +65,20 @@ class TestMapAnalysis(unittest.TestCase):
         self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
         self.stack_real = self.stack_real_full.copy()
 
+        stack_out = self.stack_real.copy()
         # # Prep
+
+        # Mask
+        mask_type = 'Random_walk'
+        _, frame_mask = mask_generate(stack_out[10], mask_type)
+        stack_out = mask_apply(stack_out, frame_mask)
+
         # Crop (to be _X x _Y)
         new_width, new_height = 300, 300
         d_x, d_y = -127, -154  # coordinates of top left corner
-        self.stack_real = crop_stack(self.stack_real, d_x=d_x, d_y=d_y)
-        d_x, d_y = self.stack_real.shape[2] - new_width, self.stack_real.shape[1] - new_height
-        self.stack_real = crop_stack(self.stack_real, d_x=d_x, d_y=d_y)
-        stack_out = self.stack_real.copy()
-        # Mask
-        # for idx, frame in enumerate(self.stack_real):
-        #     print('Filtering Frame:\t{}\t/ {}'.format(idx, self.FRAMES))
-        #     mask_type = 'Random_walk'
-        #     frame_masked, frame_mask = mask_generate(frame, mask_type)
-        #     self.stack_real[idx] = frame_masked
+        stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        d_x, d_y = stack_out.shape[2] - new_width, stack_out.shape[1] - new_height
+        stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
 
         # # Process
         # stack_out = np.empty_like(self.stack_real)
@@ -100,7 +100,7 @@ class TestMapAnalysis(unittest.TestCase):
         print('Filtering stack ...')
         self.kernel = 5
         for idx, frame in enumerate(stack_out):
-            print('\r\tFrame:\t{}\t/ {}'.format(idx, stack_out.shape[0]), end='', flush=True)
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             f_filtered = filter_spatial(frame, kernel=self.kernel)
             stack_out[idx, :, :] = f_filtered
         print('\nFiltering stack DONE')
@@ -200,7 +200,7 @@ class TestMapAnalysis(unittest.TestCase):
         ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
         ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
         ax_act_hist.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        # fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation.png')
+        fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation.png')
         fig_map_snr.show()
 
 

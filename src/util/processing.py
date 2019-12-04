@@ -119,8 +119,8 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
         frame_out = mean_bilateral(frame_in, square(kernel))
     elif filter_type is 'gaussian':
         # Good for ___, but ___
-        sigma = kernel / 3   # standard deviation of the gaussian kernel
-        frame_out = gaussian(frame_in, sigma=sigma, preserve_range=True)
+        sigma = kernel # standard deviation of the gaussian kernel
+        frame_out = gaussian(frame_in, sigma=sigma, mode='mirror', preserve_range=True)
     else:
         raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
 

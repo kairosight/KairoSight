@@ -82,6 +82,8 @@ def find_tran_act(signal_in):
     signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak
     i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
+    if len(i_peaks) is 0:
+        raise ArithmeticError('Zero peaks detected!')
     i_peak = i_peaks[0] # the first detected peak
     # use the prominence of the peak to find a baseline
     prominece_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
@@ -360,6 +362,7 @@ def calc_tran_di(signal_in):
 def map_tran_analysis(stack_in, analysis_type, time_in=None):
     """Map an analysis point's values for a stack of transient fluorescent data
         i.e.
+
         Parameters
         ----------
         stack_in : ndarray
@@ -389,25 +392,29 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
 
     print('Generating map with {} ...'.format(analysis_type))
     map_shape = stack_in.shape[1:]
-    if time_in is not None:
-        map_out = np.empty(map_shape)
-    else:
-        analysis_value_dtype = analysis_type(stack_in[:, 0, 0]).dtype
-        map_out = np.empty(map_shape).astype(analysis_value_dtype)
+    map_out = np.empty(map_shape)
+
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]), end='', flush=True)
+        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy+1, map_shape[0], ix, map_shape[1]), end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         # pixel_ensemble = calc_ensemble(time_in, pixel_data)
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the analysis value of the signal at that pixel
         # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
-        analysis_result = analysis_type(pixel_data)
-        if time_in is not None:
-            pixel_analysis_value = time_in[analysis_result]
+
+        # Check if pixel has been masked (0 at every frame)
+        # or was masked and spatially filtered (constant at every frame)
+        unique, counts = np.unique(pixel_data, return_counts=True)
+        if len(unique) < 10:    # if there are less than 10 unique values in the pixel's data
+            pixel_analysis_value = np.NaN
         else:
-            pixel_analysis_value = analysis_result
+            analysis_result = analysis_type(pixel_data)
+            if time_in is not None:
+                pixel_analysis_value = time_in[analysis_result]
+            else:
+                pixel_analysis_value = analysis_result
 
         map_out[iy, ix] = pixel_analysis_value
     print('\nGenerating map DONE')

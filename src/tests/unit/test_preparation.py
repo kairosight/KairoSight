@@ -1,4 +1,5 @@
 import unittest
+from util.datamodel import *
 from util.preparation import *
 import sys
 import numpy as np
