@@ -29,7 +29,7 @@ colors_times = {'Start': '#C07B60',
                 'Peak': '#4B133D',
                 'Downstroke': '#436894',
                 'End': '#94B0C3',
-                'Baseline': '#C5C3C2'}  # yellow -> orange -> purple
+                'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
 # colors_times = {'Start': '#FFD649',
 #                 'Activation': '#FFA253',
 #                 'Peak': '#F6756B',
@@ -40,8 +40,9 @@ colors_times = {'Start': '#C07B60',
 #                 SCMapsViko[0], SCMapsViko[0], SCMapsViko[0]]  # redish -> purple -> blue
 
 # Colormap and normalization range for activation maps
-cmap_activation = SCMaps.tokyo
-cmap_norm_activation = colors.Normalize(vmin=0, vmax=80)
+cmap_activation = SCMaps.lajolla
+ACT_MAX = 100
+cmap_norm_activation = colors.Normalize(vmin=0, vmax=ACT_MAX)
 
 
 def plot_test():
@@ -634,13 +635,15 @@ class TestEnsemble(unittest.TestCase):
 class TestMapAnalysis(unittest.TestCase):
     def setUp(self):
         # Create data to test with, a propagating stack
+        self.size = (100, 100)
+        self.fps = 500
         self.f0 = 1000
         self.famp = 200
-        self.noise = 1
+        self.noise = 3
         self.velocity = 10
 
         time_ca, stack_ca = model_stack_propagation(
-            size=(20, 20), model_type='Ca', f0=self.f0, famp=self.famp,
+            size=self.size, model_type='Ca', fps=self.fps, f0=self.f0, famp=self.famp,
             noise=self.noise, velocity=self.velocity)
         self.time, self.stack = time_ca, stack_ca
 
@@ -730,8 +733,8 @@ class TestMapAnalysis(unittest.TestCase):
         gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 column
         ax_signal = fig_map_snr.add_subplot(gs0[1])
         ax_signal.set_xlabel('Time (ms)')
-        # ax_signal.set_xlim(0, self.stack.shape[0])
-        ax_signal.set_xlim(0, 25)
+        ax_signal.set_xlim(0, ACT_MAX)
+        ax_signal.set_ylim(self.f0 - 10, self.f0 + self.famp + 10)
         ax_signal.spines['right'].set_visible(False)
         ax_signal.spines['top'].set_visible(False)
         ax_signal.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
@@ -750,12 +753,12 @@ class TestMapAnalysis(unittest.TestCase):
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
 
-        # Calculate the activation map
+        # Calculate the activation map, returns timestamps
         analysis_map = map_tran_analysis(self.stack, find_tran_act, self.time)
-        analysis_max = np.nanmax(analysis_map)
+        analysis_max_time = np.nanmax(analysis_map)
 
         # Frame from stack
-        frame_num = int(analysis_max / 2 * self.time[1])  # interesting frame
+        frame_num = int(self.stack.shape[0] / 4)  # interesting frame
         cmap_frame = SCMaps.grayC.reversed()
         cmap_norm_frame = colors.Normalize(vmin=self.stack.min(), vmax=self.stack.max())
         img_frame = ax_frame.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)
@@ -786,7 +789,7 @@ class TestMapAnalysis(unittest.TestCase):
         cb1_map.ax.tick_params(labelsize=fontsize3)
         # Map histogram
         ax_act_hist = fig_map_snr.add_subplot(gs_frame_map[2], xticklabels=[], sharey=ax_ins_map)
-        ax_act_hist.hist(analysis_map.flatten(), int(analysis_max), histtype='stepfilled',
+        ax_act_hist.hist(analysis_map.flatten(), ACT_MAX, histtype='stepfilled',
                          orientation='horizontal', color='gray')
         ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
         ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
@@ -795,13 +798,14 @@ class TestMapAnalysis(unittest.TestCase):
         # Plot signal and/or points of interest
         for iy, ix in np.ndindex(self.frame_shape):
             # Signal
-            signal = self.stack[:, iy, ix]
-            ax_signal.plot(self.time, signal, color=gray_light, linestyle='-')
+            # signal = self.stack[:, iy, ix]
+            # ax_signal.plot(self.time, signal, color=gray_light, linestyle='-')
             # Activation
             time_act = analysis_map[iy, ix]  # 1st df max, Activation
+            # index of that activation time
             i_act = np.where(self.time == time_act)
             ax_signal.plot(time_act, self.stack[i_act, iy, ix], "|",
-                           color=colors_times['Activation'], markersize=10, label='Activation')
+                           color=colors_times['Activation'], markersize=3, label='Activation')
             # ax_signal.axvline(i_act, color=colors_times['Activation'], linewidth=1,
             #                   label='Activation')
             # signal_act = find_tran_act(signal)

@@ -76,6 +76,21 @@ def find_tran_act(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
+    # Limit search to before the peak and after the first non-prominent point (baseline) before the peak
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+    # find the peak
+    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
+    i_peak = i_peaks[0] # the first detected peak
+    # use the prominence of the peak to find a baseline
+    prominece_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
+    i_baslines = np.where(signal_in[:i_peak] <= prominece_floor)
+    i_baseline = np.max(i_baslines)
+
+    search_min = i_baseline
+    search_max = i_peak
+
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
     # signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
     # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
@@ -96,7 +111,10 @@ def find_tran_act(signal_in):
     # print('Done with analysis splines')
     # print('Timing, test_tiff, Vm : ', end - start)
 
-    i_activation = np.argmax(df_smooth)  # 1st df max, Activation
+    # find the 1st derivative max within the search area
+    signal_search_df_smooth = df_smooth[search_min:search_max]
+    i_act_search = np.argmax(signal_search_df_smooth)  # 1st df max, Activation
+    i_activation = search_min + i_act_search
 
     return i_activation
 
@@ -128,7 +146,7 @@ def find_tran_peak(signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
-    i_peaks, _ = find_peaks(signal_in, prominence=(signal_range / 2))
+    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
 
     if len(i_peaks) > 1:
         raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
