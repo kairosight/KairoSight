@@ -339,22 +339,24 @@ def calc_tran_di(signal_in):
         raise ValueError('All signal values must be >= 0')
 
 
-def map_tran_analysis(time_in, stack_in, analysis_type):
+def map_tran_analysis(stack_in, analysis_type, time_in=None):
     """Map an analysis point's values for a stack of transient fluorescent data
         i.e.
         Parameters
         ----------
-        time_in : ndarray
-            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
         stack_in : ndarray
             A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
         analysis_type : method
             The type of analysis to be mapped
+        time_in : ndarray, optional
+            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
+            If used, map values are timestamps
 
         Returns
         -------
         map_analysis : ndarray
             A 2-D array of analysis values
+            dtype : analysis_type().dtype or float if time_in provided
         """
     # Check parameters
     if type(stack_in) is not np.ndarray:
@@ -367,10 +369,14 @@ def map_tran_analysis(time_in, stack_in, analysis_type):
     # if type(analysis_type) is not classmethod:
     #     raise TypeError('Analysis type must be a "classmethod"')
 
-    map_shape = stack_in.shape[1:]
-    map_out = np.empty(map_shape)
-    # Assign a value to each pixel
     print('Generating map with {} ...'.format(analysis_type))
+    map_shape = stack_in.shape[1:]
+    if time_in is not None:
+        map_out = np.empty(map_shape)
+    else:
+        analysis_value_dtype = analysis_type(stack_in[:, 0, 0]).dtype
+        map_out = np.empty(map_shape).astype(analysis_value_dtype)
+    # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
         print('\rRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]), end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
@@ -379,7 +385,13 @@ def map_tran_analysis(time_in, stack_in, analysis_type):
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the analysis value of the signal at that pixel
         # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
-        map_out[iy, ix] = analysis_type(pixel_data)
+        analysis_result = analysis_type(pixel_data)
+        if time_in is not None:
+            pixel_analysis_value = time_in[analysis_result]
+        else:
+            pixel_analysis_value = analysis_result
+
+        map_out[iy, ix] = pixel_analysis_value
 
     return map_out
 

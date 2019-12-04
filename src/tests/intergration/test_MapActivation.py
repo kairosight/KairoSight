@@ -113,7 +113,7 @@ class TestMapAnalysis(unittest.TestCase):
 
     def test_plot(self):
         # Make sure analysis map looks correct
-        # Plot a frame from the stack and the SNR map of that frame
+        # Plot a frame from the stack, the map of that stack, and a signal
         # fig_map_snr, ax_frame, ax_map_snr = plot_map()
         fig_map_snr = plt.figure(figsize=(8, 6))  # _ x _ inch page
         gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 column
