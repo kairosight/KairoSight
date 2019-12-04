@@ -11,6 +11,8 @@ from skimage.measure import label, regionprops
 from skimage.morphology import disk
 from skimage import measure
 
+# Constants
+FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MASK_TYPES = ['Otsu_global', 'Mean', 'Random_walk', 'best_ever']
 
 
@@ -254,6 +256,7 @@ def mask_apply(stack_in, mask):
        -------
        stack_out : ndarray
             A masked 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
+            Masked values are FL_16BIT_MAX (aka 65535)
        """
     # Check parameters
     if type(stack_in) is not np.ndarray:
@@ -278,5 +281,10 @@ def mask_apply(stack_in, mask):
                          '\nMask:\t{}\nFrame:\t{}'.format(mask.shape, frame_0.shape))
 
     stack_out = np.empty_like(stack_in)
+
+    for i_frame, frame in enumerate(stack_in):
+        frame_out = frame.copy()
+        frame_out[mask] = FL_16BIT_MAX
+        stack_out[i_frame] = frame_out
 
     return stack_out

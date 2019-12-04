@@ -303,7 +303,7 @@ class TestMaskApply(unittest.TestCase):
         for frame in self.stack1[:, 1, 1]:  # top-left corner of every pixel
             old_pixel = self.stack1[frame, 1, 1]
             new_pixel = stack_out[frame, 1, 1]
-            self.assertEqual(new_pixel, 0)
+            self.assertEqual(new_pixel, FL_16BIT_MAX)
             self.assertNotAlmostEqual(new_pixel, old_pixel, delta=old_pixel)
 
 
