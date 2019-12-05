@@ -32,7 +32,7 @@ def find_tran_start(signal_in):
     # Limit search to ((i_peak - i_act) * 3) before the activation
     i_peak = find_tran_peak(signal_in)
     i_act = find_tran_act(signal_in)
-    search_min = i_act - int((i_peak - i_act) * 3)
+    search_min = max(0, i_act - int((i_peak - i_act) * 2))
     search_max = i_act
 
     # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
@@ -81,10 +81,10 @@ def find_tran_act(signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak
-    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
+    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
     if len(i_peaks) is 0:
         raise ArithmeticError('Zero peaks detected!')
-    i_peak = i_peaks[0] # the first detected peak
+    i_peak = i_peaks[0]  # the first detected peak
     # use the prominence of the peak to find a baseline
     prominece_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
     i_baslines = np.where(signal_in[:i_peak] <= prominece_floor)
@@ -148,7 +148,8 @@ def find_tran_peak(signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
-    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
+    # i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
+    i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 2, distance=20)
 
     if len(i_peaks) > 1:
         raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
@@ -195,7 +196,7 @@ def find_tran_downstroke(signal_in):
 
     # find the 2nd derivative max within the search area
     search_df_smooth = df_smooth[search_min:search_max]
-    i_start_search = np.argmin(search_df_smooth)   # df min, Downstroke
+    i_start_search = np.argmin(search_df_smooth)  # df min, Downstroke
     i_downstroke = search_min + i_start_search
 
     return i_downstroke
@@ -396,7 +397,8 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
 
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy+1, map_shape[0], ix, map_shape[1]), end='', flush=True)
+        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
+              flush=True)
         pixel_data = stack_in[:, iy, ix]
         # pixel_ensemble = calc_ensemble(time_in, pixel_data)
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
@@ -407,7 +409,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
         # Check if pixel has been masked (0 at every frame)
         # or was masked and spatially filtered (constant at every frame)
         unique, counts = np.unique(pixel_data, return_counts=True)
-        if len(unique) < 10:    # if there are less than 10 unique values in the pixel's data
+        if len(unique) < 10:  # if there are less than 10 unique values in the pixel's data
             pixel_analysis_value = np.NaN
         else:
             analysis_result = analysis_type(pixel_data)
@@ -493,7 +495,7 @@ def calc_ensemble(time_in, signal_in):
         signals : list
             The list of signal arrays used to create the ensemble
         i_peaks : ndarray
-            The idecies of peaks from signal_in used
+            The indexes of peaks from signal_in used
         est_cycle : float
             Estimated cycle length (ms) of transients in signal_in
         """
@@ -519,16 +521,12 @@ def calc_ensemble(time_in, signal_in):
         i_noise_peaks = [len(signal_in) - 1]
 
     # Find indices of peak values, between peaks_window tall and with a prominence of half the signal range
+    # and at least 20 samples apart
     peaks_window = (noise_height, signal_bounds[1] + signal_range / 2)
-    i_peaks, _ = find_peaks(signal_in, height=peaks_window,
-                            prominence=signal_range / 2)
+    i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 4,
+                            distance=20)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
-    if len(i_peaks) > 1:
-        # i_peak_calc = i_peaks[0].astype(int)
-        # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
-        # ir_peak = i_peaks
-        print('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
 
     if len(i_peaks) > 1:
         # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
@@ -536,29 +534,43 @@ def calc_ensemble(time_in, signal_in):
     else:
         raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
-    i_peaks_df = np.diff(i_peaks, n=1).astype(float)
-    est_cycle_i = np.nanmean(i_peaks_df)
-    est_cycle = est_cycle_i * (time_in[1] - time_in[0])
-    est_cycle_int = np.floor(est_cycle_i).astype(int)
-    cycle_shift = min(i_peaks[0], np.floor(est_cycle_int / 2).astype(int))
+    est_cycle = np.diff(i_peaks).astype(float)
+    est_cycle_i = np.nanmean(est_cycle)
+    est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
+    est_cycle_i = np.floor(est_cycle_i).astype(int)
+    cycle_shift = min(i_peaks[0], np.floor(est_cycle_i / 2).astype(int))
 
-    signal_time = time_in[0: est_cycle_int]
-    signals_trans = []
+    signal_time = time_in[0: est_cycle_i]
+    signals_trans_peak = []
     signals_trans_act = []
 
     for peak_num, peak in enumerate(i_peaks):
-        signals_trans.append(signal_in[i_peaks[peak_num] - cycle_shift:
-                                       i_peaks[peak_num] + est_cycle_int - cycle_shift])
+        signals_trans_peak.append(signal_in[i_peaks[peak_num] - cycle_shift:
+                                            i_peaks[peak_num] + est_cycle_i - cycle_shift])
 
     # With that peak detection, find activation times
-    for act_num, signal in enumerate(signals_trans):
-        i_start = find_tran_start(signal)
-        i_act = find_tran_act(signal)
-        signals_trans_act.append(signal_in[i_act - 3:
-                                           i_act + est_cycle_int - 3])
+    i_acts = []
+    for act_num, signal in enumerate(signals_trans_peak):
+        i_act_signal = find_tran_act(signal)
+        i_act_full = (i_peaks[act_num] - cycle_shift) + i_act_signal
+        # i_act_full = i_act_signal + (est_cycle_i * act_num)
 
-    signal_out = np.nanmean(signals_trans, axis=0)
-    signals = signals_trans
+        # align along activation times, and crop using 1/X of est_cycle_i
+        i_align = i_act_full - int((est_cycle_i/8))
+        # cycle_shift = min(i_peaks)
+        signals_trans_act.append(signal_in[i_align:
+                                           i_align + est_cycle_i])
+    # use the lowest activation time
+    # cycle_shift = min(min(i_acts), cycle_shift)
+    # for act_num, act in enumerate(i_acts):
+    #     cycle_shift = max(cycle_shift, act)
+    #     signals_trans_act.append(signal_in[i_acts[act_num] - cycle_shift:
+    #                                        i_acts[act_num] + est_cycle_i - cycle_shift])
+
+    # use the mean of all signals (except the last)
+    signal_out = np.nanmean(signals_trans_act[:-1], axis=0)
+    signals = signals_trans_act[:-1]
+    i_peaks = i_peaks[:-1]
     # signal_out = np.nanmean(signals_trans_act, axis=0)
     # signals = signals_trans_act
 

@@ -433,7 +433,7 @@ def calculate_snr(signal_in, noise_count=10):
         Returns
         -------
         snr : float
-             The Signal-to-Noise ratio of the given data
+             The Signal-to-Noise ratio of the given data, recommend using round(snr, 5)
         rms_bounds : tuple
              The RMSs of the peak and noise arrays, (noise_rms, peak_rms)
         peak_peak : float
@@ -496,7 +496,7 @@ def calculate_snr(signal_in, noise_count=10):
     # i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
     # i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2, distance=len(signal_in)/2)
     i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2,
-                            prominence=signal_range/2,
+                            prominence=(signal_range / 4),
                             distance=len(signal_in)/2)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
