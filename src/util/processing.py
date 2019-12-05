@@ -12,6 +12,24 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
+def find_tran_baselines(signal_in):
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+    # find the peak (roughly)
+    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
+    if len(i_peaks) is 0:
+        raise ArithmeticError('Zero peaks detected!')
+    i_peak = i_peaks[0]  # the first detected peak
+    # use the prominence of the peak and the activation time to find a baseline
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
+    i_baselines = np.where(signal_in[:i_peak] <= prominence_floor)[0]
+    # use the middle 1/3 of these
+    i_baselines = i_baselines[int(len(i_baselines)/3) : int(2 * (len(i_baselines)/3))]
+
+    return i_baselines
+
+
 def isolate_spatial(stack_in, roi):
     """Isolate a spatial region of a stack (3-D array, TYX) of grayscale optical data.
 
@@ -472,19 +490,23 @@ def calculate_snr(signal_in, noise_count=10):
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
-
-    # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
     noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
-    i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
-    if len(i_noise_peaks) == 0:
-        i_noise_peaks = [len(signal_in)-1]
-    i_noise_calc = np.linspace(start=i_noise_peaks[-1] - noise_count, stop=i_noise_peaks[-1],
-                               num=noise_count).astype(int)
-    if any(i < 0 for i in i_noise_calc):
-        raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
-    data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]].astype(np.dtype(float))
+
+    # # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
+    # i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
+    # if len(i_noise_peaks) == 0:
+    #     i_noise_peaks = [len(signal_in)-1]
+    # i_noise_calc = np.linspace(start=i_noise_peaks[-1] - noise_count, stop=i_noise_peaks[-1],
+    #                            num=noise_count).astype(int)
+    # if any(i < 0 for i in i_noise_calc):
+    #     raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
+    # data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]].astype(np.dtype(float))
+
+    i_noise_calc = find_tran_baselines(signal_in)
+    data_noise = signal_in[i_noise_calc]
+
     noise_rms = np.sqrt(np.mean(data_noise ** 2))
-    noise_sd = statistics.stdev(data_noise)
+    noise_sd = statistics.stdev(data_noise.astype(float))
     if noise_sd == 0:
         noise_sd = 0.5  # Noise data too flat to detect SD
     noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)

@@ -5,21 +5,6 @@ from scipy.signal import find_peaks, savgol_filter
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
-def find_tran_baselines(signal_in):
-    # Characterize the signal
-    signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
-    # find the peak (roughly)
-    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
-    if len(i_peaks) is 0:
-        raise ArithmeticError('Zero peaks detected!')
-    i_peak = i_peaks[0]  # the first detected peak
-    # use the prominence of the peak and the activation time to find a baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
-    i_baselines = np.where(signal_in[:i_peak] <= prominence_floor)
-
-    return np.array(i_baselines)
-
 
 def find_tran_start(signal_in):
     """Find the time of the start of a transient,
