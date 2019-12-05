@@ -12,7 +12,7 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
-def find_tran_baselines(signal_in):
+def find_tran_baselines(signal_in, peak_side='left'):
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
@@ -23,9 +23,12 @@ def find_tran_baselines(signal_in):
     i_peak = i_peaks[0]  # the first detected peak
     # use the prominence of the peak and the activation time to find a baseline
     prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
-    i_baselines = np.where(signal_in[:i_peak] <= prominence_floor)[0]
+    if peak_side is 'left':
+        i_baselines = np.where(signal_in[:i_peak] <= prominence_floor)[0]
+    else:
+        i_baselines = np.where(signal_in[i_peak:] <= prominence_floor)[0]
     # use the middle 1/3 of these
-    i_baselines = i_baselines[int(len(i_baselines)/3) : int(2 * (len(i_baselines)/3))]
+    i_baselines = i_baselines[int(len(i_baselines)/3): int(2 * (len(i_baselines)/3))]
 
     return i_baselines
 
@@ -505,7 +508,7 @@ def calculate_snr(signal_in, noise_count=10):
     i_noise_calc = find_tran_baselines(signal_in)
     data_noise = signal_in[i_noise_calc]
 
-    noise_rms = np.sqrt(np.mean(data_noise ** 2))
+    noise_rms = np.sqrt(np.mean(data_noise) ** 2)
     noise_sd = statistics.stdev(data_noise.astype(float))
     if noise_sd == 0:
         noise_sd = 0.5  # Noise data too flat to detect SD

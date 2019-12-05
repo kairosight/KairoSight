@@ -530,13 +530,13 @@ class TestAnalysisPoints(unittest.TestCase):
 class TestEnsemble(unittest.TestCase):
     def setUp(self):
         # Create data to test with
-        self.signal_t = 900
+        self.signal_t = 5000
         self.signal_t0 = 50
         self.signal_f0 = 1000
         self.signal_famp = 100
         self.signal_fps = 500
         self.signal_noise = 5  # as a % of the signal amplitude
-        self.signal_num = 6
+        self.signal_num = 'full'
         self.signal_cl = 150
 
         self.time_vm, self.signal_vm = \
@@ -650,7 +650,8 @@ class TestEnsemble(unittest.TestCase):
             snr = snr_results[0]
             ir_noise = snr_results[-2]
             signal_snrs.append(snr)
-            ax_ensemble.plot(time_ensemble[ir_noise], signal[ir_noise], "x", color='r', markersize=2, label='Noise')
+            ax_ensemble.plot(time_ensemble[ir_noise], signal[ir_noise],
+                             "x", color=gray_med, markersize=10, label='Noise')
 
         ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
                          linestyle='-', marker='+', label='Ensemble signal')
@@ -684,11 +685,18 @@ class TestEnsemble(unittest.TestCase):
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
 
         # Stats: SNRs
+        snr_model = round(self.signal_famp / self.signal_noise, 5)
         snr_old = round(np.mean(signal_snrs), 5)
-        snr_new = round(calculate_snr(signal_ensemble)[0], 5)
-        ax_ensemble.text(0.75, 0.4, 'SNR old: {}'.format(snr_old),
+        snr_results = calculate_snr(signal_ensemble)
+        snr_new = round(snr_results[0], 5)
+        ir_noise_new = snr_results[-2]
+        ax_ensemble.plot(time_ensemble[ir_noise_new], signal_ensemble[ir_noise_new],
+                         ".", color=gray_heavy, markersize=15, label='Noise')
+        ax_ensemble.text(0.75, 0.4, 'SNR old: {}'.format(snr_model),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.35, 'SNR new: {}'.format(snr_new),
+        ax_ensemble.text(0.75, 0.35, 'SNR old: {}'.format(snr_old),
+                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        ax_ensemble.text(0.75, 0.3, 'SNR new: {}'.format(snr_new),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
 
         # # Activation error bar

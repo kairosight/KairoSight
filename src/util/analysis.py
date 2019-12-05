@@ -89,10 +89,8 @@ def find_tran_act(signal_in):
     if len(i_peaks) is 0:
         raise ArithmeticError('Zero peaks detected!')
     i_peak = i_peaks[0]  # the first detected peak
-    # use the prominence of the peak to find a baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
-    i_baslines = np.where(signal_in[:i_peak] <= prominence_floor)
-    i_baseline = np.max(i_baslines)
+    # use the prominence of the peak to find right-most baseline
+    i_baseline = max(find_tran_baselines(signal_in))
 
     search_min = i_baseline
     search_max = i_peak
@@ -186,12 +184,8 @@ def find_tran_downstroke(signal_in):
     # Limit search to after the peak and before the end
     i_peak = find_tran_peak(signal_in)
     search_min = i_peak
-    # first index after peak where the signal < before its start value,
-    # e.g. at signal[((i_peak - i_act) * 3)] before the activation
-    i_peak = find_tran_peak(signal_in)
-    i_act = find_tran_act(signal_in)
-    i_baseline = i_act - int((i_peak - i_act) * 3)
-    search_max = i_peak + int(min(np.argwhere(signal_in[i_peak:] < signal_in[i_baseline])))
+    i_baseline = find_tran_baselines(signal_in, peak_side='right')
+    search_max = max(i_baseline)
 
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
     spl = UnivariateSpline(time_x, signal_in)
@@ -226,15 +220,13 @@ def find_tran_end(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    # Limit search to after the Downstroke and before a return to baseline
+    # Limit search to after the Downstroke and before a the end of the ending baseline
     i_downstroke = find_tran_downstroke(signal_in)
     search_min = i_downstroke
     # first index after peak where the signal < before its start value,
     # e.g. at signal[((i_peak - i_act) * 3)] before the activation
-    i_peak = find_tran_peak(signal_in)
-    i_act = find_tran_act(signal_in)
-    i_baseline = i_act - int((i_peak - i_act) * 3)
-    search_max = i_peak + int(min(np.argwhere(signal_in[i_peak:] < signal_in[i_baseline])))
+    i_baseline = find_tran_baselines(signal_in, peak_side='right')
+    search_max = max(i_baseline)
 
     # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
     # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
