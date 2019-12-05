@@ -5,6 +5,21 @@ from scipy.signal import find_peaks, savgol_filter
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
+def find_tran_baselines(signal_in):
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+    # find the peak (roughly)
+    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
+    if len(i_peaks) is 0:
+        raise ArithmeticError('Zero peaks detected!')
+    i_peak = i_peaks[0]  # the first detected peak
+    # use the prominence of the peak and the activation time to find a baseline
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
+    i_baselines = np.where(signal_in[:i_peak] <= prominence_floor)
+
+    return np.array(i_baselines)
+
 
 def find_tran_start(signal_in):
     """Find the time of the start of a transient,
@@ -29,10 +44,14 @@ def find_tran_start(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-    # Limit search to ((i_peak - i_act) * 3) before the activation
-    i_peak = find_tran_peak(signal_in)
+    # Limit search to
+    # before the peak and
+    # after the "middle" non-prominent point (baseline) before the peak
+    i_baselines = find_tran_baselines(signal_in)
     i_act = find_tran_act(signal_in)
-    search_min = max(0, i_act - int((i_peak - i_act) * 2))
+    # search_min = max(0, i_act - int((i_peak - i_act) * 2))
+    d_search = int(np.max((i_baselines) - np.min(i_baselines))/2)
+    search_min = np.min(i_baselines) + d_search
     search_max = i_act
 
     # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
@@ -76,7 +95,7 @@ def find_tran_act(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-    # Limit search to before the peak and after the first non-prominent point (baseline) before the peak
+    # Limit search to before the peak and after the last non-prominent point (baseline) before the peak
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
@@ -86,8 +105,8 @@ def find_tran_act(signal_in):
         raise ArithmeticError('Zero peaks detected!')
     i_peak = i_peaks[0]  # the first detected peak
     # use the prominence of the peak to find a baseline
-    prominece_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
-    i_baslines = np.where(signal_in[:i_peak] <= prominece_floor)
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
+    i_baslines = np.where(signal_in[:i_peak] <= prominence_floor)
     i_baseline = np.max(i_baslines)
 
     search_min = i_baseline
@@ -542,21 +561,35 @@ def calc_ensemble(time_in, signal_in):
 
     signal_time = time_in[0: est_cycle_i]
     signals_trans_peak = []
+    i_baselines_full = []
+    i_acts_full = []
     signals_trans_act = []
 
     for peak_num, peak in enumerate(i_peaks):
-        signals_trans_peak.append(signal_in[i_peaks[peak_num] - cycle_shift:
-                                            i_peaks[peak_num] + est_cycle_i - cycle_shift])
+        signal = signal_in[i_peaks[peak_num] - cycle_shift:
+                           i_peaks[peak_num] + est_cycle_i - cycle_shift]
+        signals_trans_peak.append(signal)
+
+        i_baselines = find_tran_baselines(signal)
+        i_baselines_full.append((i_peaks[peak_num] - cycle_shift) + i_baselines)
+        i_act_signal = find_tran_act(signal)
+        i_act_full = (i_peaks[peak_num] - cycle_shift) + i_act_signal
+        i_acts_full.append(i_act_full)
 
     # With that peak detection, find activation times
-    i_acts = []
     for act_num, signal in enumerate(signals_trans_peak):
+        # i_start_signal = find_tran_start(signal)
         i_act_signal = find_tran_act(signal)
         i_act_full = (i_peaks[act_num] - cycle_shift) + i_act_signal
         # i_act_full = i_act_signal + (est_cycle_i * act_num)
 
-        # align along activation times, and crop using 1/X of est_cycle_i
-        i_align = i_act_full - int((est_cycle_i/8))
+        # align along activation times, and crop using the last signal's left-most baseline
+        # i_align = i_act_full - int((est_cycle_i/8))
+        # align along activation times, and crop using start time and est_cycle_i
+        last_baselines = np.min(i_baselines_full[-1])
+        last_act = i_acts_full[-1]
+        d_last_crop = last_act - last_baselines
+        i_align = i_act_full - d_last_crop
         # cycle_shift = min(i_peaks)
         signals_trans_act.append(signal_in[i_align:
                                            i_align + est_cycle_i])
