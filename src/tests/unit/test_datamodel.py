@@ -1,5 +1,5 @@
 import unittest
-from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area
+from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area, model_transients_pig
 from pathlib import Path
 import time
 from math import pi
@@ -109,7 +109,7 @@ class TestModelTransients(unittest.TestCase):
         peaks_ca, _ = find_peaks(data_ca_full, height=peak_min_height, prominence=f_amp / 2)
         self.assertEqual(num_full, peaks_ca.size)  # detected peaks matches calculated transients for 'full'
 
-    def test_plot_single(self):
+    def test_plot_single_rat(self):
         time_vm, data_vm = model_transients()
         # time_ca, data_ca = model_transients(model_type='Ca', t=100, f_0=2 ** 16 - 50)
 
@@ -126,6 +126,27 @@ class TestModelTransients(unittest.TestCase):
         # plot_ca, = ax_single.plot(time_ca, data_ca, marker='+', color=color_ca, label='Ca')
         # plot_baseline = ax_single.axhline(color='gray', linestyle='--', label='baseline')
         ax_single.legend(title='A Model Transient (Defaults)',
+                         loc='right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_single.show()
+
+    def test_plot_single_pig(self):
+        time_vm, data_vm = model_transients_pig()
+        # time_ca, data_ca = model_transients(model_type='Ca', t=100, f_0=2 ** 16 - 50)
+
+        # Build a figure to plot model data
+        fig_single, ax_single = plot_test()
+        ax_single.set_ylabel('Arbitrary Fluorescent Units', color=gray_heavy)
+        ax_single.set_xlabel('Time (ms)', color=gray_heavy)
+
+        # Plot aligned model data
+        # ax_dual_multi.set_ylim([1500, 2500])
+        # data_vm_align = -(data_vm - data_vm.max())
+        # data_ca_align = data_ca - data_ca.min()
+        plot_vm, = ax_single.plot(time_vm, data_vm, marker='+', color=color_vm, label='Vm')
+        # plot_ca, = ax_single.plot(time_ca, data_ca, marker='+', color=color_ca, label='Ca')
+        # plot_baseline = ax_single.axhline(color='gray', linestyle='--', label='baseline')
+        ax_single.legend(title='A Model Pig Transient (Defaults)',
                          loc='right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_single.show()

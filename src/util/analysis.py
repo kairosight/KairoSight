@@ -578,6 +578,7 @@ def calc_ensemble(time_in, signal_in):
     #                                        i_acts[act_num] + est_cycle_i - cycle_shift])
 
     # use the mean of all signals (except the last)
+    # TODO try a gaussian calculation instead of a mean
     signal_out = np.nanmean(signals_trans_act[:-1], axis=0)
     signals = signals_trans_act[:-1]
     i_peaks = i_peaks[:-1]

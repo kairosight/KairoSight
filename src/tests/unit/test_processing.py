@@ -457,10 +457,10 @@ class TestFilterTemporal(unittest.TestCase):
         self.signal_amp = 100
         self.signal_noise = 5
 
-        self.time_noisy_ca, self.signal_noisy_ca =\
+        self.time_noisy_ca, self.signal_noisy_ca = \
             model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
                              fps=self.signal_fps, f0=self.signal_f0, famp=self.signal_amp, noise=self.signal_noise)
-        self.time_ideal_ca, self.signal_ideal_ca =\
+        self.time_ideal_ca, self.signal_ideal_ca = \
             model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
                              fps=self.signal_fps, f0=self.signal_f0, famp=self.signal_amp)
 
@@ -696,7 +696,7 @@ class TestFilterDrift(unittest.TestCase):
         self.signal_famp = 100
         self.signal_noise = 3
 
-        self.time_noisy_ca, self.signal_noisy_ca =\
+        self.time_noisy_ca, self.signal_noisy_ca = \
             model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
                              f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
 
@@ -789,15 +789,15 @@ class TestFilterDrift(unittest.TestCase):
 class TestInvert(unittest.TestCase):
     def setUp(self):
         # Create data to test with
-        self.signal_t = 1000
+        self.signal_t = 600
         self.signal_t0 = 50
         self.signal_f0 = 1000
         self.signal_famp = 100
         self.signal_noise = 2  # as a % of the signal amplitude
         self.signal_num = 5
-        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
-                                                        f0=self.signal_f0, famp=self.signal_famp,
-                                                        noise=self.signal_noise, num=self.signal_num)
+        self.time_vm, self.signal_vm = model_transients_pig(t=self.signal_t, t0=self.signal_t0,
+                                                            f0=self.signal_f0, famp=self.signal_famp,
+                                                            noise=self.signal_noise, num=self.signal_num)
 
     def test_params(self):
         signal_bad_type = np.full(100, True)
@@ -1134,9 +1134,9 @@ class TestSnrMap(unittest.TestCase):
         self.d_noise = 10  # as a % of the signal amplitude
         self.signal_f0 = 1000
         self.signal_famp = 100
-        self.signal_noise = 3   # as a % of the signal amplitude
+        self.signal_noise = 3  # as a % of the signal amplitude
 
-        self.time_ca, self.stack_ca =\
+        self.time_ca, self.stack_ca = \
             model_stack_propagation(model_type='Ca', d_noise=self.d_noise,
                                     f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
         self.FRAMES = self.stack_ca.shape[0]
@@ -1217,6 +1217,7 @@ class TestSnrMap(unittest.TestCase):
 
         fig_map_snr.show()
         fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_ca.png')
+
 
 #
 # class TestSNRCube(unittest.TestCase):
