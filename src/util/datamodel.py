@@ -317,7 +317,7 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
     if not apd:
         apd = {'20': 35}
     if not cad:
-        cad = {'40': 45}
+        cad = {'40': 65}
 
     # Calculate important constants
     FPMS = fps / 1000
@@ -362,10 +362,11 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         model_rep2_period = vm_duration - model_dep_period - model_rep1_period  # remaining OAP time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, vm_duration, model_rep2_frames)
-        A, B, C = vm_amp * 0.8, (5 / m_rep1), f0     # exponential decay parameters
+        A, B, C = vm_amp * apd_ratio, (5 / m_rep1), f0     # exponential decay parameters
         # model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
         tauFall = 30
         model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave down, using tauFall
+
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
         # Pad the end with 50 ms of baseline
         model_rep2Pad_frames = floor(50 / FRAME_T)
@@ -374,9 +375,10 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
 
     else:
         # With calcium dyes, depolarization transients have a positive deflection and return to baseline
-        # Initialize a single OCT array (100 ms)
+        # Initialize a single OCT array (120 ms)
+        ca_duration = 120
         # Depolarization phase
-        model_dep_period = 10  # XX ms long
+        model_dep_period = 20  # XX ms long
         model_dep_frames = floor(model_dep_period / FRAME_T)
         # Generate high-fidelity data
         model_dep_full = np.full(model_dep_period, f0, dtype=np.uint16)
@@ -393,17 +395,18 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         model_rep1_full = np.full(model_rep1_period, f0, dtype=np.uint16)
         # Generate high-fidelity data
         for i in range(0, model_rep1_period):
-            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)    # linear
+            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)    # linear, decreasing
         # Under-sample the high-fidelity data
         model_rep1 = model_rep1_full[::floor(model_rep1_period/model_rep1_frames)][:model_rep1_frames]
+        # model_rep1 = model_rep1_full[::floor(model_rep1_period/model_rep1_frames)][:model_rep1_frames]
 
         # Late repolarization phase
-        model_rep2_period = 100 - model_dep_period - model_rep1_period  # remaining OCT time
+        model_rep2_period = ca_duration - model_dep_period - model_rep1_period  # remaining OCT time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
-        model_rep2_t = np.linspace(0, 100, model_rep2_frames)
+        model_rep2_t = np.linspace(0, ca_duration, model_rep2_frames)
         A, B, C = famp * cad_ratio, (0.8 / m_rep1), f0     # exponential decay parameters
         # model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
-        tauFall = 30
+        tauFall = 50
         model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave up, using tauFall
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
 
@@ -418,7 +421,7 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         model_tran = model_tran[:cl]
     else:
         # Pad the transient array
-        tranPad_frames = floor((cl - 100) / FRAME_T)
+        tranPad_frames = floor((cl - ca_duration) / FRAME_T)
         tranPad = np.full(tranPad_frames, f0, dtype=np.uint16)
         model_tran = np.concatenate((model_tran, tranPad), axis=None)
 

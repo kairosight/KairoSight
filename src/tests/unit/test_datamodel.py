@@ -131,7 +131,7 @@ class TestModelTransients(unittest.TestCase):
         fig_single.show()
 
     def test_plot_single_pig(self):
-        time_vm, data_vm = model_transients_pig()
+        time_vm, data_vm = model_transients_pig(fps=500)
         # time_ca, data_ca = model_transients(model_type='Ca', t=100, f_0=2 ** 16 - 50)
 
         # Build a figure to plot model data
