@@ -17,18 +17,18 @@ def find_tran_baselines(signal_in, peak_side='left'):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak (roughly)
-    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
+    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
     if len(i_peaks) is 0:
         raise ArithmeticError('Zero peaks detected!')
     i_peak = i_peaks[0]  # the first detected peak
     # use the prominence of the peak and the activation time to find a baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.8)
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.7)
     if peak_side is 'left':
-        i_baselines = np.where(signal_in[:i_peak] <= prominence_floor)[0]
+        i_baselines_all = np.where(signal_in[:i_peak] <= prominence_floor)[0]
     else:
-        i_baselines = np.where(signal_in[i_peak:] <= prominence_floor)[0]
+        i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
     # use the middle 1/3 of these
-    i_baselines = i_baselines[int(len(i_baselines)/3): int(2 * (len(i_baselines)/3))]
+    i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
 
     return i_baselines
 

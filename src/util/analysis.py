@@ -81,14 +81,7 @@ def find_tran_act(signal_in):
         raise ValueError('All signal values must be >= 0')
 
     # Limit search to before the peak and after the last non-prominent point (baseline) before the peak
-    # Characterize the signal
-    signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
-    # find the peak
-    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
-    if len(i_peaks) is 0:
-        raise ArithmeticError('Zero peaks detected!')
-    i_peak = i_peaks[0]  # the first detected peak
+    i_peak = find_tran_peak(signal_in)
     # use the prominence of the peak to find right-most baseline
     i_baseline = max(find_tran_baselines(signal_in))
 
@@ -150,12 +143,14 @@ def find_tran_peak(signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
+    # Roughly find the peaks
     # i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
     i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 2, distance=20)
+    #
+    # if len(i_peaks) > 1:
+    #     raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
 
-    if len(i_peaks) > 1:
-        raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
-
+    # Choose the first peak detected
     i_peak = i_peaks[0]
 
     return i_peak

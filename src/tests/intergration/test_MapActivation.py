@@ -34,7 +34,7 @@ colors_times = {'Start': '#C07B60',
 # Colormap and normalization range for activation maps
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light)
-ACT_MAX = 100
+ACT_MAX = 60
 cmap_norm_activation = colors.Normalize(vmin=0, vmax=ACT_MAX)
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
@@ -122,9 +122,10 @@ class TestMapAnalysis(unittest.TestCase):
         # Make sure analysis map looks correct
         # Plot a frame from the stack, the map of that stack, and a signal
         # fig_map_snr, ax_frame, ax_map_snr = plot_map()
-        fig_map_snr = plt.figure(figsize=(8, 6))  # _ x _ inch page
+        fig_map_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
         gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 column
         ax_signal = fig_map_snr.add_subplot(gs0[1])
+        ax_signal.set_ylabel('Fluorescence (arb. u.)')
         ax_signal.set_xlabel('Time (ms)')
         ax_signal.spines['right'].set_visible(False)
         ax_signal.spines['top'].set_visible(False)
@@ -159,6 +160,7 @@ class TestMapAnalysis(unittest.TestCase):
 
         # Signal trace and location on frame
         signal_x, signal_y = (int(self.stack.shape[2] / 3), int(self.stack.shape[1] / 3))
+        points_lw = 3
         # signal_r = self.kernel / 2
         signal = self.stack[:, signal_y, signal_x]
         frame_signal_spot = Circle((signal_x, signal_y), 3,
@@ -170,6 +172,8 @@ class TestMapAnalysis(unittest.TestCase):
         i_activation = find_tran_act(signal)  # 1st df max, Activation
         ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
                        color=colors_times['Activation'], label='Activation')
+        ax_signal.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
+                          label='Activation')
 
         # Add colorbar (right of frame)
         ax_ins_img = inset_axes(ax_frame, width="3%", height="80%", loc=5,
