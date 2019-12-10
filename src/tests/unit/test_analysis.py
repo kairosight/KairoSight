@@ -819,9 +819,9 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.text(0.75, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # Stats: SNRs
-        snr_old = round(np.mean(signal_snrs), 3)
+        snr_old = round(np.mean(signal_snrs), 1)
         snr_results = calculate_snr(signal_ensemble)
-        snr_new = round(snr_results[0], 3)
+        snr_new = round(snr_results[0], 1)
         ir_noise_new = snr_results[-2]
 
         # Text

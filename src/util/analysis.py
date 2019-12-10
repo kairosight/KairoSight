@@ -1,7 +1,7 @@
 from util.processing import *
 import time
 import numpy as np
-from scipy.signal import find_peaks, savgol_filter
+from scipy.signal import savgol_filter
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
@@ -95,15 +95,18 @@ def find_tran_act(signal_in):
     # print('Starting analysis splines')
     # print('** Starting UnivariateSpline')
     # start = time.process_time()
-    spl = UnivariateSpline(time_x, signal_in)
+    # spl = UnivariateSpline(time_x, signal_in)
+    # spl.set_smoothing_factor(0.7)
     # end = time.process_time()
     # print('** Finished UnivariateSpline', end - start)
     # print('** Starting spl')
     # start = time.process_time()
-    df_spline = spl(time_x, nu=1)
+    # df_spline = spl(time_x, nu=1)
+    df_diff = np.diff(signal_in).astype(float)
     # smooth the 1st with a Savitzky Golay filter
     # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+    # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+    df_smooth = savgol_filter(df_diff, window_length=5, polyorder=3)
     # end = time.process_time()
     # print('** Finished spl', end - start)
     # print('Done with analysis splines')
@@ -114,9 +117,9 @@ def find_tran_act(signal_in):
     i_act_search = np.argmax(signal_search_df_smooth)  # 1st df max, Activation
     i_activation = search_min + i_act_search
 
-    if i_act_search < 10:
-        print('\tLow rel. activation time: {}'.format(i_act_search),
-              end='', flush=True)
+    # if i_act_search < 20:
+    #     print('\tLow rel. activation time: {}'.format(i_act_search),
+    #           end='', flush=True)
 
     return i_activation
 
@@ -468,20 +471,11 @@ def calc_ensemble(time_in, signal_in):
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
 
-    # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
-    noise_height = signal_bounds[0] + signal_range / 2  # assumes max noise/signal amps. of 1 / 2
-    i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
-    if len(i_noise_peaks) == 0:
-        i_noise_peaks = [len(signal_in) - 1]
-
-    # Find indices of peak values, between peaks_window tall and with a prominence of half the signal range
-    # and at least 20 samples apart
-    peaks_window = (noise_height, signal_bounds[1] + signal_range / 2)
+    # Find the peaks
     i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 4,
                             distance=20)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
-
     if len(i_peaks) > 1:
         # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
         print('{} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
@@ -514,6 +508,7 @@ def calc_ensemble(time_in, signal_in):
     # With that peak detection, find activation times
     for act_num, signal in enumerate(signals_trans_peak):
         # i_start_signal = find_tran_start(signal)
+        signal = normalize_signal(signal)
         i_act_signal = find_tran_act(signal)
         i_act_full = (i_peaks[act_num] - cycle_shift) + i_act_signal
         # i_act_full = i_act_signal + (est_cycle_i * act_num)
@@ -526,8 +521,9 @@ def calc_ensemble(time_in, signal_in):
         d_last_crop = last_act - last_baselines
         i_align = i_act_full - d_last_crop
         # cycle_shift = min(i_peaks)
-        signals_trans_act.append(signal_in[i_align:
-                                           i_align + est_cycle_i])
+        signal_cycle = normalize_signal(signal_in[i_align:i_align + est_cycle_i])
+        signals_trans_act.append(signal_cycle)
+
     # use the lowest activation time
     # cycle_shift = min(min(i_acts), cycle_shift)
     # for act_num, act in enumerate(i_acts):

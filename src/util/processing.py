@@ -46,7 +46,7 @@ def find_tran_peak(signal_in, props=False):
         return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 2, width=20)
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 4)
 
     if len(i_peaks) is 0:   # no peak detected
         return np.nan
@@ -569,11 +569,7 @@ def calculate_snr(signal_in, noise_count=10):
 
 
     # Find indices of peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
-    # i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
-    # i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2, distance=len(signal_in)/2)
-    i_peaks, _ = find_peaks(signal_in, height=noise_height + signal_range/2,
-                            prominence=(signal_range / 4),
-                            distance=len(signal_in)/2)
+    i_peaks, properties = find_tran_peak(signal_in, props=True)
     if len(i_peaks) == 0:
         # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
@@ -585,7 +581,7 @@ def calculate_snr(signal_in, noise_count=10):
     else:
         i_peak_calc = i_peaks[0].astype(int)
         ir_peak = i_peak_calc
-    data_peak = signal_in[i_peak_calc].astype(int)
+    data_peak = signal_in[i_peak_calc]
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
 
     noise_rms = np.sqrt(np.mean(data_noise) ** 2)
@@ -598,12 +594,12 @@ def calculate_snr(signal_in, noise_count=10):
         raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
     # Calculate Peak-Peak value
-    peak_peak = abs(peak_rms - noise_rms)
+    peak_peak = abs(peak_rms - noise_rms).astype(signal_in.dtype)
 
     # Calculate SNR
     snr = peak_peak / noise_sd
 
-    rms_bounds = (noise_rms, peak_rms)
+    rms_bounds = (noise_rms.astype(signal_in.dtype), peak_rms.astype(signal_in.dtype))
     sd_noise = noise_sd
     ir_noise = i_noise_calc
     return snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak
