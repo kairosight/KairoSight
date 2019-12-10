@@ -46,20 +46,20 @@ def open_signal(source, fps=500):
     signal_text = np.genfromtxt(source, delimiter=',')
 
     # Calculate important constants
+    # Generate array of timestamps
     FPMS = fps / 1000
-    FRAME_T = 1 / FPMS
 
     if len(signal_text.shape) > 1:
         # Multiple columns
         data_x = signal_text[1:, 0]  # rows of the first column (skip X,Y header row)
         data_y_counts = signal_text[1:, 1].astype(np.uint16)  # rows of the first column (skip X,Y header row)
         FRAMES = len(data_x)
-        FINAL_T = floor(FPMS * FRAMES)
+        FINAL_T = floor(FRAMES / FPMS)
     else:
         # Single column, data only
         data_y_counts = signal_text[0]
         FRAMES = len(data_y_counts)
-        FINAL_T = floor(FPMS * FRAMES)
+        FINAL_T = floor(FRAMES / FPMS)
 
     signal_data = data_y_counts
     # Generate array of timestamps

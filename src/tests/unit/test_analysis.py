@@ -550,7 +550,7 @@ class TestEnsemble(unittest.TestCase):
         file_name_pig = '2019/03/22 pigb-01-Ca'
         self.file_name, file_signal = file_name_pig, file_signal_pig
         self.file_cl = '350'
-        self.time_real, self.signal_real = open_signal(source=file_signal, fps=2500)
+        self.time_real, self.signal_real = open_signal(source=file_signal, fps=404)
 
     def test_params(self):
         time_bad_type = np.full(100, True)
