@@ -58,7 +58,7 @@ class TestMapSNR(unittest.TestCase):
         self.d_noise = 10  # as a % of the signal amplitude
         self.velocity = 15
         # self.noise_count = 100
-        self.time_ca, self.stack_ca = model_stack_propagation(
+        time_model, stack_model = model_stack_propagation(
             model_type='Ca', f0=self.signal_f0, famp=self.signal_famp, noise=self.noise,
             velocity=self.velocity)
 
@@ -109,7 +109,7 @@ class TestMapSNR(unittest.TestCase):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             f_filtered = filter_spatial(frame, kernel=self.kernel)
             stack_out[idx, :, :] = f_filtered
-        print('\nFiltering stack DONE')
+        print('\nDONE Filtering stack')
 
         frame_num = int(len(self.stack_real) / 8)  # frame from 1/8th total time
         frame_real = self.stack_real[frame_num]
@@ -144,15 +144,14 @@ class TestMapSNR(unittest.TestCase):
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
         ax_frame.set_title('{}\n(Spatial filter kernel:{})'.format(self.file_name, self.kernel))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
-        ax_map.set_title('Activation Map')
+        ax_map.set_title('SNR Map')
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
 
         # Calculate the SNR map
         # Make sure SNR Map looks correct
-        analysis_map = map_snr(self.stack_ca)
-        # analysis_map = map_tran_analysis(self.stack, map_snr, self.time)
+        analysis_map = map_snr(self.stack)
         analysis_max_time = np.nanmax(analysis_map)
         # snr_max = np.nanmax(snr_map)
         # snr_min = np.nanmin(snr_map)
@@ -161,7 +160,7 @@ class TestMapSNR(unittest.TestCase):
         # Frame from stack
         frame_num = int(self.stack.shape[0] / 4)  # interesting frame
         cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_full.min(), vmax=self.stack_real_full.max())
+        cmap_norm_frame = colors.Normalize(vmin=self.stack.min(), vmax=self.stack.max())
         img_frame = ax_frame.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)
         # img_frame = ax_frame.imshow(self.stack_real_full[frame_num, :, :], cmap=cmap_frame)
         # Cropped
@@ -169,14 +168,13 @@ class TestMapSNR(unittest.TestCase):
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
         # Signal trace and location on frame
-        # signal_x, signal_y = (int(self.stack.shape[2] / 3), int(self.stack.shape[1] / 3))
-        # points_lw = 3
-        # # signal_r = self.kernel / 2
-        # signal = self.stack[:, signal_y, signal_x]
-        # frame_signal_spot = Circle((signal_x, signal_y), 3,
-        #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
-        # ax_frame.add_artist(frame_signal_spot)
-        # ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
+        signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))
+        points_lw = 3
+        signal = self.stack[:, signal_y, signal_x]
+        frame_signal_spot = Circle((signal_x, signal_y), 5,
+                                   ec=colors_times['Peak'], fc=gray_heavy, lw=points_lw, linestyle='--')
+        ax_frame.add_artist(frame_signal_spot)
+        ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
         #
         # # signal activation
         # i_activation = find_tran_act(signal)  # 1st df max, Activation
@@ -202,14 +200,14 @@ class TestMapSNR(unittest.TestCase):
                                 bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=ax_map.transAxes,
                                 borderpad=0)
         cb1_map = plt.colorbar(img_map, cax=ax_ins_map, orientation="vertical")
-        cb1_map.ax.set_xlabel('ms', fontsize=fontsize3)
+        cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
         cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
         cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
         # Map histogram
         ax_act_hist = fig_map_snr.add_subplot(gs_frame_map[2], xticklabels=[], sharey=ax_ins_map)
-        ax_act_hist.hist(snr_map.flatten(), 50, histtype='stepfilled',
+        ax_act_hist.hist(analysis_map.flatten(), 50, histtype='stepfilled',
                          orientation='horizontal', color='gray')
         ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
         ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))

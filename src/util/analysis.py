@@ -413,7 +413,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
                 pixel_analysis_value = analysis_result
 
         map_out[iy, ix] = pixel_analysis_value
-    print('\nGenerating map DONE')
+    print('\nDONE Generating map')
 
     return map_out
 

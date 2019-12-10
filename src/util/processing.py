@@ -27,7 +27,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     if peak_side is 'left':
         i_baselines_all = np.where(signal_in[:i_peak] <= prominence_floor)[0]
-        if len(i_baselines_all) < 5:    # use right side
+        if len(i_baselines_all) < 10:    # use right side
             i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
 
     if peak_side is 'right':
@@ -368,11 +368,13 @@ def invert_stack(stack_in):
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
 
+    print('Inverting a stack ...')
     stack_out = np.empty_like(stack_in)
     map_shape = stack_in.shape[1:]
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('Inve of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
+        print('\r\tInversion of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
+              end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         # pixel_ensemble = calc_ensemble(time_in, pixel_data)
         # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
@@ -382,6 +384,7 @@ def invert_stack(stack_in):
         pixel_data_inv = invert_signal(pixel_data)
         stack_out[:, iy, ix] = pixel_data_inv
 
+    print('\nDONE Inverting stack')
     return stack_out
 
 
@@ -514,14 +517,6 @@ def calculate_snr(signal_in, noise_count=10):
     i_noise_calc = find_tran_baselines(signal_in)
     data_noise = signal_in[i_noise_calc]
 
-    noise_rms = np.sqrt(np.mean(data_noise) ** 2)
-    noise_sd = statistics.stdev(data_noise.astype(float))
-    if noise_sd == 0:
-        noise_sd = 0.5  # Noise data too flat to detect SD
-    noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
-    noise_range = noise_bounds[1] - noise_bounds[0]
-    if signal_bounds[1] < noise_rms:
-        raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
     # Find indices of peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
     # i_peaks, _ = find_peaks(signal_in, prominence=(signal_range * 0.8, signal_range), distance=10)
@@ -530,7 +525,8 @@ def calculate_snr(signal_in, noise_count=10):
                             prominence=(signal_range / 4),
                             distance=len(signal_in)/2)
     if len(i_peaks) == 0:
-        raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+        # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     if len(i_peaks) > 1:
         i_peak_calc = i_peaks[0].astype(int)
         # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
@@ -541,6 +537,15 @@ def calculate_snr(signal_in, noise_count=10):
         ir_peak = i_peak_calc
     data_peak = signal_in[i_peak_calc].astype(int)
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
+
+    noise_rms = np.sqrt(np.mean(data_noise) ** 2)
+    noise_sd = statistics.stdev(data_noise.astype(float))
+    if noise_sd == 0:
+        noise_sd = 0.5  # Noise data too flat to detect SD
+    noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
+    noise_range = noise_bounds[1] - noise_bounds[0]
+    if signal_bounds[1] < noise_rms:
+        raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
     # Calculate Peak-Peak value
     peak_peak = abs(peak_rms - noise_rms)
@@ -589,13 +594,26 @@ def map_snr(stack_in, noise_count=10):
         print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
               end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
-        if pixel_data[0] is np.nan:
+        # Characterize the signal
+        signal_bounds = (pixel_data.min(), pixel_data.max())
+        signal_range = signal_bounds[1] - signal_bounds[0]
+        unique, counts = np.unique(pixel_data, return_counts=True)
+        # find the peak (roughly)
+        i_peaks, properties = find_peaks(pixel_data, prominence=(signal_range / 2))
+        if () or (len(i_peaks) is 0):
+            snr = np.NaN
+        elif (len(unique) < 10) or (pixel_data[0] is np.nan):  # if there are less than 15 unique values in the pixel's data
             snr = np.NaN
         else:
-            snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+            i_baselines = find_tran_baselines(pixel_data)
+            if len(i_baselines) < 5:
+                snr = np.NaN
+            else:
+                snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the SNR of the signal at that pixel
         map_out[iy, ix] = snr
 
+    print('\nDONE Mapping SNR')
     return map_out
 
 
