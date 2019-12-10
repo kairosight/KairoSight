@@ -5,6 +5,7 @@ from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firw
     lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
 from scipy.optimize import curve_fit
 from skimage.morphology import square
+from skimage.transform import rescale
 from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
 from skimage.filters.rank import median, mean, mean_bilateral
@@ -12,28 +13,77 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
+def find_tran_peak(signal_in, props=False):
+    """Find the time of the peak of a transient,
+    defined as the maximum value
+
+        Parameters
+        ----------
+        signal_in : ndarray
+            The array of data to be evaluated, dtype : uint16 or float
+
+        Returns
+        -------
+        i_peak : np.int64
+            The index of the signal array corresponding to the peak of the transient
+            or NaN if no peak was detected
+        """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
+
+    if any(v < 0 for v in signal_in):
+        raise ValueError('All signal values must be >= 0')
+
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_range = signal_bounds[1] - signal_bounds[0]
+    unique, counts = np.unique(signal_in, return_counts=True)
+
+    if len(unique) < 5:    # signal is too flat to have a valid peak
+        return np.nan
+
+    # Roughly find the peaks
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 2, width=20)
+
+    if len(i_peaks) is 0:   # no peak detected
+        return np.nan
+    elif len(i_peaks) > 1:
+        # print('Lazy here')
+        pass
+
+    if props:
+        return i_peaks, properties
+
+    else:
+        # Use the peak with the max prominence
+        i_peak = i_peaks[np.argmax(properties['prominences'])]
+        return i_peak
+
+
 def find_tran_baselines(signal_in, peak_side='left'):
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak (roughly)
-    i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 2))
-    if len(i_peaks) is 0:
-        raise ArithmeticError('Zero peaks detected!')
-    i_peak = i_peaks[0]  # the first detected peak
+    i_peaks, properties = find_tran_peak(signal_in, props=True)
+    i_peak = i_peaks[np.argmax(properties['prominences'])]
 
     # use the prominence of the peak and the activation time to find a baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.7)
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.5)
 
     if peak_side is 'left':
         i_baselines_all = np.where(signal_in[:i_peak] <= prominence_floor)[0]
         if len(i_baselines_all) < 10:    # use right side
-            i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
+            raise ArithmeticError('Less than 10 baseline indexes ({}) to the left of the peak at index ({})'
+                                  .format(i_baselines_all, i_peak))
 
     if peak_side is 'right':
         i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
 
-    # use the middle 1/3 of these
+    # use the middle 1/3 of these TODO or all of them
     i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
 
     return i_baselines

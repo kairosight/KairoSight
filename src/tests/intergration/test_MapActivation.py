@@ -40,8 +40,7 @@ cmap_norm_snr = colors.Normalize(vmin=0, vmax=SNR_MAX)
 # Colormap and normalization range for activation maps
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light)
-ACT_MAX = 60
-cmap_norm_activation = colors.Normalize(vmin=0, vmax=ACT_MAX)
+ACT_MAX = 150
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 # colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
@@ -234,26 +233,43 @@ class TestMapAnalysis(unittest.TestCase):
         # file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
         file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
         file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        fps = 404
         self.file_name, self.file_stack = file_name_pig, file_stack_pig
         self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
-        self.stack_real = self.stack_real_full.copy()
 
-        stack_out = self.stack_real.copy()
+        stack_out = self.stack_real_full.copy()
+
         # # Prep
+        # Reduce
+        self.spatial_type = 'Reduction + Guassian Filter'
+        self.kernel = 3
+        print('Reducing stack ...')
+        reduction_factor = 1 / self.kernel
+        test_frame = rescale(stack_out[0], reduction_factor)
+        stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
+        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)      # data array, default value is f_0
+        for idx, frame in enumerate(stack_out):
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
+        #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True))
+            stack_reduced[idx, :, :] = frame_reduced
+        stack_out = stack_reduced
+        print('\nDONE Reducing stack')
 
         # Mask
         mask_type = 'Random_walk'
-        _, frame_mask = mask_generate(stack_out[10], mask_type)
-        stack_out = mask_apply(stack_out, frame_mask)
+        _, mask_out = mask_generate(stack_out[10], mask_type)
+        stack_out = mask_apply(stack_out, mask_out)
 
         # Crop (to be _X x _Y)
-        new_width, new_height = 300, 300
-        d_x, d_y = -127, -154  # coordinates of top left corner
+        new_width, new_height = int(300 / self.kernel), int(300 / self.kernel)
+        d_x, d_y = int(-127 / self.kernel), int(-154 / self.kernel)  # coordinates of top left corner
         stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        mask_out = crop_frame(mask_out, d_x=d_x, d_y=d_y)
         d_x, d_y = stack_out.shape[2] - new_width, stack_out.shape[1] - new_height
         stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        mask_out = crop_frame(mask_out, d_x=d_x, d_y=d_y)
 
-        # # Process
         # stack_out = np.empty_like(self.stack_real)
         # # Invert
         # # self.stack_real = invert_stack(self.stack_real)
@@ -269,23 +285,22 @@ class TestMapAnalysis(unittest.TestCase):
         #     pixel_data_inv = invert_signal(pixel_data)
         #     stack_out[:, iy, ix] = pixel_data_inv
 
-        # # Filter
+        # # Process
+        # Filter
         print('Filtering stack ...')
-        self.kernel = 5
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             f_filtered = filter_spatial(frame, kernel=self.kernel)
             stack_out[idx, :, :] = f_filtered
-        print('\nFiltering stack DONE')
+        print('\nDONE Filtering stack')
+        # Re-apply mask to avoid smudged edges
+        stack_out = mask_apply(stack_out, mask_out)
 
-        fps = 800
-        frame_num = int(len(self.stack_real) / 8)  # frame from 1/8th total time
-        frame_real = self.stack_real[frame_num]
-        FRAMES = self.stack_real.shape[0]
-        HEIGHT, WIDTH = (self.stack_real.shape[1], self.stack_real.shape[2])
+
+        FRAMES = stack_out.shape[0]
         # Generate array of timestamps
         FPMS = fps / 1000
-        FINAL_T = floor(FPMS * FRAMES)
+        FINAL_T = floor(FRAMES / FPMS)
 
         self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
 
@@ -310,7 +325,7 @@ class TestMapAnalysis(unittest.TestCase):
 
         gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('{}\n(Spatial filter kernel:{})'.format(self.file_name, self.kernel))
+        ax_frame.set_title('{}\n({} kernel:{})'.format(self.file_name, self.spatial_type, self.kernel))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
         ax_map.set_title('Activation Map')
         for ax in [ax_frame, ax_map]:
@@ -319,7 +334,8 @@ class TestMapAnalysis(unittest.TestCase):
 
         # Calculate the activation map, returns timestamps
         analysis_map = map_tran_analysis(self.stack, find_tran_act, self.time)
-        analysis_max_time = np.nanmax(analysis_map)
+        analysis_min = np.nanmin(analysis_map)
+        analysis_max = np.nanmax(analysis_map)
 
         # Frame from stack
         frame_num = int(self.stack.shape[0] / 4)  # interesting frame
@@ -332,7 +348,7 @@ class TestMapAnalysis(unittest.TestCase):
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
         # Signal trace and location on frame
-        signal_x, signal_y = (int(self.stack.shape[2] / 3), int(self.stack.shape[1] / 3))
+        signal_x, signal_y = (int(self.stack.shape[2] / 1.5), int(self.stack.shape[1] / 1.5))
         points_lw = 3
         # signal_r = self.kernel / 2
         signal = self.stack[:, signal_y, signal_x]
@@ -359,6 +375,8 @@ class TestMapAnalysis(unittest.TestCase):
         cb_img.ax.tick_params(labelsize=fontsize3)
 
         # Analysis Map
+        cmap_norm_activation = colors.Normalize(vmin=np.floor(analysis_min),
+                                                vmax=np.floor(analysis_min) + ACT_MAX)
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_activation, cmap=cmap_activation)
         # Add colorbar (right of map)
         ax_ins_map = inset_axes(ax_map, width="3%", height="80%", loc=5,
@@ -366,8 +384,8 @@ class TestMapAnalysis(unittest.TestCase):
                                 borderpad=0)
         cb1_map = plt.colorbar(img_map, cax=ax_ins_map, orientation="vertical")
         cb1_map.ax.set_xlabel('ms', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
-        cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        cb1_map.ax.yaxis.set_major_locator(plticker.MultipleLocator(3))
+        cb1_map.ax.yaxis.set_minor_locator(plticker.MultipleLocator(3))
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
         # Map histogram

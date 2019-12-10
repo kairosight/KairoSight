@@ -114,6 +114,20 @@ def open_stack(source, meta=None):
     return stack, meta
 
 
+def crop_frame(frame_in, d_x, d_y):
+    frame_out = frame_in.copy()
+
+    if (d_x > 0) and (d_y > 0):
+        frame_out = frame_out[0:-d_y, 0:-d_x]
+    else:
+        if d_x < 0:
+            frame_out = frame_out[:, -d_x:]
+        if d_y < 0:
+            frame_out = frame_out[-d_y:, :]
+
+    return frame_out
+
+
 def crop_stack(stack_in, d_x, d_y):
     """Crop a stack (3-D array, TYX) of optical data.
 

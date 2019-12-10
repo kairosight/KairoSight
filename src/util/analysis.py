@@ -80,10 +80,11 @@ def find_tran_act(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
-    # Limit search to before the peak and after the last non-prominent point (baseline) before the peak
+    # Limit search to before the peak and after the middle baseline point before the peak
     i_peak = find_tran_peak(signal_in)
     # use the prominence of the peak to find right-most baseline
-    i_baseline = max(find_tran_baselines(signal_in))
+    i_baselines = find_tran_baselines(signal_in, peak_side='left')
+    i_baseline = int(np.median(i_baselines))
 
     search_min = i_baseline
     search_max = i_peak
@@ -113,49 +114,11 @@ def find_tran_act(signal_in):
     i_act_search = np.argmax(signal_search_df_smooth)  # 1st df max, Activation
     i_activation = search_min + i_act_search
 
+    if i_act_search < 10:
+        print('\tLow rel. activation time: {}'.format(i_act_search),
+              end='', flush=True)
+
     return i_activation
-
-
-def find_tran_peak(signal_in):
-    """Find the time of the peak of a transient,
-    defined as the maximum value
-
-        Parameters
-        ----------
-        signal_in : ndarray
-            The array of data to be evaluated, dtype : uint16 or float
-
-        Returns
-        -------
-        i_peak : np.int64
-            The index of the signal array corresponding to the peak of the transient
-        """
-    # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
-
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
-
-    # Characterize the signal
-    signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
-
-    # Roughly find the peaks
-    # i_peaks, properties = find_peaks(signal_in, prominence=(signal_range / 4))
-    i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 2, distance=20)
-    #
-    # if len(i_peaks) > 1:
-    #     raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
-
-    # Choose the first peak detected
-    if len(i_peaks) is 0:
-        return np.nan
-    i_peak = i_peaks[0]
-
-    return i_peak
 
 
 def find_tran_downstroke(signal_in):
@@ -393,17 +356,10 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
         print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
               flush=True)
         pixel_data = stack_in[:, iy, ix]
-        # pixel_ensemble = calc_ensemble(time_in, pixel_data)
-        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-        # Set every pixel's values to the analysis value of the signal at that pixel
-        # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
-
         # Check if pixel has been masked (0 at every frame)
         # or was masked and spatially filtered (constant at every frame)
-        unique, counts = np.unique(pixel_data, return_counts=True)
         peak = find_tran_peak(pixel_data)
-        if (len(unique) < 10) or (peak is np.nan):  # if there are less than 10 unique values in the pixel's data
+        if peak is np.nan:  # if there's no detectable peak
             pixel_analysis_value = np.NaN
         else:
             analysis_result = analysis_type(pixel_data)
@@ -413,6 +369,10 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
                 pixel_analysis_value = analysis_result
 
         map_out[iy, ix] = pixel_analysis_value
+
+    # If mapping activation, align times with the "first" aka lowest activation time
+    if analysis_type is find_tran_act:
+        map_out = map_out - np.nanmin(map_out)
     print('\nDONE Generating map')
 
     return map_out
@@ -576,7 +536,7 @@ def calc_ensemble(time_in, signal_in):
     #                                        i_acts[act_num] + est_cycle_i - cycle_shift])
 
     # use the mean of all signals (except the last)
-    # TODO try a gaussian calculation instead of a mean
+    # TODO try a rms calculation instead of a mean
     signal_out = np.nanmean(signals_trans_act[:-1], axis=0)
     signals = signals_trans_act[:-1]
     i_peaks = i_peaks[:-1]
