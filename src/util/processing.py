@@ -21,12 +21,18 @@ def find_tran_baselines(signal_in, peak_side='left'):
     if len(i_peaks) is 0:
         raise ArithmeticError('Zero peaks detected!')
     i_peak = i_peaks[0]  # the first detected peak
+
     # use the prominence of the peak and the activation time to find a baseline
     prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.7)
+
     if peak_side is 'left':
         i_baselines_all = np.where(signal_in[:i_peak] <= prominence_floor)[0]
-    else:
+        if len(i_baselines_all) < 5:    # use right side
+            i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
+
+    if peak_side is 'right':
         i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
+
     # use the middle 1/3 of these
     i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
 
@@ -575,12 +581,18 @@ def map_snr(stack_in, noise_count=10):
     if type(noise_count) is not int:
         raise TypeError('Noise count must be an "int"')
 
+    print('Generating SNR map ...')
     map_shape = stack_in.shape[1:]
     map_out = np.empty(map_shape)
     # Assign an SNR to each pixel
     for iy, ix in np.ndindex(map_shape):
+        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
+              end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
-        snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        if pixel_data[0] is np.nan:
+            snr = np.NaN
+        else:
+            snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the SNR of the signal at that pixel
         map_out[iy, ix] = snr
 

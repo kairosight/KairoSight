@@ -151,6 +151,8 @@ def find_tran_peak(signal_in):
     #     raise ArithmeticError('{} peaks detected for a single given transient'.format(len(i_peaks)))
 
     # Choose the first peak detected
+    if len(i_peaks) is 0:
+        return np.nan
     i_peak = i_peaks[0]
 
     return i_peak
@@ -400,7 +402,8 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
         # Check if pixel has been masked (0 at every frame)
         # or was masked and spatially filtered (constant at every frame)
         unique, counts = np.unique(pixel_data, return_counts=True)
-        if len(unique) < 10:  # if there are less than 10 unique values in the pixel's data
+        peak = find_tran_peak(pixel_data)
+        if (len(unique) < 10) or (peak is np.nan):  # if there are less than 10 unique values in the pixel's data
             pixel_analysis_value = np.NaN
         else:
             analysis_result = analysis_type(pixel_data)
