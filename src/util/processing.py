@@ -46,7 +46,7 @@ def find_tran_peak(signal_in, props=False):
         return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 4)
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 3)
 
     if len(i_peaks) is 0:   # no peak detected
         return np.nan
@@ -83,8 +83,9 @@ def find_tran_baselines(signal_in, peak_side='left'):
     if peak_side is 'right':
         i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
 
-    # use the middle 1/3 of these TODO or all of them
-    i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
+    # use the first 2/3 of these TODO or all of them
+    i_baselines = i_baselines_all[: int(2 * (len(i_baselines_all)/3))]
+    # i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
 
     return i_baselines
 
@@ -574,12 +575,13 @@ def calculate_snr(signal_in, noise_count=10):
         # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     if len(i_peaks) > 1:
-        i_peak_calc = i_peaks[0].astype(int)
+        # Use the peak with the max prominence
+        i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
         # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
         ir_peak = i_peaks
         print('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
     else:
-        i_peak_calc = i_peaks[0].astype(int)
+        i_peak_calc = i_peaks
         ir_peak = i_peak_calc
     data_peak = signal_in[i_peak_calc]
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))

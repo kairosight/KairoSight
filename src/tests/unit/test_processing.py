@@ -1054,38 +1054,37 @@ class TestSnrSignal(unittest.TestCase):
             result = run_trials_snr(self, trial_count, self.signal_noise)
             results.append(result)
 
-        # Build a figure to plot stats comparison
-        labels = [str(i) + ' Trials' for i in trials]
-        fig_stats_bar, ax_sd_noise_bar = plot_stats_bars(labels)
-        ax_sd_noise_bar.set_title('SNR Accuracy')
-        ax_sd_noise_bar.set_ylabel('Noise SD (Calculated)')
-        ax_sd_noise_bar.set_xlabel('Calculation Trials')
-        ax_sd_noise_bar.set_ylim([3, 7])
-        width = 1 / (len(results) + 1)
-        for i in range(0, len(results)):
-            x_tick = (1 / len(results)) * i
-            ax_sd_noise_bar.bar(x_tick, results[i]['sd_noise']['mean'], width, color=gray_med, fill=True,
-                                yerr=results[i]['sd_noise']['sd'], error_kw=dict(lw=1, capsize=4, capthick=1.0))
-        ax_sd_noise_bar.real_sd_noise = ax_sd_noise_bar.axhline(y=self.signal_noise, color=gray_light, linestyle='--',
-                                                                label='Noise SD (Actual)')
-        ax_sd_noise_bar.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-
+        # labels = [str(i) + ' Trials' for i in trials]
+        # fig_stats_bar, ax_sd_noise_bar = plot_stats_bars(labels)
+        # ax_sd_noise_bar.set_title('SNR Accuracy')
+        # ax_sd_noise_bar.set_ylabel('Noise SD, Calculated')
+        # ax_sd_noise_bar.set_xlabel('Calculation Trials')
+        # ax_sd_noise_bar.set_ylim([3, 7])
+        # width = 1 / (len(results) + 1)
+        # for i in range(0, len(results)):
+        #     x_tick = (1 / len(results)) * i
+        #     ax_sd_noise_bar.bar(x_tick, results[i]['sd_noise']['mean'], width, color=gray_heavy, fill=True,
+        #                         yerr=results[i]['sd_noise']['sd'], error_kw=dict(lw=1, capsize=4, capthick=1.0))
+        # ax_sd_noise_bar.real_sd_noise = ax_sd_noise_bar.axhline(y=self.signal_noise, color=gray_light, linestyle='--',
+        #                                                         label='Noise SD (Actual)')
+        # ax_sd_noise_bar.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         # fig_stats_bar.show()
 
+        # Build a figure to plot stats comparison
         # Scatter plot with error bars
         fig_stats_scatter, ax_sd_noise_scatter = plot_stats_scatter()
         ax_sd_noise_scatter.set_title('SNR Accuracy')
-        ax_sd_noise_scatter.set_ylabel('Noise SD (Calculated)')
+        ax_sd_noise_scatter.set_ylabel('Noise SD, Calculated', color=color_filtered)
         ax_sd_noise_scatter.set_xlabel('Calculation Trials')
-        ax_sd_noise_scatter.set_ylim([3, 7])
+        ax_sd_noise_scatter.set_ylim([0, 10])
         for i in range(0, len(results)):
             ax_sd_noise_scatter.errorbar(trials[i], results[i]['sd_noise']['mean'],
-                                         yerr=results[i]['sd_noise']['sd'], fmt="x",
-                                         color=gray_heavy, lw=1, capsize=4, capthick=1.0)
+                                         yerr=results[i]['sd_noise']['sd'], fmt="x", color=color_filtered,
+                                         ecolor=gray_med, lw=1, capsize=4, capthick=1.0)
 
         ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.signal_noise, color=gray_light,
                                                                         linestyle='--', label='Noise SD (Actual)')
-        ax_sd_noise_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        # ax_sd_noise_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_stats_scatter.show()
 
@@ -1104,26 +1103,27 @@ class TestSnrSignal(unittest.TestCase):
 
         # Build a figure to plot stats comparison
         fig_error_scatter, ax_snr_error_scatter = plot_stats_scatter()
-        ax_snr_error_scatter.set_title('SNR vs Noise Accuracy (n={})'.format(trial_count))
-        ax_snr_error_scatter.set_ylabel('SNR (Noise SD, Calculated)', color=gray_med)
+        ax_snr_error_scatter.set_title('SNR Accuracy (n={})'.format(trial_count))
+        ax_snr_error_scatter.set_ylabel('Noise SD, Calculated', color=color_filtered)
         # ax_snr_error_scatter.set_ylabel('%Error of SNR Calculation')
-        ax_snr_error_scatter.set_xlabel('SNR (Noise SD, , Actual)')
+        ax_snr_error_scatter.set_xlabel('Noise SD, Actual')
         ax_snr_error_scatter.set_ylim([0, noises[-1] + 1])
         ax_snr_error_scatter.set_xlim([0, noises[-1] + 1])
-        ax_snr_error_scatter.tick_params(axis='y', labelcolor=gray_med)
         ax_snr_error_scatter.grid(True)
         for i in range(0, len(noises)):
             ax_snr_error_scatter.errorbar(noises[i], results_trials_snr[i]['sd_noise']['mean'],
-                                          yerr=results_trials_snr[i]['sd_noise']['sd'], fmt="x",
-                                          color=gray_med, lw=1, capsize=4, capthick=1.0)
+                                          yerr=results_trials_snr[i]['sd_noise']['sd'],
+                                          fmt="x", color=color_filtered,
+                                          ecolor=gray_med, lw=1, capsize=4, capthick=1.0)
 
         ax_error = ax_snr_error_scatter.twinx()  # instantiate a second axes that shares the same x-axis
         ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
-        ax_error.set_ylabel('%Error of SNR')  # we already handled the x-label with ax1
+        ax_error.set_ylabel('Error (%)')  # we already handled the x-label with ax1
+        ax_error.set_xlim([1, 10])
         ax_error.set_ylim([-100, 100])
         ax_error.plot(noises, error, color=gray_heavy, linestyle='-', label='% Error')
 
-        ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+        # ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_error_scatter.show()
 
