@@ -1,6 +1,6 @@
 import unittest
 
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, ConnectionPatch
 
 from util.datamodel import *
 from util.analysis import *
@@ -348,68 +348,118 @@ class TestAnalysisPoints(unittest.TestCase):
                                                         fps=self.signal_fps)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
 
-        self.zoom_t = 50
+        self.zoom_t = [5, 55]
 
     def test_plot(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout
-        fig_points, ax_points = plot_test()
-        ax_points.set_title('Analysis Points')
-        ax_points.set_ylabel('Arbitrary Fluorescent Units')
-        ax_points.set_xlabel('Time (ms)')
+        fig_analysis = plt.figure(figsize=(6, 6))  # _ x _ inch page
+        gs0 = fig_analysis.add_gridspec(3, 1)  # 3 row, 1 columns
+
+        # Data plot
+        ax_data = fig_analysis.add_subplot(gs0[0])
+        # ax_data.set_title('Analysis Points')
+        ax_data.set_ylabel('Fluorescence (arb. u.)')
+        # Derivatives
+        ax_df1 = fig_analysis.add_subplot(gs0[1])
+        ax_df1.set_ylabel('dF/dt')
+        ax_df2 = fig_analysis.add_subplot(gs0[2])
+        ax_df2.set_xlabel('Time (ms)')
+        ax_df2.set_ylabel('d2F/dt2')
         points_lw = 3
+        # Set axes z orders so connecting lines are shows
+        ax_data.set_zorder(3)
+        ax_df1.set_zorder(2)
+        ax_df2.set_zorder(1)
 
-        ax_points.plot(self.time, self.signal, color=gray_heavy,
-                       linestyle='-', marker='x', label='Vm (Model)')
-        ax_points.set_xlim(0, self.zoom_t)
+        for ax in [ax_data, ax_df1]:
+            ax.set_xticklabels([])
 
-        ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
-        ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
+        # Common between all axes
+        for ax in [ax_data, ax_df1, ax_df2]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_xlim(self.zoom_t)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
 
+        # Plot signals and points
+        ax_data.plot(self.time, self.signal, color=gray_heavy,
+                     linestyle='-', marker='.', markersize=points_lw*3, label='Vm (Model)')
         time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        spl = UnivariateSpline(time_x, self.signal)
 
-        df_spline = spl(time_x, nu=1)
-        df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-        spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+        spl = UnivariateSpline(time_x, self.signal, ext='zeros')
+        df_spline = spl(time_x, nu=1, ext='zeros')
+        # smooth the 1st with a Savitzky Golay filter
+        # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
+        d1f_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+        spl_df_smooth = UnivariateSpline(time_x, d1f_smooth, ext='zeros')
 
-        d2f_smooth = spl_df_smooth(time_x, nu=1)
+        d2f_smooth = spl_df_smooth(time_x, nu=1, ext='zeros')
 
         # df/dt
-        ax_dfs.plot(self.time, df_smooth,
-                    color=gray_med, linestyle='--', label='dF/dt')
+        ax_df1.plot(self.time, d1f_smooth, color=gray_med,
+                    linestyle='--', label='dF/dt')
+        ax_df1.hlines(0, xmin=0, xmax=self.zoom_t[1], color=gray_light, linewidth=1)
+        d1f_max = round(abs(max(d1f_smooth, key=abs)) + 0.5, -1)
         # d2f/dt2
-        ax_dfs.plot(self.time, d2f_smooth,
-                    color=gray_med, linestyle=':', label='d2F/dt2')
-        df_max = round(max(max(df_smooth, key=abs), max(d2f_smooth, key=abs)) + 5.1, -1)
-        ax_dfs.set_ylim([-df_max, df_max])
+        ax_df2.plot(self.time, d2f_smooth, color=gray_med,
+                    linestyle=':', label='d2F/dt2')
+        ax_df2.hlines(0, xmin=0, xmax=self.zoom_t[1], color=gray_light, linewidth=1)
+        ax_df1.set_ylim([-d1f_max, d1f_max])
+        d2f_max = round(abs(max(d2f_smooth, key=abs)) + 0.5, -1)
+        ax_df2.set_ylim([-d2f_max, d2f_max])
 
         # Start
         i_start = find_tran_start(self.signal)  # 1st df2 max, Start
-        ax_points.axvline(self.time[i_start], color=colors_times['Start'], linewidth=points_lw,
-                          label='Start')
+        start_con = ConnectionPatch(xyA=[self.time[i_start], self.signal[i_start]],
+                                    xyB=[self.time[i_start], d2f_smooth[i_start]], coordsA="data", coordsB="data",
+                                    axesA=ax_data, axesB=ax_df2, arrowstyle="-", linewidth=points_lw,
+                                    color=colors_times['Start'], label='Start')
+        ax_data.add_artist(start_con)
+
         # Activation
         i_activation = find_tran_act(self.signal)  # 1st df max, Activation
-        ax_points.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
-                          label='Activation')
+        act_con = ConnectionPatch(xyA=[self.time[i_activation], self.signal[i_activation]],
+                                  xyB=[self.time[i_activation], d1f_smooth[i_activation]],
+                                  coordsA="data", coordsB="data",
+                                  axesA=ax_data, axesB=ax_df1, arrowstyle="-", linewidth=points_lw,
+                                  color=colors_times['Activation'], label='Activation')
+        ax_data.add_artist(act_con)
+
         # Peak
         i_peak = find_tran_peak(self.signal)  # max of signal, Peak
-        ax_points.axvline(self.time[i_peak], color=colors_times['Peak'], linewidth=points_lw,
-                          label='Peak')
+        peak_frac = (self.signal[i_peak] - ax_data.get_ylim()[0]) /\
+                    (ax_data.get_ylim()[1] - ax_data.get_ylim()[0])
+        ax_data.axvline(x=self.time[i_peak], ymin=0, ymax=peak_frac,
+                        color=colors_times['Peak'], linewidth=points_lw,
+                        label='Peak')
+
         # Downstroke
         i_downstroke = find_tran_downstroke(self.signal)  # df min, Downstroke
-        ax_points.axvline(self.time[i_downstroke], color=colors_times['Downstroke'], linewidth=points_lw,
-                          label='Downstroke')
+        down_con = ConnectionPatch(xyA=[self.time[i_downstroke], self.signal[i_downstroke]],
+                                   xyB=[self.time[i_downstroke], d1f_smooth[i_downstroke]],
+                                   coordsA="data", coordsB="data",
+                                   axesA=ax_data, axesB=ax_df1, arrowstyle="-", linewidth=points_lw,
+                                   color=colors_times['Downstroke'], label='Downstroke')
+        ax_data.add_artist(down_con)
+
         # End
         i_end = find_tran_end(self.signal)  # 2st df2 max, End
-        ax_points.axvline(self.time[i_end], color=colors_times['End'], linewidth=points_lw,
-                          label='End')
+        end_con = ConnectionPatch(xyA=[self.time[i_end], self.signal[i_end]],
+                                  xyB=[self.time[i_end], d2f_smooth[i_end]],
+                                  coordsA="data", coordsB="data",
+                                  axesA=ax_data, axesB=ax_df2, arrowstyle="-", linewidth=points_lw,
+                                  color=colors_times['End'], label='End')
+        ax_data.add_artist(end_con)
 
-        ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
-        ax_points.legend(loc='upper left', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
+        # ax_data.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
+        # ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
 
-        fig_points.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
-        fig_points.show()
+        # fig_analysis.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
+        fig_analysis.show()
 
 
 # class TestDuration(unittest.TestCase):

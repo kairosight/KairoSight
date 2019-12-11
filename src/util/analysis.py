@@ -90,23 +90,19 @@ def find_tran_act(signal_in):
     search_max = i_peak
 
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    # signal_d2f = np.diff(signal_in, n=2, prepend=[int(signal_in[0]), int(signal_in[0])]).astype(float)
-    # d2f_smooth = filter_temporal(signal_d2f, sample_rate, filter_order=5)
     # print('Starting analysis splines')
     # print('** Starting UnivariateSpline')
     # start = time.process_time()
-    # spl = UnivariateSpline(time_x, signal_in)
+    spl = UnivariateSpline(time_x, signal_in)
     # spl.set_smoothing_factor(0.7)
     # end = time.process_time()
     # print('** Finished UnivariateSpline', end - start)
     # print('** Starting spl')
     # start = time.process_time()
-    # df_spline = spl(time_x, nu=1)
-    df_diff = np.diff(signal_in).astype(float)
+    df_spline = spl(time_x, nu=1)
     # smooth the 1st with a Savitzky Golay filter
     # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-    # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-    df_smooth = savgol_filter(df_diff, window_length=5, polyorder=3)
+    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
     # end = time.process_time()
     # print('** Finished spl', end - start)
     # print('Done with analysis splines')
