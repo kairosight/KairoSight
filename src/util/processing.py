@@ -1,6 +1,7 @@
 import statistics
 import numpy as np
 from numpy import linalg
+from scipy.interpolate import UnivariateSpline
 from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2, \
     lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
 from scipy.optimize import curve_fit
@@ -71,20 +72,49 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_peaks, properties = find_tran_peak(signal_in, props=True)
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
-    # use the prominence of the peak and the activation time to find a baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.5)
+    # use the prominence of the peak and the activation time to find a "rough" baseline
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.9)
+    i_baselines_farLeft, i_baselines_farRight = 0, 0
 
     if peak_side is 'left':
-        i_baselines_all = np.where(signal_in[:i_peak] <= prominence_floor)[0]
-        if len(i_baselines_all) < 10:    # use right side
-            raise ArithmeticError('Less than 10 baseline indexes ({}) to the left of the peak at index ({})'
-                                  .format(i_baselines_all, i_peak))
+        # Find first index below the prominence floor
+        i_baselines_farLeft = np.where(signal_in[:i_peak] <= prominence_floor)[0][0]
+        i_baselines_farRight = np.where(signal_in[:i_peak] <= prominence_floor)[0][-1]
 
     if peak_side is 'right':
-        i_baselines_all = np.where(signal_in[i_peak:] <= prominence_floor)[0]
+        # Find first index below the prominence floor
+        i_baselines_farLeft = np.where(signal_in[i_peak:] <= prominence_floor)[0][0] + i_peak
+        i_baselines_farRight = np.where(signal_in[i_peak:] <= prominence_floor)[0][-1] + i_peak
 
-    # use the first 2/3 of these TODO or all of them
-    i_baselines = i_baselines_all[: int(2 * (len(i_baselines_all)/3))]
+    i_baselines_all = np.arange(i_baselines_farLeft, i_baselines_farRight+1)
+
+    if len(i_baselines_all) < 10:
+        raise ArithmeticError('Less than 10 baseline indexes ({}), using peak index ({})'
+                              .format(i_baselines_all, i_peak))
+
+    signal_baseline = signal_in[i_baselines_all]
+    # use a spline to find "flattest" section of derivative
+    signal_baseline = signal_in[i_baselines_all]
+    time_x = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
+    spl = UnivariateSpline(time_x, signal_baseline)
+    df_spline = spl(time_x, nu=1)
+    df_smooth = savgol_filter(df_spline, window_length=11, polyorder=3)
+
+    d1f_rms = np.sqrt(np.mean(df_smooth) ** 2)
+    d1f_sd = statistics.stdev(df_smooth.astype(float))
+    # where the derivative is less than its standard deviation
+    i_baselines_search = np.where(abs(df_smooth) <= d1f_sd)[0]
+
+    # use the middle 3/5 of these
+    search_buffer = int((len(i_baselines_search) / 5))
+    i_baselines_d1f_left = i_baselines_search[0] + i_baselines_all[0] + search_buffer
+    i_baselines_d1f_right = i_baselines_search[-1] + i_baselines_all[0] - search_buffer
+
+    i_baselines = np.arange(i_baselines_d1f_left, i_baselines_d1f_right+1)
+
+    # use all detected indexes
+    # i_baselines = i_baselines_all
+    # i_baselines = i_baselines_all[: int(2 * (len(i_baselines_all)/3))]
     # i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
 
     return i_baselines
@@ -565,7 +595,7 @@ def calculate_snr(signal_in, noise_count=10):
     #     raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
     # data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]].astype(np.dtype(float))
 
-    i_noise_calc = find_tran_baselines(signal_in)
+    i_noise_calc = find_tran_baselines(signal_in, peak_side='right')
     data_noise = signal_in[i_noise_calc]
 
 
@@ -581,9 +611,13 @@ def calculate_snr(signal_in, noise_count=10):
         ir_peak = i_peaks
         print('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
     else:
-        i_peak_calc = i_peaks
+        # Use the peak with the max prominence
+        i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
         ir_peak = i_peak_calc
-    data_peak = signal_in[i_peak_calc]
+
+    # Use the peak value and peak_extent*2 number of neighboring values
+    peak_extent = 1
+    data_peak = signal_in[i_peak_calc - peak_extent: i_peak_calc + peak_extent]
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
 
     noise_rms = np.sqrt(np.mean(data_noise) ** 2)
