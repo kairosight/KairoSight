@@ -325,6 +325,7 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
     FRAME_T = 1 / FPMS
     FRAME_T0 = round(t0 / FRAME_T)
     FINAL_T = t - FRAME_T
+    max_duration = 120
     if num is 'full':
         num = ceil(FINAL_T / cl)
 
@@ -421,7 +422,7 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         model_tran = model_tran[:cl]
     else:
         # Pad the transient array
-        tranPad_frames = floor((cl - ca_duration) / FRAME_T)
+        tranPad_frames = floor((cl - max_duration) / FRAME_T)
         tranPad = np.full(tranPad_frames, f0, dtype=np.uint16)
         model_tran = np.concatenate((model_tran, tranPad), axis=None)
 

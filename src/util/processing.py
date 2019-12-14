@@ -74,48 +74,52 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     # use the prominence of the peak and the activation time to find a "rough" baseline
     prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.9)
-    i_baselines_farLeft, i_baselines_farRight = 0, 0
+    i_baselines_far_l, i_baselines_far_r = 0, 0
 
     if peak_side is 'left':
         # Find first index below the prominence floor
-        i_baselines_farLeft = np.where(signal_in[:i_peak] <= prominence_floor)[0][0]
-        i_baselines_farRight = np.where(signal_in[:i_peak] <= prominence_floor)[0][-1]
+        i_baselines_far_l = np.where(signal_in[:i_peak] <= prominence_floor)[0][0]
+        i_baselines_far_r = np.where(signal_in[:i_peak] <= prominence_floor)[0][-1]
 
     if peak_side is 'right':
         # Find first index below the prominence floor
-        i_baselines_farLeft = np.where(signal_in[i_peak:] <= prominence_floor)[0][0] + i_peak
-        i_baselines_farRight = np.where(signal_in[i_peak:] <= prominence_floor)[0][-1] + i_peak
+        i_baselines_far_l = np.where(signal_in[i_peak:] <= prominence_floor)[0][0] + i_peak
+        i_baselines_far_r = np.where(signal_in[i_peak:] <= prominence_floor)[0][-1] + i_peak
 
-    i_baselines_all = np.arange(i_baselines_farLeft, i_baselines_farRight+1)
+    i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r+1)
 
     if len(i_baselines_all) < 10:
         raise ArithmeticError('Less than 10 baseline indexes ({}), using peak index ({})'
                               .format(i_baselines_all, i_peak))
 
+    # use a spline of the rough baseline and find the "flattest" section
+    # df/dt (with x20 as many time samples)
+    spline_fidelity = 20
     signal_baseline = signal_in[i_baselines_all]
-    # use a spline to find "flattest" section of derivative
-    signal_baseline = signal_in[i_baselines_all]
-    time_x = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
-    spl = UnivariateSpline(time_x, signal_baseline)
-    df_spline = spl(time_x, nu=1)
-    df_smooth = savgol_filter(df_spline, window_length=11, polyorder=3)
+    time_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
+    spl = UnivariateSpline(time_baseline, signal_baseline)
+    time_spline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline)*spline_fidelity)
+    spl.set_smoothing_factor(2000)
+    df_spline = spl(time_spline, nu=1)
+    # df_smooth = savgol_filter(df_spline, window_length=11, polyorder=3)
 
-    d1f_rms = np.sqrt(np.mean(df_smooth) ** 2)
-    d1f_sd = statistics.stdev(df_smooth.astype(float))
+    d1f_rms = np.sqrt(np.mean(df_spline) ** 2)
+    d1f_sd = statistics.stdev(df_spline.astype(float))
     # where the derivative is less than its standard deviation
-    i_baselines_search = np.where(abs(df_smooth) <= d1f_sd)[0]
+    i_baselines_search = np.where(abs(df_spline) <= d1f_sd)[0]
+    i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
+    i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
-    # use the middle 3/5 of these
-    search_buffer = int((len(i_baselines_search) / 5))
-    i_baselines_d1f_left = i_baselines_search[0] + i_baselines_all[0] + search_buffer
-    i_baselines_d1f_right = i_baselines_search[-1] + i_baselines_all[0] - search_buffer
-
-    i_baselines = np.arange(i_baselines_d1f_left, i_baselines_d1f_right+1)
+    # # use the middle 3/5 of these
+    # search_buffer = int((len(i_baselines_search) / 5) / spline_fidelity)
+    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
+    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
 
     # use all detected indexes
-    # i_baselines = i_baselines_all
-    # i_baselines = i_baselines_all[: int(2 * (len(i_baselines_all)/3))]
-    # i_baselines = i_baselines_all[int(len(i_baselines_all)/3): int(2 * (len(i_baselines_all)/3))]
+    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
+    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
+
+    i_baselines = np.arange(i_baselines_left, i_baselines_right+1)
 
     return i_baselines
 
@@ -410,6 +414,7 @@ def filter_drift(signal_in, drift_order=2):
     return signal_out.astype(signal_in.dtype), drift
 
 
+# TODO rename functions (like calculate_snr to signal_snr and signal_error)
 def invert_signal(signal_in):
     """Invert the values of a signal array.
 
@@ -585,21 +590,7 @@ def calculate_snr(signal_in, noise_count=10):
     signal_range = signal_bounds[1] - signal_bounds[0]
     noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
 
-    # # Calculate noise values, detecting the last noise peak and using indexes [peak - noise_count, peak]
-    # i_noise_peaks, _ = find_peaks(signal_in, height=(None, noise_height))
-    # if len(i_noise_peaks) == 0:
-    #     i_noise_peaks = [len(signal_in)-1]
-    # i_noise_calc = np.linspace(start=i_noise_peaks[-1] - noise_count, stop=i_noise_peaks[-1],
-    #                            num=noise_count).astype(int)
-    # if any(i < 0 for i in i_noise_calc):
-    #     raise ValueError('Number of noise values too large for this signal of length {}'.format(len(signal_in)))
-    # data_noise = signal_in[i_noise_calc[0]: i_noise_calc[-1]].astype(np.dtype(float))
-
-    i_noise_calc = find_tran_baselines(signal_in, peak_side='right')
-    data_noise = signal_in[i_noise_calc]
-
-
-    # Find indices of peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
+    # Find peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
     i_peaks, properties = find_tran_peak(signal_in, props=True)
     if len(i_peaks) == 0:
         # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
@@ -619,23 +610,32 @@ def calculate_snr(signal_in, noise_count=10):
     peak_extent = 1
     data_peak = signal_in[i_peak_calc - peak_extent: i_peak_calc + peak_extent]
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
+    peak_sd = statistics.pstdev(data_peak.astype(float))
+    # Use the rms of the peak's extent + their  SD/2, to be weighted towards the peak
+    peak_value = peak_rms + (peak_sd/2)
 
+    # Find noise values
+    i_noise_calc = find_tran_baselines(signal_in)
+    data_noise = signal_in[i_noise_calc]
+
+    # Use noise values
     noise_rms = np.sqrt(np.mean(data_noise) ** 2)
-    noise_sd = statistics.stdev(data_noise.astype(float))
+    noise_sd = statistics.stdev(data_noise.astype(float)) # standard deviation
     if noise_sd == 0:
         noise_sd = 0.5  # Noise data too flat to detect SD
     noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
     noise_range = noise_bounds[1] - noise_bounds[0]
+
     if signal_bounds[1] < noise_rms:
         raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
     # Calculate Peak-Peak value
-    peak_peak = abs(peak_rms - noise_rms).astype(signal_in.dtype)
+    peak_peak = abs(peak_value - noise_rms).astype(signal_in.dtype)
 
     # Calculate SNR
     snr = peak_peak / noise_sd
 
-    rms_bounds = (noise_rms.astype(signal_in.dtype), peak_rms.astype(signal_in.dtype))
+    rms_bounds = (noise_rms.astype(signal_in.dtype), peak_value.astype(signal_in.dtype))
     sd_noise = noise_sd
     ir_noise = i_noise_calc
     return snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak

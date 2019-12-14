@@ -952,17 +952,17 @@ class TestFF0(unittest.TestCase):
 class TestSnrSignal(unittest.TestCase):
     def setUp(self):
         # Create data to test with
-        self.signal_t = 200
-        self.signal_t0 = 50
+        self.signal_t = 300
+        self.signal_t0 = 100
         self.signal_fps = 1000
         self.signal_f0 = 1000
         self.signal_famp = 200
         self.signal_noise = 5
 
-        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
                                                         f0=self.signal_f0, famp=self.signal_famp,
                                                         fps=self.signal_fps, noise=self.signal_noise)
-        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+        self.time, self.signal = self.time_ca, self.signal_ca
 
         # Create data to test with
         # self.signal_t = 250
@@ -1022,12 +1022,11 @@ class TestSnrSignal(unittest.TestCase):
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak \
             = calculate_snr(self.signal)
 
-
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout
         # fig_snr = plt.figure(figsize=(6, 6))  # _ x _ inch page
         fig_snr = plt.figure(figsize=(8, 5))  # _ x _ inch page
-        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.8, 0.2])  # 3 row, 1 columns
+        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.5, 0.5])  # 3 row, 1 columns
 
         # Data plot
         ax_data = fig_snr.add_subplot(gs0[0])
@@ -1060,21 +1059,26 @@ class TestSnrSignal(unittest.TestCase):
         #              linestyle='-', marker='.', markersize=points_lw*3)
         ax_data.plot(ir_noise, self.signal[ir_noise], "x", color='r', markersize=3)
 
-        # df/dt
-        signal_baseline = self.signal[ir_noise]
-        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        spl = UnivariateSpline(time_x, self.signal)
-        df_spline = spl(time_x, nu=1)
-        df_smooth = savgol_filter(df_spline, window_length=11, polyorder=3)
+        # df/dt (with x20 as many time samples)
+        spline_fidelity = 20
+        # signal_baseline = self.signal[ir_noise]
+        time_baseline = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        spl = UnivariateSpline(time_baseline, self.signal)
+        time_spline = np.linspace(0, len(self.signal) - 1, len(self.signal) * spline_fidelity)
+        spl.set_smoothing_factor(2000)
+        df_spline = spl(time_spline, nu=1)
+        # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        # df_spline = savgol_filter(df_spline, window_length=55, polyorder=3)
 
         # ax_df1.set_xlim([self.time[0], self.time[-1]])
-        ax_df1.plot(self.time, df_smooth, color=gray_med,
+        ax_df1.plot(time_spline, df_spline, color=gray_med,
                     linestyle='--', label='dF/dt')
-        ax_df1.plot(self.time[ir_noise], df_smooth[ir_noise], "x", color='r', markersize=3)
-        ax_df1.hlines(0, xmin=self.time[ir_noise[0]], xmax=self.time[ir_noise[-1]],
-                      color=gray_light, linewidth=1)
-        d1f_max = round(abs(max(df_smooth, key=abs)) + 0.5, -1)
-
+        ax_df1.plot(time_spline[ir_noise * spline_fidelity],
+                    df_spline[ir_noise * spline_fidelity],
+                    "x", color='r', markersize=3)
+        # ax_df1.hlines(0, xmin=self.time[ir_noise[0]], xmax=self.time[ir_noise[-1]],
+        #               color=gray_light, linewidth=1)
+        d1f_max = round(abs(max(df_spline, key=abs)) + 0.5, -1)
 
         # # Build a figure to plot SNR results
         # fig_snr, ax_snr = plot_test()
@@ -1086,11 +1090,10 @@ class TestSnrSignal(unittest.TestCase):
         #
         # ax_snr.plot(self.time_ca, self.signal_ca, color=gray_med, linestyle='None', marker='+')
 
-        # ax_snr.plot_real_peak = ax_snr.axhline(y=self.signal_f0 + self.signal_famp,
-        #                                        color=gray_light, linestyle='--', label='Peak, Actual')
-        # ax_snr.plot_rms_peak = ax_snr.axhline(y=rms_bounds[1],
-        #                                       color=gray_med, linestyle='-.', label='Peak, Calculated')
-        # ax_snr.plot(ir_peak, self.signal_ca[ir_peak], "x", color='g', markersize=10, label='Peak')
+        ax_data.axhline(y=self.signal_f0 + self.signal_famp,
+                        color=gray_light, linestyle='--', label='Peak, Actual')
+        ax_data.axhline(y=rms_bounds[1], color=gray_med, linestyle='-.', label='Peak, Calculated')
+        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color='g', markersize=10, label='Peak')
         #
         # ax_snr.plot(ir_noise, self.signal_ca[ir_noise], "x", color='r', markersize=3)
         # ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_f0,
@@ -1099,14 +1102,14 @@ class TestSnrSignal(unittest.TestCase):
         #                                        color=gray_med, linestyle='-.', label='Noise, Calculated')
         #
         # ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_data.text(0.65, 0.6, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
-                    fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.65, 0.55, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
-                    fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.65, 0.45, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
-                    fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.65, 0.4, 'SNR, Calculated : {}'.format(round(snr, 3)),
-                    fontsize=fontsize2, transform=ax_data.transAxes)
+        ax_data.text(0.7, 0.76, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
+                     fontsize=fontsize2, transform=ax_data.transAxes)
+        ax_data.text(0.7, 0.7, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
+                     fontsize=fontsize2, transform=ax_data.transAxes)
+        ax_data.text(0.7, 0.5, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
+                     fontsize=fontsize2, transform=ax_data.transAxes)
+        ax_data.text(0.7, 0.44, 'SNR, Calculated : {}'.format(round(snr, 3)),
+                     fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
         fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
