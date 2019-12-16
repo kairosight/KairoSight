@@ -47,19 +47,19 @@ def find_tran_peak(signal_in, props=False):
         return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 3)
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.2)
 
     if len(i_peaks) is 0:   # no peak detected
         return np.nan
     elif len(i_peaks) > 1:
-        # print('Lazy here')
+        print('Lazy here')
         pass
 
     if props:
         return i_peaks, properties
 
     else:
-        # Use the peak with the max prominence
+        # Use the peak with the max prominence (in case of a tie, first is chosen)
         i_peak = i_peaks[np.argmax(properties['prominences'])]
         return i_peak
 
@@ -105,8 +105,12 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     d1f_rms = np.sqrt(np.mean(df_spline) ** 2)
     d1f_sd = statistics.stdev(df_spline.astype(float))
-    # where the derivative is less than its standard deviation
-    i_baselines_search = np.where(abs(df_spline) <= d1f_sd)[0]
+    if d1f_sd < df_spline.min():
+        # where the derivative is less than (min * 2)
+        i_baselines_search = np.where(abs(df_spline) <= (df_spline.min() * 2))[0]
+    else:
+        # where the derivative is less than its standard deviation
+        i_baselines_search = np.where(abs(df_spline) <= d1f_sd)[0]
     i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
     i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
@@ -120,6 +124,11 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right+1)
+
+    if len(i_baselines) < 10:
+        return i_baselines_all
+        # raise ArithmeticError('Less than 10 baseline indexes ({}), using peak index ({})'
+        #                       .format(i_baselines, i_peak))
 
     return i_baselines
 
@@ -434,6 +443,10 @@ def invert_signal(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "uint16" or "float"')
 
+    unique, counts = np.unique(signal_in, return_counts=True)
+    if len(unique) is 1:
+        return signal_in
+
     # calculate axis to rotate data around (middle value int or float)
     axis = signal_in.min() + ((signal_in.max() - signal_in.min()) / 2)
     if signal_in.dtype in [np.int32]:
@@ -459,7 +472,7 @@ def invert_stack(stack_in):
     map_shape = stack_in.shape[1:]
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tInversion of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
+        print('\r\tInversion of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
               end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         # pixel_ensemble = calc_ensemble(time_in, pixel_data)
@@ -565,7 +578,7 @@ def calculate_snr(signal_in, noise_count=10):
 
         Notes
         -----
-            Must be applied to signals with upward deflections (Peak > noise).
+            Must be applied to signals with upward deflections (Peak > noise).  TODO use on negative signals
             Assumes noise SD > 1, otherwise set to 0.5
             Assumes max noise value < (peak / 5)
             Auto-detects noise section as the last noise_count values before the final noisy peak.
@@ -578,8 +591,8 @@ def calculate_snr(signal_in, noise_count=10):
     if type(noise_count) is not int:
         raise TypeError('Number of noise values to use must be an "int"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    # if any(v < 0 for v in signal_in):
+    #     raise ValueError('All signal values must be >= 0')
     if noise_count < 0:
         raise ValueError('Noise count must be >= 0')
     if noise_count >= len(signal_in):
@@ -673,25 +686,28 @@ def map_snr(stack_in, noise_count=10):
     map_out = np.empty(map_shape)
     # Assign an SNR to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
+        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
               end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         # Characterize the signal
         signal_bounds = (pixel_data.min(), pixel_data.max())
         signal_range = signal_bounds[1] - signal_bounds[0]
         unique, counts = np.unique(pixel_data, return_counts=True)
-        # find the peak (roughly)
-        i_peaks, properties = find_peaks(pixel_data, prominence=(signal_range / 2))
-        if () or (len(i_peaks) is 0):
-            snr = np.NaN
-        elif (len(unique) < 10) or (pixel_data[0] is np.nan):  # if there are less than 15 unique values in the pixel's data
+
+        if (len(unique) < 20) or (pixel_data[0] is np.nan):  # if there are less than 20 unique values in the signal
             snr = np.NaN
         else:
-            i_baselines = find_tran_baselines(pixel_data)
-            if len(i_baselines) < 5:
+            # find the peak (roughly)
+            i_peaks = find_tran_peak(pixel_data)
+            # i_peaks, properties = find_peaks(pixel_data, prominence=(signal_range / 2))
+            if i_peaks is np.NaN:
                 snr = np.NaN
             else:
-                snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+                i_baselines = find_tran_baselines(pixel_data)
+                if len(i_baselines) < 5:
+                    snr = np.NaN
+                else:
+                    snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the SNR of the signal at that pixel
         map_out[iy, ix] = snr
 

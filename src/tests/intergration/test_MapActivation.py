@@ -31,15 +31,15 @@ colors_times = {'Start': '#C07B60',
                 'Downstroke': '#436894',
                 'End': '#94B0C3',
                 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
-# Colormap and normalization range for activation maps
+# Colormap and normalization range for SNR maps
 cmap_snr = SCMaps.tokyo
-cmap_snr.set_bad(color=gray_light)
+cmap_snr.set_bad(color=gray_light)  # TODO make transparent
 SNR_MAX = 150
 cmap_norm_snr = colors.Normalize(vmin=0, vmax=SNR_MAX)
 
 # Colormap and normalization range for activation maps
 cmap_activation = SCMaps.lajolla
-cmap_activation.set_bad(color=gray_light)
+cmap_activation.set_bad(color=gray_light)   # TODO make transparent
 ACT_MAX = 150
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
@@ -211,7 +211,7 @@ class TestMapSNR(unittest.TestCase):
         ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
         ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
         ax_act_hist.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        fig_map_snr.savefig(dir_integration + '/results/integration_MapSNR_Rat.png')
+        # fig_map_snr.savefig(dir_integration + '/results/integration_MapSNR_Rat.png')
         fig_map_snr.show()
 
 
