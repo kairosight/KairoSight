@@ -20,7 +20,9 @@ dir_unit = str(Path.cwd())
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+# color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+color_ideal, color_raw, color_filtered = [gray_light, '#c70535', '#0566c7']
+color_ideal, color_raw, color_filtered = [gray_light, '#d43f3a', '#443ad4']
 color_vm, color_ca = ['#FF9999', '#99FF99']
 
 
@@ -964,6 +966,8 @@ class TestSnrSignal(unittest.TestCase):
                                                         fps=self.signal_fps, noise=self.signal_noise)
         self.time, self.signal = self.time_ca, self.signal_ca
 
+        self.signal_snr = self.signal_famp / self.signal_noise
+
         # Create data to test with
         # self.signal_t = 250
         # self.signal_t0 = 50
@@ -1026,23 +1030,20 @@ class TestSnrSignal(unittest.TestCase):
         # General layout
         # fig_snr = plt.figure(figsize=(6, 6))  # _ x _ inch page
         fig_snr = plt.figure(figsize=(8, 5))  # _ x _ inch page
-        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.5, 0.5])  # 3 row, 1 columns
+        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 3 row, 1 columns
 
         # Data plot
         ax_data = fig_snr.add_subplot(gs0[0])
-        # ax_data.set_title('Analysis Points')
         ax_data.set_ylabel('Fluorescence (arb. u.)')
+        ax_data.set_xticklabels([])
         # Derivatives
         ax_df1 = fig_snr.add_subplot(gs0[1])
         ax_df1.set_xlabel('Time (ms)')
         ax_df1.set_ylabel('dF/dt')
-        points_lw = 3
+        points_size = 3
         # Set axes z orders so connecting lines are shows
         ax_data.set_zorder(3)
         ax_df1.set_zorder(2)
-
-        for ax in [ax_data, ax_df1]:
-            ax.set_xticklabels([])
 
         # Common between all axes
         for ax in [ax_data, ax_df1]:
@@ -1054,61 +1055,44 @@ class TestSnrSignal(unittest.TestCase):
             # ax.set_yticklabels([])
 
         # Plot signals and points
-        ax_data.plot(self.time, self.signal, color=gray_med, linestyle='None', marker='+')
+        ax_data.plot(self.time, self.signal, color=gray_heavy, linestyle='None', marker='+')
         # ax_data.plot(self.time_ca, self.signal_ca, color=gray_heavy,
         #              linestyle='-', marker='.', markersize=points_lw*3)
-        ax_data.plot(ir_noise, self.signal[ir_noise], "x", color='r', markersize=3)
+        ax_data.plot(ir_noise, self.signal[ir_noise], "x", color=color_raw, markersize=points_size)
 
         # df/dt (with x20 as many time samples)
-        spline_fidelity = 20
-        # signal_baseline = self.signal[ir_noise]
+        spline_fidelity = 10
         time_baseline = np.linspace(0, len(self.signal) - 1, len(self.signal))
         spl = UnivariateSpline(time_baseline, self.signal)
         time_spline = np.linspace(0, len(self.signal) - 1, len(self.signal) * spline_fidelity)
-        spl.set_smoothing_factor(2000)
+        spl.set_smoothing_factor(1000)
         df_spline = spl(time_spline, nu=1)
-        # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        # df_spline = savgol_filter(df_spline, window_length=55, polyorder=3)
 
-        # ax_df1.set_xlim([self.time[0], self.time[-1]])
         ax_df1.plot(time_spline, df_spline, color=gray_med,
                     linestyle='--', label='dF/dt')
         ax_df1.plot(time_spline[ir_noise * spline_fidelity],
                     df_spline[ir_noise * spline_fidelity],
-                    "x", color='r', markersize=3)
-        # ax_df1.hlines(0, xmin=self.time[ir_noise[0]], xmax=self.time[ir_noise[-1]],
-        #               color=gray_light, linewidth=1)
-        d1f_max = round(abs(max(df_spline, key=abs)) + 0.5, -1)
+                    "x", color=color_raw, markersize=points_size)
 
-        # # Build a figure to plot SNR results
-        # fig_snr, ax_snr = plot_test()
-        # # ax_snr.set_title('SNR Calculation')
-        # ax_snr.set_ylabel('Fluorescence (arb. u.)')
-        # ax_snr.set_xlabel('Time (ms)')
-        # ax_snr.set_ylim([self.signal_f0 - (self.signal_noise*4),
-        #                  self.signal_f0 + self.signal_famp + (self.signal_noise*4)])
-        #
-        # ax_snr.plot(self.time_ca, self.signal_ca, color=gray_med, linestyle='None', marker='+')
-
-        ax_data.axhline(y=self.signal_f0 + self.signal_famp,
-                        color=gray_light, linestyle='--', label='Peak, Actual')
-        ax_data.axhline(y=rms_bounds[1], color=gray_med, linestyle='-.', label='Peak, Calculated')
-        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color='g', markersize=10, label='Peak')
+        # ax_data.axhline(y=self.signal_f0 + self.signal_famp,
+        #                 color=gray_light, linestyle='--', label='Peak, Actual')
+        ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
+        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=points_size*4, label='Peak')
         #
         # ax_snr.plot(ir_noise, self.signal_ca[ir_noise], "x", color='r', markersize=3)
         # ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_f0,
         #                                         color=gray_light, linestyle='--', label='Noise, Actual')
-        # ax_snr.plot_rms_noise = ax_snr.axhline(y=rms_bounds[0],
-        #                                        color=gray_med, linestyle='-.', label='Noise, Calculated')
+        ax_data.plot_rms_noise = ax_data.axhline(y=rms_bounds[0],
+                                                 color=gray_light, linestyle='-.', label='Noise, Calculated')
         #
         # ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_data.text(0.7, 0.76, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
+        ax_data.text(0.7, 0.78, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
         ax_data.text(0.7, 0.7, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
         ax_data.text(0.7, 0.5, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.7, 0.44, 'SNR, Calculated : {}'.format(round(snr, 3)),
+        ax_data.text(0.7, 0.42, 'SNR, Calculated : {}'.format(round(snr, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
@@ -1147,23 +1131,24 @@ class TestSnrSignal(unittest.TestCase):
         # Scatter plot with error bars
         fig_stats_scatter, ax_sd_noise_scatter = plot_stats_scatter()
         ax_sd_noise_scatter.set_title('SNR Accuracy')
-        ax_sd_noise_scatter.set_ylabel('Noise SD, Calculated', color=color_filtered)
+        ax_sd_noise_scatter.set_ylabel('SNR, Calculated')
         ax_sd_noise_scatter.set_xlabel('Calculation Trials')
-        ax_sd_noise_scatter.set_ylim([0, 10])
         for i in range(0, len(results)):
-            ax_sd_noise_scatter.errorbar(trials[i], results[i]['sd_noise']['mean'],
-                                         yerr=results[i]['sd_noise']['sd'], fmt="x", color=color_filtered,
-                                         ecolor=gray_med, lw=1, capsize=4, capthick=1.0)
+            ax_sd_noise_scatter.errorbar(trials[i], results[i]['snr']['mean'],
+                                         yerr=results[i]['snr']['sd'], fmt="x", color='k',
+                                         ecolor='k', lw=1, capsize=4, capthick=1.0)
 
-        ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.signal_noise, color=gray_light,
-                                                                        linestyle='--', label='Noise SD (Actual)')
+        ax_sd_noise_scatter.set_ylim([round(self.signal_snr * 0.5, -1), round(self.signal_snr * 1.5, -1)])
+        ax_sd_noise_scatter.real_sd_noise = ax_sd_noise_scatter.axhline(y=self.signal_snr, color=gray_light,
+                                                                        linestyle='--', label='SNR, Actual')
         # ax_sd_noise_scatter.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_stats_scatter.show()
 
     def test_error(self):
         # Error values at different noise values
-        noises = range(2, 10)
+        noises = range(2, 9)
+        trial_snrs = []
         trial_count = 20
         results_trials_snr = []
         for noise in noises:
@@ -1177,24 +1162,26 @@ class TestSnrSignal(unittest.TestCase):
         # Build a figure to plot stats comparison
         fig_error_scatter, ax_snr_error_scatter = plot_stats_scatter()
         ax_snr_error_scatter.set_title('SNR Accuracy (n={})'.format(trial_count))
-        ax_snr_error_scatter.set_ylabel('Noise SD, Calculated', color=color_filtered)
-        # ax_snr_error_scatter.set_ylabel('%Error of SNR Calculation')
-        ax_snr_error_scatter.set_xlabel('Noise SD, Actual')
-        ax_snr_error_scatter.set_ylim([0, noises[-1] + 1])
-        ax_snr_error_scatter.set_xlim([0, noises[-1] + 1])
-        ax_snr_error_scatter.grid(True)
+        ax_snr_error_scatter.set_ylabel('SNR, Calculated')
+        ax_snr_error_scatter.set_xlabel('SNR, Actual')
         for i in range(0, len(noises)):
-            ax_snr_error_scatter.errorbar(noises[i], results_trials_snr[i]['sd_noise']['mean'],
-                                          yerr=results_trials_snr[i]['sd_noise']['sd'],
-                                          fmt="x", color=color_filtered,
-                                          ecolor=gray_med, lw=1, capsize=4, capthick=1.0)
+            trial_snr = round(self.signal_famp / noises[i], 0)
+            trial_snrs.append(trial_snr)
+            ax_snr_error_scatter.errorbar(trial_snr, results_trials_snr[i]['snr']['mean'],
+                                          yerr=results_trials_snr[i]['snr']['sd'],
+                                          fmt="x", color='k',
+                                          ecolor='k', lw=1, capsize=4, capthick=1.0)
+        ax_snr_error_scatter.set_xticks(trial_snrs, minor=False)
+        ax_snr_error_scatter.set_yticks(trial_snrs, minor=False)
+        ax_snr_error_scatter.tick_params(axis='both', which='major', labelsize=fontsize3)
+        ax_snr_error_scatter.grid(True, which='major')
 
         ax_error = ax_snr_error_scatter.twinx()  # instantiate a second axes that shares the same x-axis
         ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
-        ax_error.set_ylabel('Error (%)')  # we already handled the x-label with ax1
-        ax_error.set_xlim([1, 10])
+        ax_error.set_ylabel('Error (%)', color=color_filtered)  # we already handled the x-label with ax1
+        # ax_error.set_xlim([1, 10])
         ax_error.set_ylim([-100, 100])
-        ax_error.plot(noises, error, color=gray_heavy, linestyle='-', label='% Error')
+        ax_error.plot(trial_snrs, error, color=color_filtered, linestyle='-', label='% Error')
 
         # ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
@@ -1203,20 +1190,26 @@ class TestSnrSignal(unittest.TestCase):
 
 class TestSnrMap(unittest.TestCase):
     def setUp(self):
-        # Create data to test with, a propagating stack of varying SNR
-        self.d_noise = 10  # as a % of the signal amplitude
+        # Create data to test with, a propagating stack of varying SNR (highest in the center)
+        self.d_noise = 8  # as a % of the signal amplitude
+        self.signal_t0 = 100
         self.signal_f0 = 1000
-        self.signal_famp = 100
-        self.signal_noise = 3  # as a % of the signal amplitude
+        self.signal_famp = 200
+        self.signal_noise = 2  # as a % of the signal amplitude
 
         self.time_ca, self.stack_ca = \
-            model_stack_propagation(model_type='Ca', d_noise=self.d_noise,
+            model_stack_propagation(model_type='Ca', size=(25, 25), d_noise=self.d_noise,
+                                    t0=self.signal_t0,
                                     f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
         self.FRAMES = self.stack_ca.shape[0]
         self.HEIGHT, self.WIDTH = (self.stack_ca.shape[1], self.stack_ca.shape[2])
         self.frame_shape = (self.HEIGHT, self.WIDTH)
         self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
-        self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
+        self.DIV_NOISE = 4
+        self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / self.DIV_NOISE,
+                                       num=self.DIV_NOISE)
+        self.snr_range = (int((self.signal_famp / (self.signal_noise + self.d_noise))),
+                          int(self.signal_famp / self.signal_noise))
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -1243,15 +1236,29 @@ class TestSnrMap(unittest.TestCase):
     def test_plot(self):
         # Make sure SNR Map looks correct
         snr_map_ca = map_snr(self.stack_ca)
-        snr_max = np.nanmax(snr_map_ca)
         snr_min = np.nanmin(snr_map_ca)
+        snr_max = np.nanmax(snr_map_ca)
         print('SNR Maps max value: ', snr_max)
 
         # Plot a frame from the stack and the SNR map of that frame
-        fig_map_snr, ax_img_snr, ax_map_snr = plot_map()
-        ax_img_snr.set_title('Noisy Model Data (noise SD: {}-{})'.
-                             format(self.signal_noise, self.signal_noise + self.d_noise))
-        ax_map_snr.set_title('SNR Map')
+        # fig_map_snr, ax_img_snr, ax_map_snr = plot_map()
+        fig_map_snr = plt.figure(figsize=(8, 5))  # _ x _ inch page
+        gs0 = fig_map_snr.add_gridspec(1, 2, wspace=0.3)  # 1 rows, 2 columns
+        ax_img_snr = fig_map_snr.add_subplot(gs0[0])
+        ax_map_snr = fig_map_snr.add_subplot(gs0[1])
+        # Common between the two
+        for ax in [ax_img_snr, ax_map_snr]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+
+        ax_img_snr.set_title('Noisy Model Data (SNR: {}-{})'.
+                             format(self.snr_range[0], self.snr_range[1]))
         # Frame from stack
         cmap_frame = SCMaps.grayC.reversed()
         img_frame = ax_img_snr.imshow(self.stack_ca[0, :, :], cmap=cmap_frame)
@@ -1260,27 +1267,30 @@ class TestSnrMap(unittest.TestCase):
             div_circle = Circle((self.origin_x, self.origin_y), radius=div_border,
                                 fc=None, fill=None, ec=gray_light, lw=1, linestyle='--')
             ax_img_snr.add_artist(div_circle)
-        ax_img_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
-        ax_img_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
-        ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
-        ax_map_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
+        ax_img_snr.set_ylabel('{} px'.format(self.HEIGHT), fontsize=fontsize3)
+        ax_img_snr.set_xlabel('{} px'.format(self.WIDTH), fontsize=fontsize3)
+        # ax_map_snr.set_ylabel('1.0 cm', fontsize=fontsize3)
+        # ax_map_snr.set_xlabel('0.5 cm', fontsize=fontsize3)
         # Add colorbar (lower right of frame)
-        ax_ins_img = inset_axes(ax_img_snr, width="5%", height="80%", loc=5,
-                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
+        ax_ins_img = inset_axes(ax_img_snr, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.08, 0, 1, 1), bbox_transform=ax_img_snr.transAxes,
                                 borderpad=0)
         cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
-        cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
+        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
         cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
         cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb_img.ax.tick_params(labelsize=fontsize3)
+
         # SNR Map
+        ax_map_snr.set_title('SNR Map (SNR: {}-{})'.
+                             format(round(snr_min, 2), round(snr_max, 2)))
         # Create normalization range for map (0 and max rounded up to the nearest 10)
         cmap_snr = SCMaps.tokyo
         cmap_norm = colors.Normalize(vmin=0, vmax=round(snr_max + 5.1, -1))
         img_snr = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
         # Add colorbar (lower right of map)
-        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="80%", loc=5,
-                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
+        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.08, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
                                 borderpad=0)
         cb1_map = plt.colorbar(img_snr, cax=ax_ins_map, orientation="vertical")
         cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
@@ -1288,8 +1298,8 @@ class TestSnrMap(unittest.TestCase):
         cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
-        fig_map_snr.show()
         fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_ca.png')
+        fig_map_snr.show()
 
 
 #

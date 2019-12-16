@@ -530,7 +530,7 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
     MIN_VELOCITY = 10   # Minimum velocity (cm/s)
     MAX_VELOCITY = 50   # Minimum velocity (cm/s)
-    DIV_NOISE = 5   # Divisions of noise variation along half the  height the frame
+    DIV_NOISE = 4   # Divisions of noise variation radiating outward from the center
     # Check parameters
     if type(size) not in [tuple]:
         raise TypeError('Image size must be a tuple, e.g. (20, 20)')

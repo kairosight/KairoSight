@@ -35,8 +35,8 @@ def find_tran_peak(signal_in, props=False):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    # if any(v < 0 for v in signal_in):
+    #     raise ValueError('All signal values must be >= 0')
 
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
@@ -47,13 +47,10 @@ def find_tran_peak(signal_in, props=False):
         return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.2)
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.6)
 
     if len(i_peaks) is 0:   # no peak detected
         return np.nan
-    elif len(i_peaks) > 1:
-        print('Lazy here')
-        pass
 
     if props:
         return i_peaks, properties
@@ -73,7 +70,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
     # use the prominence of the peak and the activation time to find a "rough" baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.9)
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] / 1.6)
     i_baselines_far_l, i_baselines_far_r = 0, 0
 
     if peak_side is 'left':
@@ -88,29 +85,27 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r+1)
 
-    if len(i_baselines_all) < 10:
-        raise ArithmeticError('Less than 10 baseline indexes ({}), using peak index ({})'
-                              .format(i_baselines_all, i_peak))
+    if len(i_baselines_all) < 20:
+        return i_baselines_all
 
     # use a spline of the rough baseline and find the "flattest" section
     # df/dt (with x20 as many time samples)
-    spline_fidelity = 20
+    spline_fidelity = 5    # TODO optimize here
     signal_baseline = signal_in[i_baselines_all]
     time_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
     spl = UnivariateSpline(time_baseline, signal_baseline)
     time_spline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline)*spline_fidelity)
-    spl.set_smoothing_factor(2000)
+    spl.set_smoothing_factor(500)    # TODO optimize here
     df_spline = spl(time_spline, nu=1)
-    # df_smooth = savgol_filter(df_spline, window_length=11, polyorder=3)
 
-    d1f_rms = np.sqrt(np.mean(df_spline) ** 2)
-    d1f_sd = statistics.stdev(df_spline.astype(float))
+    d1f_sd = statistics.stdev(df_spline.astype(float))    # TODO optimize here
     if d1f_sd < df_spline.min():
         # where the derivative is less than (min * 2)
         i_baselines_search = np.where(abs(df_spline) <= (df_spline.min() * 2))[0]
     else:
         # where the derivative is less than its standard deviation
         i_baselines_search = np.where(abs(df_spline) <= d1f_sd)[0]
+
     i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
     i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
@@ -127,8 +122,6 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     if len(i_baselines) < 10:
         return i_baselines_all
-        # raise ArithmeticError('Less than 10 baseline indexes ({}), using peak index ({})'
-        #                       .format(i_baselines, i_peak))
 
     return i_baselines
 
@@ -611,9 +604,7 @@ def calculate_snr(signal_in, noise_count=10):
     if len(i_peaks) > 1:
         # Use the peak with the max prominence
         i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
-        # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
         ir_peak = i_peaks
-        print('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
     else:
         # Use the peak with the max prominence
         i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
@@ -704,7 +695,7 @@ def map_snr(stack_in, noise_count=10):
                 snr = np.NaN
             else:
                 i_baselines = find_tran_baselines(pixel_data)
-                if len(i_baselines) < 5:
+                if len(i_baselines) < 5:    # TODO change to 10?
                     snr = np.NaN
                 else:
                     snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
