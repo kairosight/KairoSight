@@ -616,7 +616,7 @@ def calculate_snr(signal_in, noise_count=10):
     peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
     peak_sd = statistics.pstdev(data_peak.astype(float))
     # Use the rms of the peak's extent + their  SD/2, to be weighted towards the peak
-    peak_value = peak_rms + (peak_sd/2)
+    peak_value = signal_in[i_peak_calc]
 
     # Find noise values
     i_noise_calc = find_tran_baselines(signal_in)
@@ -708,7 +708,8 @@ def map_snr(stack_in, noise_count=10):
 
 def calculate_error(ideal, modified):
     """Calculate the amount of error created by signal modulation or filtering,
-    defined as (Ideal - Modified) / Ideal X 100%.
+    defined as (Modified - Ideal) / Ideal X 100%.
+    # defined as (Ideal - Modified) / Ideal X 100%.
 
         Parameters
         ----------
@@ -738,9 +739,8 @@ def calculate_error(ideal, modified):
 
     MIN = 1    # Min to avoid division by 0
 
-    error = ((ideal.astype(float) - modified.astype(float)) / (ideal.astype(float)) * 100)
+    error = ((modified.astype(float) - ideal.astype(float)) / (ideal.astype(float)) * 100)
     error_mean = error.mean()
     error_sd = statistics.stdev(error)
 
     return error, error_mean, error_sd
-    pass
