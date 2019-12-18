@@ -42,6 +42,7 @@ cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
 ACT_MAX = 150
 
+
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 # colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
 # colors_times = ['#003EDC', '#FB2595', '#FF6172', '#FFD067', '#FFF92', '#000000']  # redish -> purple -> blue?
@@ -67,31 +68,33 @@ class TestMapSNR(unittest.TestCase):
         file_name_pig = '2019/12/13 piga-05, PCL 300ms'
         file_stack_pig = dir_tests + '/data/20191213-piga/05-300_Ca_spot_transient.tif'
         file_frame_room_pig = dir_tests + '/data/20191213-piga/room_lights_Ca_frame.tif'
-        fps = 500 #ish
+        fps = 500  # ish
         # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
         # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
         self.file_name, self.file_stack = file_name_pig, file_stack_pig
-        self.file_frame = file_frame_room_pig
-
         self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
-        self.stack_real_frame, self.stack_real_meta = open_stack(source=self.file_frame)
+        self.file_frame = file_frame_room_pig  # frame with room light
+        self.stack_real_frame_room, _ = open_stack(source=self.file_frame)
+        self.stack_real_frame = self.stack_real_full[0, :, :]  # frame from stack
         stack_out = self.stack_real_full.copy()
 
         # # Prep
-        # self.spatial_type = 'Reduction & Guassian Filter'
-        self.spatial_type = 'Reduction'
+        self.spatial_type = 'Reduction & Guassian Filter'
+        # self.spatial_type = 'Reduction'
         self.kernel = 3
         # Reduce
         print('Reducing stack ...')
         reduction_factor = 1 / self.kernel
         test_frame = rescale(stack_out[0], reduction_factor)
         stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
-        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)      # data array, default value is f_0
+        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)  # data array, default value is f_0
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True))
             stack_reduced[idx, :, :] = frame_reduced
         stack_out = stack_reduced
+        self.stack_real_frame_room = img_as_uint(
+            rescale(self.stack_real_frame_room, reduction_factor, anti_aliasing=True))
         self.stack_real_frame = img_as_uint(rescale(self.stack_real_frame, reduction_factor, anti_aliasing=True))
         print('\nDONE Reducing stack')
 
@@ -122,13 +125,13 @@ class TestMapSNR(unittest.TestCase):
         #     pixel_data_inv = invert_signal(pixel_data)
         #     stack_out[:, iy, ix] = pixel_data_inv
 
-        # # Filter
-        # print('Filtering stack ...')
-        # for idx, frame in enumerate(stack_out):
-        #     print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
-        #     f_filtered = filter_spatial(frame, kernel=self.kernel)
-        #     stack_out[idx, :, :] = f_filtered
-        # print('\nDONE Filtering stack')
+        # Filter
+        print('Filtering stack ...')
+        for idx, frame in enumerate(stack_out):
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
+            f_filtered = filter_spatial(frame, kernel=self.kernel)
+            stack_out[idx, :, :] = f_filtered
+        print('\nDONE Filtering stack')
 
         stack_out_max = np.nanmax(stack_out)
         frame_num = int(len(stack_out) / 8)  # frame from 1/8th total time
@@ -173,9 +176,11 @@ class TestMapSNR(unittest.TestCase):
         # Calculate the SNR map
         # Make sure SNR Map looks correct
         snr_map = map_snr(self.stack)
+        snr_map_flat = snr_map.flatten()
+        snr_min = np.nanmin(snr_map)
         snr_max = np.nanmax(snr_map)
-        # snr_max = np.nanmax(snr_map)
-        # snr_min = np.nanmin(snr_map)
+        snr_max_display = int(round(snr_max + 5.1, -1))
+        print('SNR Map min value: ', snr_min)
         print('SNR Map max value: ', snr_max)
 
         # # Frame from stack
@@ -188,10 +193,16 @@ class TestMapSNR(unittest.TestCase):
         # # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
         # #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
-        # Frame from from lights
+        # Frame from from room and/or excitation light stack_real_frame_room
         cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(), vmax=self.stack_real_frame.max())
-        img_map_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)   # for a spot-based image
+        cmap_norm_frame_room = colors.Normalize(vmin=self.stack_real_frame_room.min(),
+                                                vmax=self.stack_real_frame_room.max())
+        img_frame_room = ax_frame.imshow(self.stack_real_frame_room, norm=cmap_norm_frame_room,
+                                             cmap=cmap_frame)  # for a spot-based image
+        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(),
+                                           vmax=self.stack_real_frame.max())
+        img_map_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame,
+                                        alpha=0.4)  # for a spot-based image
         # Signal trace and location on frame
         # signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))   # center
         signal_x, signal_y = (int(300 / self.kernel), int(460 / self.kernel))  # custom, pig spot
@@ -208,7 +219,6 @@ class TestMapSNR(unittest.TestCase):
         #                color=colors_times['Activation'], label='Activation')
         # ax_signal.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
         #                   label='Activation')
-
         # Add colorbar (right of frame)
         ax_ins_img = inset_axes(ax_frame, width="3%", height="100%", loc=5,
                                 bbox_to_anchor=(0.08, 0, 1, 1), bbox_transform=ax_frame.transAxes,
@@ -222,29 +232,34 @@ class TestMapSNR(unittest.TestCase):
 
         # Analysis Map
         # img_map_frame = ax_map.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)# for whole heart imaging
-        img_map_frame = ax_map.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)   # for a spot-based image
-        cmap_norm_snr = colors.Normalize(vmin=0, vmax=int(round(snr_max, -1)))
-        img_map = ax_map.imshow(snr_map, norm=cmap_norm_snr, cmap=cmap_snr)    # for a spot-based image
-        # Add colorbar (right of map)
-        ax_ins_map = inset_axes(ax_map, width="3%", height="100%", loc=5,
-                                bbox_to_anchor=(0.08, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                borderpad=0)
-        cb1_map = plt.colorbar(img_map, cax=ax_ins_map, orientation="vertical")
-        cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
-        cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb1_map.ax.tick_params(labelsize=fontsize3)
+        img_map_frame = ax_map.imshow(self.stack_real_frame_room, norm=cmap_norm_frame_room,
+                                      cmap=cmap_frame)  # for a spot-based image
+        cmap_norm_snr = colors.Normalize(vmin=0, vmax=snr_max_display)
+        img_map = ax_map.imshow(snr_map, norm=cmap_norm_snr, cmap=cmap_snr)  # for a spot-based image
 
-        # Map histogram
-        ax_act_hist = fig_map_snr.add_subplot(gs_frame_map[2], xticklabels=[], sharey=ax_ins_map)
-        analysis_map_data = snr_map.flatten()
-        violin_data = np.random.normal(0, 4, 100)
-        # ax_act_hist.violinplot(analysis_map_data)
-        # ax_act_hist.hist(analysis_map_data, 50, histtype='stepfilled',
-        #                  orientation='horizontal', color='gray')
-        ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
-        ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
-        ax_act_hist.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        # Add colorbar (lower right of map)
+        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
+                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map.transAxes,
+                                 borderpad=0)
+        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
+        cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
+        cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        cbar.ax.tick_params(labelsize=fontsize3)
+
+        # Histogram/Violin plot of SNR values (along left side of colorbar)
+        ax_act_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
+                                 bbox_to_anchor=(-2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                 borderpad=0)
+        [s.set_visible(False) for s in ax_act_hist.spines.values()]
+        ax_act_hist.hist(snr_map_flat, bins=snr_max_display*5, histtype='stepfilled',
+                         orientation='horizontal', color='gray')
+        ax_act_hist.set_ylim([0, snr_max_display])
+        ax_act_hist.set_yticks([])
+        ax_act_hist.set_yticklabels([])
+        ax_act_hist.invert_xaxis()
+        ax_act_hist.set_xticks([])
+        ax_act_hist.set_xticklabels([])
+
         fig_map_snr.savefig(dir_integration + '/results/integration_MapSNR_Pig.png')
         fig_map_snr.show()
 
@@ -281,10 +296,10 @@ class TestMapAnalysis(unittest.TestCase):
         reduction_factor = 1 / self.kernel
         test_frame = rescale(stack_out[0], reduction_factor)
         stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
-        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)      # data array, default value is f_0
+        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)  # data array, default value is f_0
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
-        #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+            #     f_filtered = filter_spatial(frame, kernel=self.kernel)
             frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True))
             stack_reduced[idx, :, :] = frame_reduced
         stack_out = stack_reduced
@@ -329,7 +344,6 @@ class TestMapAnalysis(unittest.TestCase):
         print('\nDONE Filtering stack')
         # Re-apply mask to avoid smudged edges
         stack_out = mask_apply(stack_out, mask_out)
-
 
         FRAMES = stack_out.shape[0]
         # Generate array of timestamps

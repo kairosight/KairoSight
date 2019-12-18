@@ -1077,7 +1077,7 @@ class TestSnrSignal(unittest.TestCase):
         # ax_data.axhline(y=self.signal_f0 + self.signal_famp,
         #                 color=gray_light, linestyle='--', label='Peak, Actual')
         ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
-        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=points_size*4, label='Peak')
+        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=points_size * 4, label='Peak')
         #
         # ax_snr.plot(ir_noise, self.signal_ca[ir_noise], "x", color='r', markersize=3)
         # ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_f0,
@@ -1146,41 +1146,49 @@ class TestSnrSignal(unittest.TestCase):
         fig_stats_scatter.show()
 
     def test_error(self):
-        # Error values at different noise values
+        # Plot % errors of SNR calculated at different noise values
         noises = range(2, 9)
-        trial_snrs = []
         trial_count = 20
+        trial_snrs = []
+        for i in range(0, len(noises)):
+            trial_snr = round(self.signal_famp / noises[i], 0)
+            trial_snrs.append(trial_snr)
+        # Build a figure to plot stats comparison
+        fig_error_scatter, ax_snr_error_scatter = plot_stats_scatter()
+        ax_snr_error_scatter.set_title('SNR Accuracy (n={})'.format(trial_count))
+        ax_snr_error_scatter.set_ylabel('SNR, Calculated', fontsize=fontsize1)
+        ax_snr_error_scatter.set_xlabel('SNR, Actual', fontsize=fontsize1)
+
+        # Calculate results
         results_trials_snr = []
         for noise in noises:
             result = run_trials_snr(self, trial_count, noise)
             results_trials_snr.append(result)
 
-        error, error_mean, error_sd = calculate_error(np.asarray(noises),
-                                                      np.asarray([result['sd_noise']['mean']
-                                                                  for result in results_trials_snr]))
-
-        # Build a figure to plot stats comparison
-        fig_error_scatter, ax_snr_error_scatter = plot_stats_scatter()
-        ax_snr_error_scatter.set_title('SNR Accuracy (n={})'.format(trial_count))
-        ax_snr_error_scatter.set_ylabel('SNR, Calculated')
-        ax_snr_error_scatter.set_xlabel('SNR, Actual')
         for i in range(0, len(noises)):
-            trial_snr = round(self.signal_famp / noises[i], 0)
-            trial_snrs.append(trial_snr)
-            ax_snr_error_scatter.errorbar(trial_snr, results_trials_snr[i]['snr']['mean'],
+            ax_snr_error_scatter.errorbar(trial_snrs[i], results_trials_snr[i]['snr']['mean'],
                                           yerr=results_trials_snr[i]['snr']['sd'],
                                           fmt="x", color='k',
                                           ecolor='k', lw=1, capsize=4, capthick=1.0)
         ax_snr_error_scatter.set_xticks(trial_snrs, minor=False)
         ax_snr_error_scatter.set_yticks(trial_snrs, minor=False)
-        ax_snr_error_scatter.tick_params(axis='both', which='major', labelsize=fontsize3)
+        ax_snr_error_scatter.tick_params(axis='both', which='major', labelsize=fontsize2)
         ax_snr_error_scatter.grid(True, which='major')
 
+        # Calculate % error
+        error, error_mean, error_sd = calculate_error(np.asarray(trial_snrs),
+                                                      np.asarray([result['snr']['mean']
+                                                                  for result in results_trials_snr]))
+
         ax_error = ax_snr_error_scatter.twinx()  # instantiate a second axes that shares the same x-axis
-        ax_error.baseline = ax_error.axhline(color=gray_light, linestyle='-.')
-        ax_error.set_ylabel('Error (%)', color=color_filtered)  # we already handled the x-label with ax1
+        ax_error.baseline = ax_error.axhline(color=color_filtered, linestyle='-.')
+        ax_error.set_ylabel('SNR Error (%)', color=color_filtered,
+                            fontsize=fontsize1)
+        ax_error.tick_params(axis='both', which='major', labelsize=fontsize2)
         # ax_error.set_xlim([1, 10])
         ax_error.set_ylim([-100, 100])
+        ax_error.yaxis.set_major_locator(plticker.LinearLocator(5))
+        ax_error.yaxis.set_minor_locator(plticker.LinearLocator(9))
         ax_error.plot(trial_snrs, error, color=color_filtered, linestyle='-', label='% Error')
 
         # ax_error.legend(loc='lower right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -1191,6 +1199,7 @@ class TestSnrSignal(unittest.TestCase):
 class TestSnrMap(unittest.TestCase):
     def setUp(self):
         # Create data to test with, a propagating stack of varying SNR (highest in the center)
+        self.size = (100, 50)
         self.d_noise = 8  # as a % of the signal amplitude
         self.signal_t0 = 100
         self.signal_f0 = 1000
@@ -1198,7 +1207,7 @@ class TestSnrMap(unittest.TestCase):
         self.signal_noise = 2  # as a % of the signal amplitude
 
         self.time_ca, self.stack_ca = \
-            model_stack_propagation(model_type='Ca', size=(25, 25), d_noise=self.d_noise,
+            model_stack_propagation(model_type='Ca', size=self.size, d_noise=self.d_noise,
                                     t0=self.signal_t0,
                                     f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
         self.FRAMES = self.stack_ca.shape[0]
@@ -1236,9 +1245,12 @@ class TestSnrMap(unittest.TestCase):
     def test_plot(self):
         # Make sure SNR Map looks correct
         snr_map_ca = map_snr(self.stack_ca)
+        snr_map_ca_flat = snr_map_ca.flatten()
         snr_min = np.nanmin(snr_map_ca)
         snr_max = np.nanmax(snr_map_ca)
-        print('SNR Maps max value: ', snr_max)
+        snr_max_display = int(round(snr_max, -1))
+        print('SNR Map min value: ', snr_min)
+        print('SNR Map max value: ', snr_max)
 
         # Plot a frame from the stack and the SNR map of that frame
         # fig_map_snr, ax_img_snr, ax_map_snr = plot_map()
@@ -1257,7 +1269,7 @@ class TestSnrMap(unittest.TestCase):
             ax.set_xticks([])
             ax.set_xticklabels([])
 
-        ax_img_snr.set_title('Noisy Model Data (SNR: {}-{})'.
+        ax_img_snr.set_title('Model Data (SNR: {}-{})'.
                              format(self.snr_range[0], self.snr_range[1]))
         # Frame from stack
         cmap_frame = SCMaps.grayC.reversed()
@@ -1282,23 +1294,36 @@ class TestSnrMap(unittest.TestCase):
         cb_img.ax.tick_params(labelsize=fontsize3)
 
         # SNR Map
-        ax_map_snr.set_title('SNR Map (SNR: {}-{})'.
-                             format(round(snr_min, 2), round(snr_max, 2)))
+        ax_map_snr.set_title('SNR Map')
         # Create normalization range for map (0 and max rounded up to the nearest 10)
         cmap_snr = SCMaps.tokyo
-        cmap_norm = colors.Normalize(vmin=0, vmax=round(snr_max + 5.1, -1))
+        cmap_norm = colors.Normalize(vmin=0, vmax=snr_max_display)
         img_snr = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
         # Add colorbar (lower right of map)
-        ax_ins_map = inset_axes(ax_map_snr, width="5%", height="100%", loc=5,
-                                bbox_to_anchor=(0.08, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
-                                borderpad=0)
-        cb1_map = plt.colorbar(img_snr, cax=ax_ins_map, orientation="vertical")
-        cb1_map.ax.set_xlabel('SNR', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
-        cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb1_map.ax.tick_params(labelsize=fontsize3)
+        ax_ins_cbar = inset_axes(ax_map_snr, width="5%", height="100%", loc=5,
+                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
+                                 borderpad=0)
+        cbar = plt.colorbar(img_snr, cax=ax_ins_cbar, orientation="vertical")
+        cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
+        cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(7))
+        cbar.ax.tick_params(labelsize=fontsize3)
 
-        fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_ca.png')
+        # Histogram/Violin plot of SNR values (along left side of colorbar)
+        ax_act_hist = inset_axes(ax_map_snr, width="200%", height="100%", loc=6,
+                                 bbox_to_anchor=(-2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                 borderpad=0)
+        [s.set_visible(False) for s in ax_act_hist.spines.values()]
+        ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
+                         orientation='horizontal', color='gray')
+        ax_act_hist.set_ylim([0, snr_max_display])
+        ax_act_hist.set_yticks([])
+        ax_act_hist.set_yticklabels([])
+        ax_act_hist.invert_xaxis()
+        ax_act_hist.set_xticks([])
+        ax_act_hist.set_xticklabels([])
+        # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display*5)
+
+        fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_Ca.png')
         fig_map_snr.show()
 
 
