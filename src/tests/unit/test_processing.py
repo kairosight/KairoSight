@@ -1025,6 +1025,7 @@ class TestSnrSignal(unittest.TestCase):
         # Make sure auto-detection of noise and peak regions looks correct
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak \
             = calculate_snr(self.signal)
+        signal_noise = self.signal[ir_noise]
 
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout
@@ -1035,9 +1036,9 @@ class TestSnrSignal(unittest.TestCase):
         # Data plot
         ax_data = fig_snr.add_subplot(gs0[0])
         ax_data.set_ylabel('Fluorescence (arb. u.)')
-        ax_data.set_xticklabels([])
         # Derivatives
-        ax_df1 = fig_snr.add_subplot(gs0[1])
+        ax_df1 = fig_snr.add_subplot(gs0[1], sharex=ax_data)
+        # ax_data.set_xticklabels([])
         ax_df1.set_xlabel('Time (ms)')
         ax_df1.set_ylabel('dF/dt')
         points_size = 3
@@ -1060,12 +1061,13 @@ class TestSnrSignal(unittest.TestCase):
         #              linestyle='-', marker='.', markersize=points_lw*3)
         ax_data.plot(ir_noise, self.signal[ir_noise], "x", color=color_raw, markersize=points_size)
 
-        # df/dt (with x20 as many time samples)
+        # df/dt
         spline_fidelity = 10
         time_baseline = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        spl = UnivariateSpline(time_baseline, self.signal)
+        # spl = UnivariateSpline(time_baseline, signal_noise)
+        spl = InterpolatedUnivariateSpline(self.time, self.signal)
         time_spline = np.linspace(0, len(self.signal) - 1, len(self.signal) * spline_fidelity)
-        spl.set_smoothing_factor(1000)
+        spl.set_smoothing_factor(200)
         df_spline = spl(time_spline, nu=1)
 
         ax_df1.plot(time_spline, df_spline, color=gray_med,
@@ -1086,13 +1088,13 @@ class TestSnrSignal(unittest.TestCase):
                                                  color=gray_light, linestyle='-.', label='Noise, Calculated')
         #
         # ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_data.text(0.7, 0.78, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
+        ax_data.text(0.65, 0.78, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.7, 0.7, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
+        ax_data.text(0.65, 0.7, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.7, 0.5, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
+        ax_data.text(0.65, 0.5, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.7, 0.42, 'SNR, Calculated : {}'.format(round(snr, 3)),
+        ax_data.text(0.65, 0.42, 'SNR, Calculated : {}'.format(round(snr, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
@@ -1199,12 +1201,12 @@ class TestSnrSignal(unittest.TestCase):
 class TestSnrMap(unittest.TestCase):
     def setUp(self):
         # Create data to test with, a propagating stack of varying SNR (highest in the center)
-        self.size = (100, 50)
-        self.d_noise = 8  # as a % of the signal amplitude
+        self.size = (100, 100)
+        self.d_noise = 45  # as a % of the signal amplitude
         self.signal_t0 = 100
         self.signal_f0 = 1000
-        self.signal_famp = 200
-        self.signal_noise = 2  # as a % of the signal amplitude
+        self.signal_famp = 500
+        self.signal_noise = 5  # as a % of the signal amplitude
 
         self.time_ca, self.stack_ca = \
             model_stack_propagation(model_type='Ca', size=self.size, d_noise=self.d_noise,
@@ -1248,7 +1250,7 @@ class TestSnrMap(unittest.TestCase):
         snr_map_ca_flat = snr_map_ca.flatten()
         snr_min = np.nanmin(snr_map_ca)
         snr_max = np.nanmax(snr_map_ca)
-        snr_max_display = int(round(snr_max, -1))
+        snr_max_display = int(round(snr_max + 5.1, -1))
         print('SNR Map min value: ', snr_min)
         print('SNR Map max value: ', snr_max)
 
@@ -1305,7 +1307,9 @@ class TestSnrMap(unittest.TestCase):
                                  borderpad=0)
         cbar = plt.colorbar(img_snr, cax=ax_ins_cbar, orientation="vertical")
         cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
-        cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(7))
+        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(20))
+        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
         cbar.ax.tick_params(labelsize=fontsize3)
 
         # Histogram/Violin plot of SNR values (along left side of colorbar)

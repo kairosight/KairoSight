@@ -198,7 +198,7 @@ class TestMapSNR(unittest.TestCase):
         cmap_norm_frame_room = colors.Normalize(vmin=self.stack_real_frame_room.min(),
                                                 vmax=self.stack_real_frame_room.max())
         img_frame_room = ax_frame.imshow(self.stack_real_frame_room, norm=cmap_norm_frame_room,
-                                             cmap=cmap_frame)  # for a spot-based image
+                                         cmap=cmap_frame)  # for a spot-based image
         cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(),
                                            vmax=self.stack_real_frame.max())
         img_map_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame,
@@ -243,7 +243,9 @@ class TestMapSNR(unittest.TestCase):
                                  borderpad=0)
         cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
         cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
-        cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(20))
+        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
         cbar.ax.tick_params(labelsize=fontsize3)
 
         # Histogram/Violin plot of SNR values (along left side of colorbar)
@@ -251,7 +253,7 @@ class TestMapSNR(unittest.TestCase):
                                  bbox_to_anchor=(-2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
                                  borderpad=0)
         [s.set_visible(False) for s in ax_act_hist.spines.values()]
-        ax_act_hist.hist(snr_map_flat, bins=snr_max_display*5, histtype='stepfilled',
+        ax_act_hist.hist(snr_map_flat, bins=snr_max_display * 5, histtype='stepfilled',
                          orientation='horizontal', color='gray')
         ax_act_hist.set_ylim([0, snr_max_display])
         ax_act_hist.set_yticks([])

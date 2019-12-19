@@ -1,7 +1,7 @@
 import statistics
 import numpy as np
 from numpy import linalg
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
 from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2, \
     lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
 from scipy.optimize import curve_fit
@@ -90,35 +90,40 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     # use a spline of the rough baseline and find the "flattest" section
     # df/dt (with x20 as many time samples)
-    spline_fidelity = 5    # TODO optimize here
+    spline_fidelity = 10    # TODO optimize here
     signal_baseline = signal_in[i_baselines_all]
     time_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
-    spl = UnivariateSpline(time_baseline, signal_baseline)
+    # spl = UnivariateSpline(time_baseline, signal_baseline)
+    spl = InterpolatedUnivariateSpline(time_baseline, signal_baseline)
     time_spline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline)*spline_fidelity)
-    spl.set_smoothing_factor(500)    # TODO optimize here
-    df_spline = spl(time_spline, nu=1)
+    spl.set_smoothing_factor(200)    # TODO optimize here
+    df_spline = spl(time_spline, nu=1, ext='extrapolate')
 
     d1f_sd = statistics.stdev(df_spline.astype(float))    # TODO optimize here
-    if d1f_sd < df_spline.min():
-        # where the derivative is less than (min * 2)
-        i_baselines_search = np.where(abs(df_spline) <= (df_spline.min() * 2))[0]
-    else:
-        # where the derivative is less than its standard deviation
-        i_baselines_search = np.where(abs(df_spline) <= d1f_sd)[0]
+    d1f_prominence_floor = d1f_sd / 5
+    # if d1f_sd < d1f_prominence_floor:
+    #     # where the derivative is less than (min * 2)
+    #     i_baselines_search = np.where(df_spline <= d1f_prominence_floor)[0]
+    # else:
+    #     # where the derivative is less than its standard deviation
+    i_baselines_search = np.where(abs(df_spline) <= d1f_prominence_floor)[0]
+
+    if len(i_baselines_search) < 10:
+        return i_baselines_all
 
     i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
     i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
-    # # use the middle 3/5 of these
-    # search_buffer = int((len(i_baselines_search) / 5) / spline_fidelity)
-    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
-    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
+    # use the middle 3/5 of these
+    search_buffer = int((len(i_baselines_search) / 5) / spline_fidelity)
+    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
+    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
 
-    # use all detected indexes
-    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
-    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
+    # # use all detected indexes
+    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
+    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
 
-    i_baselines = np.arange(i_baselines_left, i_baselines_right+1)
+    i_baselines = np.arange(i_baselines_left, i_baselines_right)
 
     if len(i_baselines) < 10:
         return i_baselines_all
@@ -620,6 +625,8 @@ def calculate_snr(signal_in, noise_count=10):
 
     # Find noise values
     i_noise_calc = find_tran_baselines(signal_in)
+    if len(i_noise_calc) < 5:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     data_noise = signal_in[i_noise_calc]
 
     # Use noise values
@@ -627,6 +634,7 @@ def calculate_snr(signal_in, noise_count=10):
     noise_sd = statistics.stdev(data_noise.astype(float)) # standard deviation
     if noise_sd == 0:
         noise_sd = 0.5  # Noise data too flat to detect SD
+        print('\tFound noise with SD of 0! Used {}'.format(noise_sd))
     noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
     noise_range = noise_bounds[1] - noise_bounds[0]
 
@@ -680,25 +688,11 @@ def map_snr(stack_in, noise_count=10):
         print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
               end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
-        # Characterize the signal
-        signal_bounds = (pixel_data.min(), pixel_data.max())
-        signal_range = signal_bounds[1] - signal_bounds[0]
-        unique, counts = np.unique(pixel_data, return_counts=True)
+        # # Characterize the signal
+        # signal_bounds = (pixel_data.min(), pixel_data.max())
+        # signal_range = signal_bounds[1] - signal_bounds[0]
 
-        if (len(unique) < 20) or (pixel_data[0] is np.nan):  # if there are less than 20 unique values in the signal
-            snr = np.NaN
-        else:
-            # find the peak (roughly)
-            i_peaks = find_tran_peak(pixel_data)
-            # i_peaks, properties = find_peaks(pixel_data, prominence=(signal_range / 2))
-            if i_peaks is np.NaN:
-                snr = np.NaN
-            else:
-                i_baselines = find_tran_baselines(pixel_data)
-                if len(i_baselines) < 5:    # TODO change to 10?
-                    snr = np.NaN
-                else:
-                    snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
         # Set every pixel's values to the SNR of the signal at that pixel
         map_out[iy, ix] = snr
 

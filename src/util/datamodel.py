@@ -606,6 +606,7 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
                 if d_noise:
                     noise_offset = noise_offset + (d_noise / (idx+1))
                     kwargs_new['noise'] = noise_offset
+                    break
 
         kwargs_new['t0'] = prop_delta
         kwargs_new['t'] = t_propagation
