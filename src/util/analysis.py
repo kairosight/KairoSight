@@ -430,7 +430,7 @@ def calc_phase(signal_in):
 
 def calc_ensemble(time_in, signal_in):
     """Convert a signal from multiple transients to an averaged signal,
-    segmented by activation times
+    segmented by activation times. Discards the first and last transients.
 
         Parameters
         ----------
@@ -501,8 +501,11 @@ def calc_ensemble(time_in, signal_in):
         i_act_full = (i_peaks[peak_num] - cycle_shift) + i_act_signal
         i_acts_full.append(i_act_full)
 
-    # With that peak detection, find activation times
+    # With that peak detection, find activation times and align transient
     for act_num, signal in enumerate(signals_trans_peak):
+        # skip the first (often messy baseline)
+        if act_num == 0:
+            continue
         # i_start_signal = find_tran_start(signal)
         signal = normalize_signal(signal)
         i_act_signal = find_tran_act(signal)

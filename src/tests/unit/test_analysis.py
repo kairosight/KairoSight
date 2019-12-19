@@ -679,26 +679,26 @@ class TestEnsemble(unittest.TestCase):
         signal_snrs = []
         for signal in signals:
             ax_ensemble.plot(time_ensemble, signal, color=gray_light, linestyle='-')
-            # Start
-            i_start = find_tran_start(signal)  # 1st df2 max, Start
-            ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
-                             "x", color=colors_times['Start'], markersize=10)
-            # Activation
-            i_activation = find_tran_act(signal)  # 1st df max, Activation
-            ax_ensemble.plot(time_ensemble[i_activation], signal[i_activation],
-                             "x", color=colors_times['Activation'], markersize=10)
-            # Peak
-            i_peak = find_tran_peak(signal)  # max of signal, Peak
-            ax_ensemble.plot(time_ensemble[i_peak], signal[i_peak],
-                             "x", color=colors_times['Peak'], markersize=10)
-            # Downstroke
-            i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
-            ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
-                             "x", color=colors_times['Downstroke'], markersize=10)
-            # End
-            i_end = find_tran_end(signal)  # 2st df2 max, End
-            ax_ensemble.plot(time_ensemble[i_end], signal[i_end],
-                             "x", color=colors_times['End'], markersize=10)
+            # # Start
+            # i_start = find_tran_start(signal)  # 1st df2 max, Start
+            # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
+            #                  "x", color=colors_times['Start'], markersize=10)
+            # # Activation
+            # i_activation = find_tran_act(signal)  # 1st df max, Activation
+            # ax_ensemble.plot(time_ensemble[i_activation], signal[i_activation],
+            #                  "x", color=colors_times['Activation'], markersize=10)
+            # # Peak
+            # i_peak = find_tran_peak(signal)  # max of signal, Peak
+            # ax_ensemble.plot(time_ensemble[i_peak], signal[i_peak],
+            #                  "x", color=colors_times['Peak'], markersize=10)
+            # # Downstroke
+            # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
+            # ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
+            #                  "x", color=colors_times['Downstroke'], markersize=10)
+            # # End
+            # i_end = find_tran_end(signal)  # 2st df2 max, End
+            # ax_ensemble.plot(time_ensemble[i_end], signal[i_end],
+            #                  "x", color=colors_times['End'], markersize=10)
 
             snr_results = calculate_snr(signal)
             snr = snr_results[0]
@@ -709,26 +709,26 @@ class TestEnsemble(unittest.TestCase):
 
         ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
                          linestyle='-', marker='+', label='Ensemble signal')
-        # Start
-        i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
-        ax_ensemble.plot(time_ensemble[i_start], signal_ensemble[i_start],
-                         ".", color=colors_times['Start'], markersize=15, label='Start')
-        # Activation
-        i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
-        ax_ensemble.plot(time_ensemble[i_activation], signal_ensemble[i_activation],
-                         ".", color=colors_times['Activation'], markersize=15, label='Activation')
-        # Peak
-        i_peak = find_tran_peak(signal_ensemble)  # max of signal, Peak
-        ax_ensemble.plot(time_ensemble[i_peak], signal_ensemble[i_peak],
-                         ".", color=colors_times['Peak'], markersize=15, label='Peak')
-        # Downstroke
-        i_downstroke = find_tran_downstroke(signal_ensemble)  # df min, Downstroke
-        ax_ensemble.plot(time_ensemble[i_downstroke], signal_ensemble[i_downstroke],
-                         ".", color=colors_times['Downstroke'], markersize=15, label='Downstroke')
-        # End
-        i_end = find_tran_end(signal_ensemble)  # 2st df2 max, End
-        ax_ensemble.plot(time_ensemble[i_end], signal_ensemble[i_end],
-                         ".", color=colors_times['End'], markersize=15, label='End')
+        # # Start
+        # i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
+        # ax_ensemble.plot(time_ensemble[i_start], signal_ensemble[i_start],
+        #                  ".", color=colors_times['Start'], markersize=15, label='Start')
+        # # Activation
+        # i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
+        # ax_ensemble.plot(time_ensemble[i_activation], signal_ensemble[i_activation],
+        #                  ".", color=colors_times['Activation'], markersize=15, label='Activation')
+        # # Peak
+        # i_peak = find_tran_peak(signal_ensemble)  # max of signal, Peak
+        # ax_ensemble.plot(time_ensemble[i_peak], signal_ensemble[i_peak],
+        #                  ".", color=colors_times['Peak'], markersize=15, label='Peak')
+        # # Downstroke
+        # i_downstroke = find_tran_downstroke(signal_ensemble)  # df min, Downstroke
+        # ax_ensemble.plot(time_ensemble[i_downstroke], signal_ensemble[i_downstroke],
+        #                  ".", color=colors_times['Downstroke'], markersize=15, label='Downstroke')
+        # # End
+        # i_end = find_tran_end(signal_ensemble)  # 2st df2 max, End
+        # ax_ensemble.plot(time_ensemble[i_end], signal_ensemble[i_end],
+        #                  ".", color=colors_times['End'], markersize=15, label='End')
         ax_ensemble.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         # Text: Conditions
@@ -763,7 +763,7 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
+        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
         fig_ensemble.show()
 
     def test_plot_real(self):
