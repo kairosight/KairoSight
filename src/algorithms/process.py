@@ -3,6 +3,13 @@
 """
 Processes a series of transient signals across time.
 
+You must run peak_detect first to feed all the peak locations.
+Specify the fluorescent probe you are analyzing:
+probe = 0 for calcium
+probe = 1 for voltage
+The probe specification will alter the column labels in the data frame and 
+change how the activation time is computed
+
 @author: Rafael Jaimes
 raf@cardiacmap.com
 v1: 2019-02-20 
@@ -12,14 +19,7 @@ import scipy.optimize as opt
 import numpy as np
 import pandas as pd
 
-
-# You must run peak_detect first to feed all the peak locations.
-# Specify the fluorescent probe you are analyzing:
-# probe = 0 for calcium
-# probe = 1 for voltage
-# The probe specification will alter the column labels in the data frame and change how the activation time is computed
-
-
+# %%
 def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0, probe):
     """Processes a series of transient signals across time
 
@@ -27,22 +27,22 @@ def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0
     ----------
     f : ndarray
         1-D signal array
-    dt : ?
-        ?
-    t0_locs : ?
-        ?
-    up_locs : ?
-        ?
-    peak_locs : ?
-        ?
-    base_locs : ?
-        ?
-    max_vel : ?
-        ?
-    per_base : ?
-        ?
-    F0 : ?
-        ?
+    dt : float
+        The sample period, or inverse of sample rate (1/fps)
+    t0_locs : int
+        Sequence locations of all max 2nd derivative points. (Initiation)
+    up_locs : int
+        Sequence locations of all max 1st derivative points. (Upstroke)
+    peak_locs : int
+        Sequence locations of all signal peaks.
+    base_locs : int
+        Sequence locations of return to baseline points.
+    max_vel : float
+        Maximum first derivative values (arbitraryUnits/sec)
+    per_base : float
+        User selectable XX% for duration calculation (eg. 50 for APD50)
+    F0 : float
+        Approximate fluorescence baseline floor (~0 for baseline subtracted)
     probe : int
         The fluorescent probe being analyzed. 0 for calcium, 1 for voltage
 
@@ -72,7 +72,7 @@ def process(f, dt, t0_locs, up_locs, peak_locs, base_locs, max_vel, per_base, F0
             peak = peak_locs[trans]
             base = base_locs[trans]
         else:
-            print('Detection Error @ trans# ', trans, ' our of ', num_transients)
+            print('Detection Error @ trans# ', trans, ' out of ', num_transients)
             print('t0_locs[trans] ', t0_locs[trans],', up_locs[trans] ', up_locs[trans],
                   ', peak_locs[trans] ', peak_locs[trans], ', base_locs[trans] ', base_locs[trans])
 
