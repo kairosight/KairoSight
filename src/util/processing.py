@@ -44,17 +44,22 @@ def find_tran_peak(signal_in, props=False):
     unique, counts = np.unique(signal_in, return_counts=True)
 
     if len(unique) < 5:    # signal is too flat to have a valid peak
-        return np.nan
+        if props:
+            return np.nan, np.nan
+        else:
+            return np.nan
 
     # Roughly find the peaks
     i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.6)
 
     if len(i_peaks) is 0:   # no peak detected
-        return np.nan
+        if props:
+            return np.nan, np.nan
+        else:
+            return np.nan
 
     if props:
         return i_peaks, properties
-
     else:
         # Use the peak with the max prominence (in case of a tie, first is chosen)
         i_peak = i_peaks[np.argmax(properties['prominences'])]
@@ -603,7 +608,7 @@ def calculate_snr(signal_in, noise_count=10):
 
     # Find peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
     i_peaks, properties = find_tran_peak(signal_in, props=True)
-    if len(i_peaks) == 0:
+    if (i_peaks is np.nan) or (len(i_peaks) == 0):
         # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     if len(i_peaks) > 1:
