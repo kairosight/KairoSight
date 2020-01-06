@@ -231,7 +231,8 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         markers = np.zeros(frame_in_rescale.shape)
         # Darkish half and lightish half
         # TODO calculate these bounds
-        markers_bounds = (0, 0)
+        global_otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
+        markers_bounds = (global_otsu, global_otsu)
         markers[frame_in_rescale < markers_bounds[0]] = 1
         markers[frame_in_rescale > markers_bounds[1]] = 2
 

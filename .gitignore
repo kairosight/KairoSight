@@ -2,4 +2,5 @@
 *.pyc
 .idea/
 /data/
+/src/tests/data/
 /venv
