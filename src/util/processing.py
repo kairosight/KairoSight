@@ -104,7 +104,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
     spl.set_smoothing_factor(200)    # TODO optimize here
     df_spline = spl(time_spline, nu=1, ext='extrapolate')
 
-    d1f_sd = statistics.stdev(df_spline.astype(float))    # TODO optimize here
+    d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
     d1f_prominence_floor = d1f_sd / 5
     # if d1f_sd < d1f_prominence_floor:
     #     # where the derivative is less than (min * 2)

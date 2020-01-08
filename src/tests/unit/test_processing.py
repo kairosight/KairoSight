@@ -11,6 +11,7 @@ import matplotlib.ticker as plticker
 import matplotlib.colors as colors
 from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import seaborn as sns
 import util.ScientificColourMaps5 as SCMaps
 
 # File paths needed for tests
@@ -1201,7 +1202,7 @@ class TestSnrSignal(unittest.TestCase):
 class TestSnrMap(unittest.TestCase):
     def setUp(self):
         # Create data to test with, a propagating stack of varying SNR (highest in the center)
-        self.size = (100, 100)
+        self.size = (50, 50)
         self.d_noise = 45  # as a % of the signal amplitude
         self.signal_t0 = 100
         self.signal_f0 = 1000
@@ -1303,7 +1304,7 @@ class TestSnrMap(unittest.TestCase):
         img_snr = ax_map_snr.imshow(snr_map_ca, norm=cmap_norm, cmap=cmap_snr)
         # Add colorbar (lower right of map)
         ax_ins_cbar = inset_axes(ax_map_snr, width="5%", height="100%", loc=5,
-                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
+                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map_snr.transAxes,
                                  borderpad=0)
         cbar = plt.colorbar(img_snr, cax=ax_ins_cbar, orientation="vertical")
         cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
@@ -1314,18 +1315,22 @@ class TestSnrMap(unittest.TestCase):
 
         # Histogram/Violin plot of SNR values (along left side of colorbar)
         ax_act_hist = inset_axes(ax_map_snr, width="200%", height="100%", loc=6,
-                                 bbox_to_anchor=(-2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
                                  borderpad=0)
         [s.set_visible(False) for s in ax_act_hist.spines.values()]
-        ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
+        # TODO try combos of histogram, swarm, and violin
+        # ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
+        #                  orientation='horizontal', color='gray')
+        # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display)
+        sns.swarmplot(ax=ax_act_hist, data=snr_map_ca_flat,
+                      size=1, color='k', alpha=0.7) # and slightly transparent
+
         ax_act_hist.set_ylim([0, snr_max_display])
         ax_act_hist.set_yticks([])
         ax_act_hist.set_yticklabels([])
         ax_act_hist.invert_xaxis()
         ax_act_hist.set_xticks([])
         ax_act_hist.set_xticklabels([])
-        # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display*5)
 
         fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_Ca_NEW.png')
         fig_map_snr.show()
