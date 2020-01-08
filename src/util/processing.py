@@ -629,7 +629,10 @@ def calculate_snr(signal_in, noise_count=10):
     peak_value = signal_in[i_peak_calc]
 
     # Find noise values
+    # TODO find_tran_baselines may be slow with interpolation
     i_noise_calc = find_tran_baselines(signal_in)
+    # i_noise_calc = range(np.argmin(signal_in), np.argmin(signal_in) + 10)
+
     if len(i_noise_calc) < 5:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     data_noise = signal_in[i_noise_calc]

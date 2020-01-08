@@ -1327,7 +1327,7 @@ class TestSnrMap(unittest.TestCase):
         ax_act_hist.set_xticklabels([])
         # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display*5)
 
-        fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_Ca.png')
+        fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_Ca_NEW.png')
         fig_map_snr.show()
 
 

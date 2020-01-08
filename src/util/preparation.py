@@ -225,6 +225,7 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         # The range of the binary image spans over (-1, 1).
         # We choose the hottest and the coldest pixels as markers.
         frame_in_float = img_as_float(frame_in)
+        # TODO rescale pixels to "smooth" mask
         frame_in_rescale = rescale_intensity(frame_in_float,
                                              in_range=(frame_in_float.min(), frame_in_float.max()),
                                              out_range=(-1, 1))

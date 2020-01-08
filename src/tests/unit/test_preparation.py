@@ -193,22 +193,39 @@ class TestCropStack(unittest.TestCase):
 
 class TestMaskGenerate(unittest.TestCase):
     def setUp(self):
-        # File paths and files needed for tests
-        # Load data to test with
-        file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
-        file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
-        # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
-        # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        self.file_name, self.file_stack = file_name_pig, file_stack_pig
-        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+        # Create data to test with, a propagating stack of varying SNR (highest in the center)
+        self.size = (100, 100)
+        self.d_noise = 45  # as a % of the signal amplitude
+        self.signal_t0 = 10
+        self.signal_f0 = 1000
+        self.signal_famp = 500
+        self.signal_noise = 5  # as a % of the signal amplitude
 
-        # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
-        # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
-        print("sys.maxsize : " + str(sys.maxsize) +
-              ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
-
-        self.stack1, self.meta1 = open_stack(source=self.file_stack)
-        self.frame1 = self.stack1[10, :, :]
+        self.time_ca, self.stack_ca = \
+            model_stack_propagation(model_type='Ca', size=self.size, d_noise=self.d_noise,
+                                    t0=self.signal_t0,
+                                    f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
+        frame_model = self.stack_ca[10, :, :]
+        # frame_border1 = np.zeros_like(self.stack_ca[1, :, :])
+        # frame_1 = np.concatenate((frame_model, frame_border1), axis=1)
+        self.frame_model = frame_model
+        #
+        # # File paths and files needed for tests
+        # # Load data to test with
+        # file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
+        # file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
+        # # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        # # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        # self.file_name, self.file_stack = file_name_pig, file_stack_pig
+        # self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+        #
+        # # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
+        # # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        # print("sys.maxsize : " + str(sys.maxsize) +
+        #       ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+        #
+        # self.stack1, self.meta1 = open_stack(source=self.file_stack)
+        # self.frame1 = self.stack1[10, :, :]
 
     def test_params(self):
         # Make sure type errors are raised when necessary
@@ -234,8 +251,40 @@ class TestMaskGenerate(unittest.TestCase):
             self.assertEqual(mask.shape, self.frame1.shape)  # mask shape
             self.assertIsInstance(mask[0, 0], np.bool_)  # mask dtype
 
+    def test_model(self):
+        # Make sure mask looks correct with model data
+        mask_type = 'Random_walk'
+        frame_masked, frame_mask = mask_generate(self.frame_model, mask_type)
+
+        fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
+        axis_in = fig_mask.add_subplot(131)
+        axis_mask = fig_mask.add_subplot(132)
+        axis_masked = fig_mask.add_subplot(133)
+        # Common between the two
+        for ax in [axis_in, axis_mask, axis_masked]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        fig_mask.suptitle('Masking, {}\nModel propagating Ca'.format(mask_type))
+        axis_in.set_title('Input frame')
+        axis_mask.set_title('Mask')
+        axis_masked.set_title('Masked frame')
+
+        cmap_frame = SCMaps.grayC.reversed()
+        img_in = axis_in.imshow(self.frame_model, cmap=cmap_frame)
+        img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
+        img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
+
+        fig_mask.savefig(dir_unit + '/results/prep_Mask_Model.png')
+        fig_mask.show()
+
     def test_plot(self):
-        # Make sure mask looks correct
+        # Make sure mask looks correct real data
         mask_type = 'Random_walk'
         frame_masked, frame_mask = mask_generate(self.frame1, mask_type)
 
