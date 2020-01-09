@@ -209,23 +209,23 @@ class TestMaskGenerate(unittest.TestCase):
         # frame_border1 = np.zeros_like(self.stack_ca[1, :, :])
         # frame_1 = np.concatenate((frame_model, frame_border1), axis=1)
         self.frame_model = frame_model
-        #
-        # # File paths and files needed for tests
-        # # Load data to test with
+
+        # File paths and files needed for tests
+        # Load data to test with
         # file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
         # file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
-        # # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
-        # # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        # self.file_name, self.file_stack = file_name_pig, file_stack_pig
-        # self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
-        #
-        # # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
-        # # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
-        # print("sys.maxsize : " + str(sys.maxsize) +
-        #       ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
-        #
-        # self.stack1, self.meta1 = open_stack(source=self.file_stack)
-        # self.frame1 = self.stack1[10, :, :]
+        file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        self.file_name, self.file_stack = file_name_pig, file_stack_pig
+        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+
+        # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
+        # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
+        print("sys.maxsize : " + str(sys.maxsize) +
+              ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
+
+        self.stack1, self.meta1 = open_stack(source=self.file_stack)
+        self.frame1 = self.stack1[10, :, :]
 
     def test_params(self):
         # Make sure type errors are raised when necessary

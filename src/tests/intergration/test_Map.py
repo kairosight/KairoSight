@@ -1,7 +1,5 @@
 import unittest
 
-from matplotlib.patches import Circle
-
 from util.datamodel import *
 from util.analysis import *
 from util.preparation import *
@@ -13,6 +11,7 @@ import matplotlib.ticker as plticker
 import matplotlib.colors as colors
 from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import seaborn as sns
 import util.ScientificColourMaps5 as SCMaps
 
 # File paths  and files needed for tests
@@ -34,12 +33,13 @@ colors_times = {'Start': '#C07B60',
 # Colormap and normalization range for SNR maps
 cmap_snr = SCMaps.tokyo
 cmap_snr.set_bad(color=gray_light, alpha=0)
-SNR_MAX = 150
-# cmap_norm_snr = colors.Normalize(vmin=0, vmax=int(round(SNR_MAX, -1)))
+SNR_MAX = 200
+cmap_norm_snr = colors.Normalize(vmin=0, vmax=int(round(SNR_MAX, -1)))
 
 # Colormap and normalization range for activation maps
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
+TRAN_MAX = 200
 ACT_MAX = 150
 
 
@@ -194,8 +194,8 @@ class TestMapSNR(unittest.TestCase):
 
         # Frame from prepped stack
         cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(), vmax=self.stack_real_frame.max())
-        img_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)
+        cmap_norm_frame = colors.Normalize(vmin=self.stack_frame.min(), vmax=self.stack_frame.max())
+        img_frame = ax_frame.imshow(self.stack_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_frame = ax_frame.imshow(self.stack_real_full[frame_num, :, :], cmap=cmap_frame)
         # Cropped
         # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
@@ -212,8 +212,8 @@ class TestMapSNR(unittest.TestCase):
         #                                 alpha=0.4)  # for a spot-based image
 
         # Signal trace and location on frame
-        signal_x_real, signal_y_real =\
-            (int(self.stack_real_frame.shape[1] / 2), int(self.stack_real_frame.shape[0] / 2))  # center of real stack
+        signal_x_real, signal_y_real = \
+            (int(self.stack_frame.shape[1] / 2), int(self.stack_frame.shape[0] / 2))  # center of real stack
         signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))  # center of new stack
         # signal_x, signal_y = (int(300 / self.kernel), int(460 / self.kernel))  # custom, pig spot on real stack
         signal = self.stack[:, signal_y, signal_x]
@@ -303,15 +303,15 @@ class TestMapAnalysis(unittest.TestCase):
         fps = 404
         self.file_name, self.file_stack = file_name_pig, file_stack_pig
         self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+        self.stack_real_frame = self.stack_real_full[0, :, :]  # frame from stack
 
         stack_out = self.stack_real_full.copy()
 
         # # Prep
         # Reduce
-        self.spatial_type = 'Reduction + Guassian Filter'
-        self.kernel = 3
+        self.reduction = 3
         print('Reducing stack ...')
-        reduction_factor = 1 / self.kernel
+        reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
         stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
         stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)  # data array, default value is f_0
@@ -325,17 +325,26 @@ class TestMapAnalysis(unittest.TestCase):
 
         # Mask
         mask_type = 'Random_walk'
-        _, mask_out = mask_generate(stack_out[10], mask_type)
-        stack_out = mask_apply(stack_out, mask_out)
+        # find brightest frame
+        self.frame_bright = np.zeros_like(stack_out[0])
+        for idx, frame in enumerate(stack_out):
+            frame_brightness = np.nanmean(frame)
+            if frame_brightness > np.nanmean(self.frame_bright):
+                self.frame_bright = frame
+        _, self.mask_out = mask_generate(self.frame_bright, mask_type)
+        stack_out = mask_apply(stack_out, self.mask_out)
 
-        # Crop (to be _X x _Y)
-        new_width, new_height = int(300 / self.kernel), int(300 / self.kernel)
-        d_x, d_y = int(-127 / self.kernel), int(-154 / self.kernel)  # coordinates of top left corner
-        stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
-        mask_out = crop_frame(mask_out, d_x=d_x, d_y=d_y)
-        d_x, d_y = stack_out.shape[2] - new_width, stack_out.shape[1] - new_height
-        stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
-        mask_out = crop_frame(mask_out, d_x=d_x, d_y=d_y)
+        # # Crop (to be _X x _Y)
+        # new_width, new_height = int(300 / self.reduction), int(300 / self.reduction)
+        # d_x, d_y = int(-127 / self.reduction), int(-154 / self.reduction)  # coordinates of top left corner
+        # # must crop un-prepped frame, prepped stack, and mask
+        # self.stack_real_frame = crop_frame(self.stack_real_frame, d_x=d_x, d_y=d_y)
+        # stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        # self.mask_out = crop_frame(self.mask_out, d_x=d_x, d_y=d_y)
+        # d_x, d_y = stack_out.shape[2] - new_width, stack_out.shape[1] - new_height
+        # self.stack_real_frame = crop_frame(self.stack_real_frame, d_x=d_x, d_y=d_y)
+        # stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        # self.mask_out = crop_frame(self.mask_out, d_x=d_x, d_y=d_y)
 
         # stack_out = np.empty_like(self.stack_real)
         # # Invert
@@ -354,6 +363,7 @@ class TestMapAnalysis(unittest.TestCase):
 
         # # Process
         # Filter
+        self.kernel = 3
         print('Filtering stack ...')
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
@@ -361,7 +371,7 @@ class TestMapAnalysis(unittest.TestCase):
             stack_out[idx, :, :] = f_filtered
         print('\nDONE Filtering stack')
         # Re-apply mask to avoid smudged edges
-        stack_out = mask_apply(stack_out, mask_out)
+        stack_out = mask_apply(stack_out, self.mask_out)
 
         FRAMES = stack_out.shape[0]
         # Generate array of timestamps
@@ -372,12 +382,12 @@ class TestMapAnalysis(unittest.TestCase):
 
         self.time, self.stack = self.time_real, stack_out
 
-    def test_plot(self):
+    def test_plot_snr(self):
         # Make sure analysis map looks correct
         # Plot a frame from the stack, the map of that stack, and a signal
         # fig_map_snr, ax_frame, ax_map_snr = plot_map()
         fig_map_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
-        gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 column
+        gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
         ax_signal = fig_map_snr.add_subplot(gs0[1])
         ax_signal.set_ylabel('Fluorescence (arb. u.)')
         ax_signal.set_xlabel('Time (ms)')
@@ -391,8 +401,145 @@ class TestMapAnalysis(unittest.TestCase):
 
         gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('{}\n({} kernel:{})'.format(self.file_name, self.spatial_type, self.kernel))
+        ax_frame.set_title('{}\n(Reduce x{}, Mask, Gaussian filter kernel:{})'
+                           .format(self.file_name, self.reduction, self.kernel))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
+        for ax in [ax_frame, ax_map]:
+            ax.tick_params(axis='x', labelsize=fontsize4)
+            ax.tick_params(axis='y', labelsize=fontsize4)
+
+        # Calculate the SNR map
+        # Make sure SNR Map looks correct
+        snr_map = map_snr(self.stack)
+        snr_map_flat = snr_map.flatten()
+        snr_min = np.nanmin(snr_map)
+        snr_min_display = int(round(snr_min + 5.1, -1))
+        snr_max = np.nanmax(snr_map)
+        # snr_max_display = int(round(snr_max + 5.1, -1))
+        snr_max_display = int(round(SNR_MAX, -1))
+        print('SNR Map min value: ', snr_min)
+        print('SNR Map max value: ', snr_max)
+        ax_map.set_title('SNR Map\nRange: {} - {}'.format(round(snr_min, 2), round(snr_max, 2)))
+
+        # Frame from prepped stack
+        cmap_frame = SCMaps.grayC.reversed()
+        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(), vmax=self.stack_real_frame.max())
+        img_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)
+        # img_frame = ax_frame.imshow(self.stack_real_full[frame_num, :, :], cmap=cmap_frame)
+        # Cropped
+        # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
+        #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
+
+        # Frame from from room and/or excitation light stack_real_frame_room
+        # cmap_norm_frame_room = colors.Normalize(vmin=self.stack_real_frame_room.min(),
+        #                                         vmax=self.stack_real_frame_room.max())
+        # img_frame_room = ax_frame.imshow(self.stack_real_frame_room, norm=cmap_norm_frame_room,
+        #                                  cmap=cmap_frame)  # for a spot-based image
+        # cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(),
+        #                                    vmax=self.stack_real_frame.max())
+        # img_map_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame,
+        #                                 alpha=0.4)  # for a spot-based image
+
+        # Signal trace and location on frame
+        signal_x_real, signal_y_real = \
+            (int(self.stack_real_frame.shape[1] / 2), int(self.stack_real_frame.shape[0] / 2))  # center of real stack
+        signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))  # center of new stack
+        # signal_x, signal_y = (int(300 / self.kernel), int(460 / self.kernel))  # custom, pig spot on real stack
+        signal = self.stack[:, signal_y, signal_x]
+        ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
+        points_lw = 3
+        frame_signal = Rectangle((signal_x_real - int(self.kernel), signal_y_real - int(self.kernel)),
+                                 self.kernel, self.kernel,
+                                 fc=color_ca, ec=color_ca, lw=points_lw)
+        # frame_signal = Circle((signal_x, signal_y), self.kernel/2,
+        #                       ec=colors_times['Peak'], fc=gray_heavy, lw=points_lw, linestyle='--')
+        ax_frame.add_artist(frame_signal)
+
+        # # signal activation
+        # i_activation = find_tran_act(signal)  # 1st df max, Activation
+        # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
+        #                color=colors_times['Activation'], label='Activation')
+        # ax_signal.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
+        #                   label='Activation')
+        # Add colorbar (right of frame)
+        ax_ins_img = inset_axes(ax_frame, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_frame.transAxes,
+                                borderpad=0)
+        # cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
+        cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+
+        # SNR Map w/ mask used in prep underneath
+        # frame_num = self.stack[int(self.stack.shape[0] / 4)  # interesting frame from prepped/processed stack
+        img_map_frame = ax_map.imshow(self.frame_bright, norm=cmap_norm_frame,
+                                      cmap=cmap_frame)  # for whole heart imaging
+        img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
+                                     cmap=cmap_frame, alpha=0.3)  # for whole heart imaging
+        # img_map_frame = ax_map.imshow(self.stack_real_frame_room, norm=cmap_norm_frame_room,
+        #                               cmap=cmap_frame)  # for a spot-based image
+        cmap_norm_snr = colors.Normalize(vmin=0, vmax=snr_max_display)
+        img_map = ax_map.imshow(snr_map, norm=cmap_norm_snr, cmap=cmap_snr)
+
+        # Add colorbar (right of map)
+        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
+                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map.transAxes,
+                                 borderpad=0)
+        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
+        cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
+        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(20))
+        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
+        cbar.ax.tick_params(labelsize=fontsize3)
+
+        # Histogram/Violin plot of SNR values (along left side of colorbar)
+        ax_map_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
+                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                 borderpad=0)
+        [s.set_visible(False) for s in ax_map_hist.spines.values()]
+        # TODO try combos of histogram, swarm, and violin
+        # ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
+        #                  orientation='horizontal', color='gray')
+        # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display)
+        print('Generating swarmplot ... ')
+        sns.swarmplot(ax=ax_map_hist, data=snr_map_flat,
+                      size=1, color='k')
+
+        ax_map_hist.set_ylim([0, snr_max_display])
+        ax_map_hist.set_yticks([])
+        ax_map_hist.set_yticklabels([])
+        ax_map_hist.invert_xaxis()
+        ax_map_hist.set_xticks([])
+        ax_map_hist.set_xticklabels([])
+
+        fig_map_snr.savefig(dir_integration + '/results/integration_MapSNR_SNR.png')
+        fig_map_snr.show()
+
+    def test_plot_activation(self):
+        # Make sure analysis map looks correct
+        # Plot a frame from the stack, the map of that stack, and a signal
+        # fig_map_snr, ax_frame, ax_map_snr = plot_map()
+        fig_map_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
+        ax_signal = fig_map_snr.add_subplot(gs0[1])
+        ax_signal.set_ylabel('Fluorescence (arb. u.)')
+        ax_signal.set_xlabel('Time (ms)')
+        ax_signal.spines['right'].set_visible(False)
+        ax_signal.spines['top'].set_visible(False)
+        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
+        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='major', length=8)
+        ax_signal.tick_params(axis='y', labelsize=fontsize3)
+        ax_signal.xaxis.set_major_locator(plticker.MultipleLocator(25))
+        ax_signal.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+
+        gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
+        ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
+        ax_frame.set_title('{}\n(Reduce x{}, Mask, Gaussian filter kernel:{})'
+                           .format(self.file_name, self.reduction, self.kernel))
+        ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
+
         ax_map.set_title('Activation Map')
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
@@ -400,26 +547,36 @@ class TestMapAnalysis(unittest.TestCase):
 
         # Calculate the activation map, returns timestamps
         analysis_map = map_tran_analysis(self.stack, find_tran_act, self.time)
-        analysis_min = np.nanmin(analysis_map)
-        analysis_max = np.nanmax(analysis_map)
 
-        # Frame from stack
-        frame_num = int(self.stack.shape[0] / 4)  # interesting frame
+        map_flat = analysis_map.flatten()
+        map_min = np.nanmin(analysis_map)
+        map_max = np.nanmax(analysis_map)
+        map_min_display = np.floor(map_min)
+        map_max_tran = map_min_display + TRAN_MAX
+        map_max_display = int(round(map_max + 5.1, -1))
+        print('Map min value: ', map_min)
+        print('Map max value: ', map_max)
+        ax_map.set_title('Activation Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
+
+        # Frame from prepped stack
         cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_full.min(), vmax=self.stack_real_full.max())
-        img_frame = ax_frame.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)
+        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(), vmax=self.stack_real_frame.max())
+        img_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_frame = ax_frame.imshow(self.stack_real_full[frame_num, :, :], cmap=cmap_frame)
         # Cropped
         # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
-        # Signal trace and location on frame
+        # signal trace and location on frame
         signal_x, signal_y = (int(self.stack.shape[2] / 1.5), int(self.stack.shape[1] / 1.5))
         points_lw = 3
         # signal_r = self.kernel / 2
         signal = self.stack[:, signal_y, signal_x]
-        frame_signal_spot = Circle((signal_x, signal_y), 3,
-                                   fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
+        # frame_signal_spot = Circle((signal_x, signal_y), 3,
+        #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
+        frame_signal_spot = Rectangle((signal_x - int(self.reduction), signal_y - int(self.reduction)),
+                                      self.kernel, self.kernel,
+                                      fc=colors_times['Activation'], ec=colors_times['Activation'], lw=points_lw)
         ax_frame.add_artist(frame_signal_spot)
         ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
 
@@ -430,9 +587,9 @@ class TestMapAnalysis(unittest.TestCase):
         ax_signal.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
                           label='Activation')
 
-        # Add colorbar (right of frame)
-        ax_ins_img = inset_axes(ax_frame, width="3%", height="80%", loc=5,
-                                bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=ax_frame.transAxes,
+        # add colorbar (lower right of frame)
+        ax_ins_img = inset_axes(ax_frame, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_frame.transAxes,
                                 borderpad=0)
         cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
         cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
@@ -441,29 +598,46 @@ class TestMapAnalysis(unittest.TestCase):
         cb_img.ax.tick_params(labelsize=fontsize3)
 
         # Analysis Map
-        cmap_norm_activation = colors.Normalize(vmin=np.floor(analysis_min),
-                                                vmax=np.floor(analysis_min) + ACT_MAX)
+        cmap_norm_activation = colors.Normalize(vmin=map_min_display,
+                                                vmax=map_max_tran)
 
-        img_map_frame = ax_map.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)
+        img_map_frame = ax_map.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
+                                     cmap=cmap_frame, alpha=0.3)
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_activation, cmap=cmap_activation)
-        # Add colorbar (right of map)
-        ax_ins_map = inset_axes(ax_map, width="3%", height="80%", loc=5,
-                                bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                borderpad=0)
-        cb1_map = plt.colorbar(img_map, cax=ax_ins_map, orientation="vertical")
-        cb1_map.ax.set_xlabel('ms', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(plticker.MultipleLocator(3))
-        cb1_map.ax.yaxis.set_minor_locator(plticker.MultipleLocator(3))
-        cb1_map.ax.tick_params(labelsize=fontsize3)
 
-        # Map histogram
-        ax_act_hist = fig_map_snr.add_subplot(gs_frame_map[2], xticklabels=[], sharey=ax_ins_map)
-        ax_act_hist.hist(analysis_map.flatten(), 50, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
-        ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
-        ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
-        ax_act_hist.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation.png')
+        # Add colorbar (right of map)
+        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
+                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map.transAxes,
+                                 borderpad=0)
+        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
+        cbar.ax.set_xlabel('ms', fontsize=fontsize3)
+        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(20))
+        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
+        cbar.ax.tick_params(labelsize=fontsize3)
+
+        # Histogram/Violin plot of analysis values (along left side of colorbar)
+        ax_map_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
+                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                 borderpad=0)
+        [s.set_visible(False) for s in ax_map_hist.spines.values()]
+        # TODO try combos of histogram, swarm, and violin
+        # ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
+        #                  orientation='horizontal', color='gray')
+        # ax_act_hist.violinplot(map_flat)
+        print('Generating swarmplot ... ')
+        sns.swarmplot(ax=ax_map_hist, data=map_flat,
+                      size=1, color='k', alpha=0.7)  # and slightly transparent
+
+        ax_map_hist.set_ylim([map_min_display, map_max_tran])
+        ax_map_hist.set_yticks([])
+        ax_map_hist.set_yticklabels([])
+        ax_map_hist.invert_xaxis()
+        ax_map_hist.set_xticks([])
+        ax_map_hist.set_xticklabels([])
+
+        fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation_New.png')
         fig_map_snr.show()
 
 

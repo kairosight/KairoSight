@@ -3,9 +3,10 @@ from math import floor
 import numpy as np
 from imageio import volread, get_reader
 from skimage.util import img_as_uint, img_as_float
-from skimage.filters import sobel, rank, threshold_otsu, threshold_mean
+from skimage.filters import sobel, rank, threshold_otsu, threshold_mean, threshold_minimum
 from skimage.segmentation import felzenszwalb, slic, quickshift, watershed, random_walker
 from skimage.segmentation import mark_boundaries
+from skimage.transform import rescale
 from skimage.exposure import rescale_intensity
 from skimage.measure import label, regionprops
 from skimage.morphology import disk
@@ -225,7 +226,10 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         # The range of the binary image spans over (-1, 1).
         # We choose the hottest and the coldest pixels as markers.
         frame_in_float = img_as_float(frame_in)
-        # TODO rescale pixels to "smooth" mask
+        # TODO "smooth" before marking for mask
+        # reduction_factor = 1 / 5
+        # frame_in_rescale_space = rescale(frame_in_float, reduction_factor)
+
         frame_in_rescale = rescale_intensity(frame_in_float,
                                              in_range=(frame_in_float.min(), frame_in_float.max()),
                                              out_range=(-1, 1))
@@ -233,7 +237,11 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         # Darkish half and lightish half
         # TODO calculate these bounds
         global_otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
-        markers_bounds = (global_otsu, global_otsu)
+        dark_mid = np.mean([-1, global_otsu])
+        adjusted_otsu = dark_mid
+        # adjusted_otsu = global_otsu - (abs((-1 - global_otsu)/2))
+        print('* Masking with Otsu value: {}'.format(adjusted_otsu))
+        markers_bounds = (adjusted_otsu, adjusted_otsu)
         markers[frame_in_rescale < markers_bounds[0]] = 1
         markers[frame_in_rescale > markers_bounds[1]] = 2
 
@@ -250,6 +258,7 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
                 largest_region_area = region_prop.area
                 largest_mask[labeled_mask == region_prop.label] = False
                 largest_mask[labeled_mask != region_prop.label] = True
+                print('#{} : Found a region, area: {} pixels'.format(idx, region_prop.area))
 
         frame_out[largest_mask] = 0
         # mask = markers

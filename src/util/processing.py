@@ -6,7 +6,6 @@ from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firw
     lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
 from scipy.optimize import curve_fit
 from skimage.morphology import square
-from skimage.transform import rescale
 from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
 from skimage.filters.rank import median, mean, mean_bilateral
@@ -640,17 +639,17 @@ def calculate_snr(signal_in, noise_count=10):
     # Use noise values
     noise_rms = np.sqrt(np.mean(data_noise) ** 2)
     noise_sd = statistics.stdev(data_noise.astype(float)) # standard deviation
-    if noise_sd == 0:
-        noise_sd = 0.5  # Noise data too flat to detect SD
-        print('\tFound noise with SD of 0! Used {}'.format(noise_sd))
-    noise_bounds = (noise_rms - noise_sd/2, noise_rms + noise_sd/2)
-    noise_range = noise_bounds[1] - noise_bounds[0]
-
-    if signal_bounds[1] < noise_rms:
-        raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
     # Calculate Peak-Peak value
     peak_peak = abs(peak_value - noise_rms).astype(signal_in.dtype)
+
+    # Exclusions
+    if noise_sd == 0:
+        noise_sd = peak_peak / 200  # Noise data too flat to detect SD
+        print('\tFound noise with SD of 0! Used {} to give max SNR of 200'.format(noise_sd))
+
+    if signal_bounds[1] < noise_rms:
+        raise ValueError('Signal max {} seems to be < noise rms {}'.format(signal_bounds[1], noise_rms))
 
     # Calculate SNR
     snr = peak_peak / noise_sd

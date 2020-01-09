@@ -356,9 +356,13 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
               flush=True)
         pixel_data = stack_in[:, iy, ix]
         # Check if pixel has been masked (0 at every frame)
-        # or was masked and spatially filtered (constant at every frame)
-        peak = find_tran_peak(pixel_data)
-        if peak is np.nan:  # if there's no detectable peak
+        # # or was masked and spatially filtered (constant at every frame)
+        # peak = find_tran_peak(pixel_data)
+        # if peak is np.nan:  # if there's no detectable peak
+        #     pixel_analysis_value = np.NaN
+
+        unique, counts = np.unique(pixel_data, return_counts=True)
+        if len(unique) < 5:  # signal is too flat to have a valid peak
             pixel_analysis_value = np.NaN
         else:
             analysis_result = analysis_type(pixel_data)
