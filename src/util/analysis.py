@@ -82,6 +82,8 @@ def find_tran_act(signal_in):
 
     # Limit search to before the peak and after the middle baseline point before the peak
     i_peak = find_tran_peak(signal_in)
+    if i_peak is np.nan:
+        return np.nan
     # use the prominence of the peak to find right-most baseline
     i_baselines = find_tran_baselines(signal_in, peak_side='left')
     i_baseline = int(np.median(i_baselines))
@@ -232,7 +234,7 @@ def calc_tran_activation(signal_in):
     pass
 
 
-def calc_tran_duration(signal_in, percent=50):
+def calc_tran_duration(signal_in, percent=80):
     """Calculate the duration of a transient,
     defined as the number of indices between the start time and a time
     nearest a percentage of the start-to-peak value (e.g. APD-80, CAD-90)
@@ -250,17 +252,40 @@ def calc_tran_duration(signal_in, percent=50):
             The % duration of the transient in number of indices
         """
     # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
+    # if type(signal_in) is not np.ndarray:
+    #     raise TypeError('Signal data type must be an "ndarray"')
+    # if signal_in.dtype not in [np.uint16, float]:
+    #     raise TypeError('Signal values must either be "int" or "float"')
     if type(percent) is not int:
         raise TypeError('Percent data type must be an "int"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
-    if any(x < 0 or x >= 100 for x in signal_in):
-        raise ValueError('All signal values must be between 0-99%')
+    # if any(v < 0 for v in signal_in):
+    #     raise ValueError('All signal values must be >= 0')
+    # if any(x < 0 or x >= 100 for x in signal_in):
+    #     raise ValueError('All signal values must be between 0-99%')
+
+    snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
+    if snr is np.nan:
+        return np.nan
+    if type(i_peak) not in [np.int64, float]:
+        i_peak = i_peak[0]  # use the first detected peak
+
+    noise_rms = rms_bounds[0]
+    i_activation = find_tran_act(signal_in)
+
+    cutoff = noise_rms + (float(peak_peak) * float(((100-percent)/100)))
+
+    i_search = np.where(signal_in[i_peak:] <= cutoff)
+    if len(i_search) == 0:
+        return np.nan
+    try:
+        i_duration = i_peak + i_search[0][0]
+        i_relative_duration = i_duration - i_activation
+    except Exception:
+        return np.nan
+
+    # Exclusions
+    return i_relative_duration
 
 
 def calc_tran_tau(signal_in):
@@ -314,6 +339,27 @@ def calc_tran_di(signal_in):
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
 
+# def calc_pixel_analysis(x, y, map):
+#     print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
+#           flush=True)
+#     pixel_data = stack_in[:, iy, ix]
+#     # Check if pixel has been masked (0 at every frame)
+#     # # or was masked and spatially filtered (constant at every frame)
+#     # peak = find_tran_peak(pixel_data)
+#     # if peak is np.nan:  # if there's no detectable peak
+#     #     pixel_analysis_value = np.NaN
+#
+#     unique, counts = np.unique(pixel_data, return_counts=True)
+#     if len(unique) < 5:  # signal is too flat to have a valid peak
+#         pixel_analysis_value = np.NaN
+#     else:
+#         analysis_result = analysis_type(pixel_data)
+#         if time_in is not None:
+#             pixel_analysis_value = time_in[analysis_result]
+#         else:
+#             pixel_analysis_value = analysis_result
+#
+#     map_out[iy, ix] = pixel_analysis_value
 
 def map_tran_analysis(stack_in, analysis_type, time_in=None):
     """Map an analysis point's values for a stack of transient fluorescent data
@@ -350,6 +396,10 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
     map_shape = stack_in.shape[1:]
     map_out = np.empty(map_shape)
 
+    # # Calculate with parallel processing
+    # with Pool(5) as p:
+    #     p.map()
+
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
         print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
@@ -362,16 +412,19 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
         #     pixel_analysis_value = np.NaN
 
         unique, counts = np.unique(pixel_data, return_counts=True)
-        if len(unique) < 5:  # signal is too flat to have a valid peak
+        if len(unique) < 10:  # signal is too flat to have a valid peak
             pixel_analysis_value = np.NaN
+            map_out[iy, ix] = pixel_analysis_value
         else:
             analysis_result = analysis_type(pixel_data)
-            if time_in is not None:
-                pixel_analysis_value = time_in[analysis_result]
+            if analysis_result is np.nan:
+                map_out[iy, ix] = np.nan
             else:
-                pixel_analysis_value = analysis_result
-
-        map_out[iy, ix] = pixel_analysis_value
+                if time_in is not None:
+                    pixel_analysis_value = time_in[analysis_result]
+                else:
+                    pixel_analysis_value = analysis_result
+                map_out[iy, ix] = pixel_analysis_value
 
     # If mapping activation, align times with the "first" aka lowest activation time
     if analysis_type is find_tran_act:

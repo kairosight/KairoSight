@@ -36,11 +36,15 @@ cmap_snr.set_bad(color=gray_light, alpha=0)
 SNR_MAX = 200
 cmap_norm_snr = colors.Normalize(vmin=0, vmax=int(round(SNR_MAX, -1)))
 
-# Colormap and normalization range for activation maps
+TRAN_MAX = 200
+# Colormap and normalization range for Activation maps
+ACT_MAX = 150
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
-TRAN_MAX = 200
-ACT_MAX = 150
+# Colormap and normalization range for Duration maps
+DUR_MIN = 40 # ms
+cmap_duration = SCMaps.oslo.reversed()
+cmap_duration.set_bad(color=gray_light, alpha=0)
 
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
@@ -69,7 +73,7 @@ class TestMapSNR(unittest.TestCase):
         # Pigs
         fps = 500  # ish
 
-        file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
+        file_name_pig = '2019/12/13 pigb-03, Ca, PCL 300ms'
         file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca_transient.tif'
         # file_name_pig = '2019/12/13 piga-05, PCL 300ms'
         # file_stack_pig = dir_tests + '/data/20191213-piga/05-300_Ca_spot_transient.tif'
@@ -220,7 +224,8 @@ class TestMapSNR(unittest.TestCase):
         points_lw = 3
         frame_signal = Rectangle((signal_x_real - int(self.kernel), signal_y_real - int(self.kernel)),
                                  self.kernel, self.kernel,
-                                 fc=None, ec=colors_times['Activation'], lw=points_lw)
+                                 fc=gray_light, ec=gray_light,
+                                 lw=points_lw)
         # frame_signal = Circle((signal_x, signal_y), self.kernel/2,
         #                       ec=colors_times['Peak'], fc=gray_heavy, lw=points_lw, linestyle='--')
         ax_frame.add_artist(frame_signal)
@@ -298,18 +303,25 @@ class TestMapAnalysis(unittest.TestCase):
         # Load data to test with
         # file_name_rat = '201-/--/-- rat-04, PCL 240ms'
         # file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
-        file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
-        file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        fps = 404
-        self.file_name, self.file_stack = file_name_pig, file_stack_pig
-        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+        # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        # fps = 404
+        file_name_rat = '2020/01/09 rata-05, Ca, PCL 200ms'
+        file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
+        file_name_rat = '2020/01/09 rata-11, Ca, PCL 200ms'
+        file_stack_rat = dir_tests + '/data/20200109-rata/11-200_Ca_501-650.tif'
+        # file_name_rat = '2020/01/09 rata-17, Ca, PCL 200ms'
+        # file_stack_rat = dir_tests + '/data/20200109-rata/17-200_Ca_451-600.tif'
+        fps = 500.0
+        self.file_name, self.file_stack = file_name_rat, file_stack_rat
+        self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
         self.stack_real_frame = self.stack_real_full[0, :, :]  # frame from stack
 
         stack_out = self.stack_real_full.copy()
 
         # # Prep
         # Reduce
-        self.reduction = 3
+        self.reduction = 5
         print('Reducing stack ...')
         reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
@@ -323,14 +335,17 @@ class TestMapAnalysis(unittest.TestCase):
         stack_out = stack_reduced
         print('\nDONE Reducing stack')
 
-        # Mask
-        mask_type = 'Random_walk'
         # find brightest frame
         self.frame_bright = np.zeros_like(stack_out[0])
+        frame_bright_idx = 0
         for idx, frame in enumerate(stack_out):
             frame_brightness = np.nanmean(frame)
             if frame_brightness > np.nanmean(self.frame_bright):
+                frame_bright_idx = idx
                 self.frame_bright = frame
+        print('Brightest frame: {}'.format(frame_bright_idx))
+        # Mask
+        mask_type = 'Random_walk'
         _, self.mask_out = mask_generate(self.frame_bright, mask_type)
         stack_out = mask_apply(stack_out, self.mask_out)
 
@@ -360,18 +375,36 @@ class TestMapAnalysis(unittest.TestCase):
         #     # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
         #     pixel_data_inv = invert_signal(pixel_data)
         #     stack_out[:, iy, ix] = pixel_data_inv
+        self.prep = 'Reduced x{}, Mask'.format(self.reduction)
+        # #
 
         # # Process
         # Filter
+        # spatial
         self.kernel = 3
-        print('Filtering stack ...')
+        print('Filtering (spatial) stack ...')
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             f_filtered = filter_spatial(frame, kernel=self.kernel)
             stack_out[idx, :, :] = f_filtered
-        print('\nDONE Filtering stack')
+        print('\nDONE Filtering (spatial) stack')
         # Re-apply mask to avoid smudged edges
         stack_out = mask_apply(stack_out, self.mask_out)
+        # temporal
+        map_shape = stack_out.shape[1:]
+        print('Filtering (temporal) stack ...')
+        for iy, ix in np.ndindex(map_shape):
+            print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
+                  flush=True)
+            freq_cutoff = 100.0
+            filter_order = 'auto'
+            signal_filtered = filter_temporal(stack_out[:, iy, ix], fps, freq_cutoff=freq_cutoff,
+                                              filter_order=filter_order)
+            stack_out[:, iy, ix] = signal_filtered
+        print('\nDONE Filtering (temporal) stack')
+        # self.process = 'Gaussian: {} px'.format(self.kernel)
+        self.process = 'LP {} Hz, Gaussian: {} px'.format(freq_cutoff, self.kernel)
+        ##
 
         FRAMES = stack_out.shape[0]
         # Generate array of timestamps
@@ -401,7 +434,7 @@ class TestMapAnalysis(unittest.TestCase):
 
         gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('{}\n(Reduce x{}, Mask, Gaussian filter kernel:{})'
+        ax_frame.set_title('{}\n(Reduce x{}, Mask, Gaussian kernel:{})'
                            .format(self.file_name, self.reduction, self.kernel))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
         for ax in [ax_frame, ax_map]:
@@ -476,8 +509,8 @@ class TestMapAnalysis(unittest.TestCase):
         # frame_num = self.stack[int(self.stack.shape[0] / 4)  # interesting frame from prepped/processed stack
         img_map_frame = ax_map.imshow(self.frame_bright, norm=cmap_norm_frame,
                                       cmap=cmap_frame)  # for whole heart imaging
-        img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
-                                     cmap=cmap_frame, alpha=0.3)  # for whole heart imaging
+        # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
+        #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
         # img_map_frame = ax_map.imshow(self.stack_real_frame_room, norm=cmap_norm_frame_room,
         #                               cmap=cmap_frame)  # for a spot-based image
         cmap_norm_snr = colors.Normalize(vmin=0, vmax=snr_max_display)
@@ -500,12 +533,12 @@ class TestMapAnalysis(unittest.TestCase):
                                  borderpad=0)
         [s.set_visible(False) for s in ax_map_hist.spines.values()]
         # TODO try combos of histogram, swarm, and violin
-        # ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
-        #                  orientation='horizontal', color='gray')
+        ax_map_hist.hist(snr_map_flat, bins=snr_max_display * 5, histtype='stepfilled',
+                         orientation='horizontal', color='gray')
         # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display)
         print('Generating swarmplot ... ')
-        sns.swarmplot(ax=ax_map_hist, data=snr_map_flat,
-                      size=1, color='k')
+        # sns.swarmplot(ax=ax_map_hist, data=snr_map_flat,
+        #               size=1, color='k')
 
         ax_map_hist.set_ylim([0, snr_max_display])
         ax_map_hist.set_yticks([])
@@ -514,7 +547,7 @@ class TestMapAnalysis(unittest.TestCase):
         ax_map_hist.set_xticks([])
         ax_map_hist.set_xticklabels([])
 
-        fig_map_snr.savefig(dir_integration + '/results/integration_MapSNR_SNR.png')
+        fig_map_snr.savefig(dir_integration + '/results/integration_MapSNR_NEW.png')
         fig_map_snr.show()
 
     def test_plot_activation(self):
@@ -536,11 +569,9 @@ class TestMapAnalysis(unittest.TestCase):
 
         gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('{}\n(Reduce x{}, Mask, Gaussian filter kernel:{})'
-                           .format(self.file_name, self.reduction, self.kernel))
+        ax_frame.set_title('{}\n({}. {})'
+                           .format(self.file_name, self.prep, self.process))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
-
-        ax_map.set_title('Activation Map')
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
@@ -551,9 +582,9 @@ class TestMapAnalysis(unittest.TestCase):
         map_flat = analysis_map.flatten()
         map_min = np.nanmin(analysis_map)
         map_max = np.nanmax(analysis_map)
-        map_min_display = np.floor(map_min)
+        map_min_display = int(np.floor(map_min))
         map_max_tran = map_min_display + TRAN_MAX
-        map_max_display = int(round(map_max + 5.1, -1))
+        map_max_display = int(round(map_max_tran + 5.1, -1))
         print('Map min value: ', map_min)
         print('Map max value: ', map_max)
         ax_map.set_title('Activation Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
@@ -568,22 +599,26 @@ class TestMapAnalysis(unittest.TestCase):
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
         # signal trace and location on frame
-        signal_x, signal_y = (int(self.stack.shape[2] / 1.5), int(self.stack.shape[1] / 1.5))
+        signal_x_real, signal_y_real = \
+            (int(self.stack_real_frame.shape[1] / 2), int(self.stack_real_frame.shape[0] / 2))  # center of real stack
+        signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))
         points_lw = 3
         # signal_r = self.kernel / 2
         signal = self.stack[:, signal_y, signal_x]
+        ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
+
+        frame_signal = Rectangle((signal_x_real - int(self.kernel), signal_y_real - int(self.kernel)),
+                                 self.kernel, self.kernel,
+                                 fc=colors_times['Activation'], ec=colors_times['Activation'],
+                                 lw=points_lw)
         # frame_signal_spot = Circle((signal_x, signal_y), 3,
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
-        frame_signal_spot = Rectangle((signal_x - int(self.reduction), signal_y - int(self.reduction)),
-                                      self.kernel, self.kernel,
-                                      fc=colors_times['Activation'], ec=colors_times['Activation'], lw=points_lw)
-        ax_frame.add_artist(frame_signal_spot)
-        ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
+        ax_frame.add_artist(frame_signal)
 
         # signal activation
         i_activation = find_tran_act(signal)  # 1st df max, Activation
-        ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
-                       color=colors_times['Activation'], label='Activation')
+        # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
+        #                color=colors_times['Activation'], label='Activation')
         ax_signal.axvline(self.time[i_activation], color=colors_times['Activation'], linewidth=points_lw,
                           label='Activation')
 
@@ -598,12 +633,11 @@ class TestMapAnalysis(unittest.TestCase):
         cb_img.ax.tick_params(labelsize=fontsize3)
 
         # Analysis Map
-        cmap_norm_activation = colors.Normalize(vmin=map_min_display,
-                                                vmax=map_max_tran)
-
         img_map_frame = ax_map.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
-        img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
-                                     cmap=cmap_frame, alpha=0.3)
+        # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
+        #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
+        cmap_norm_activation = colors.Normalize(vmin=map_min_display,
+                                                vmax=map_max_display)
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_activation, cmap=cmap_activation)
 
         # Add colorbar (right of map)
@@ -623,14 +657,14 @@ class TestMapAnalysis(unittest.TestCase):
                                  borderpad=0)
         [s.set_visible(False) for s in ax_map_hist.spines.values()]
         # TODO try combos of histogram, swarm, and violin
-        # ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
-        #                  orientation='horizontal', color='gray')
+        ax_map_hist.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                         orientation='horizontal', color='gray')
         # ax_act_hist.violinplot(map_flat)
-        print('Generating swarmplot ... ')
-        sns.swarmplot(ax=ax_map_hist, data=map_flat,
-                      size=1, color='k', alpha=0.7)  # and slightly transparent
+        # print('Generating swarmplot ... ')
+        # sns.swarmplot(ax=ax_map_hist, data=map_flat,
+        #               size=1, color='k', alpha=0.7)  # and slightly transparent
 
-        ax_map_hist.set_ylim([map_min_display, map_max_tran])
+        ax_map_hist.set_ylim([map_min_display, map_max_display])
         ax_map_hist.set_yticks([])
         ax_map_hist.set_yticklabels([])
         ax_map_hist.invert_xaxis()
@@ -638,6 +672,136 @@ class TestMapAnalysis(unittest.TestCase):
         ax_map_hist.set_xticklabels([])
 
         fig_map_snr.savefig(dir_integration + '/results/integration_MapActivation_New.png')
+        fig_map_snr.show()
+
+    def test_plot_duration(self):
+        # Make sure analysis map looks correct
+        # Plot a frame from the stack, the map of that stack, and a signal
+        # fig_map_snr, ax_frame, ax_map_snr = plot_map()
+        fig_map_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
+        ax_signal = fig_map_snr.add_subplot(gs0[1])
+        ax_signal.set_ylabel('Fluorescence (arb. u.)')
+        ax_signal.set_xlabel('Time (ms)')
+        ax_signal.spines['right'].set_visible(False)
+        ax_signal.spines['top'].set_visible(False)
+        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
+        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='major', length=8)
+        ax_signal.tick_params(axis='y', labelsize=fontsize3)
+        ax_signal.xaxis.set_major_locator(plticker.MultipleLocator(25))
+        ax_signal.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+
+        gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
+        ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
+        ax_frame.set_title('{}\n({}. {})'
+                           .format(self.file_name, self.prep, self.process))
+        ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
+        for ax in [ax_frame, ax_map]:
+            ax.tick_params(axis='x', labelsize=fontsize4)
+            ax.tick_params(axis='y', labelsize=fontsize4)
+
+        # Calculate the activation map, returns timestamps
+        analysis_map = map_tran_analysis(self.stack, calc_tran_duration, self.time)
+        # Exclusion criteria
+        for iy, ix in np.ndindex(analysis_map.shape):
+            if analysis_map[iy, ix] < DUR_MIN:
+                analysis_map[iy, ix] = np.nan
+
+        map_flat = analysis_map.flatten()
+        map_min = np.nanmin(analysis_map)
+        map_max = np.nanmax(analysis_map)
+        map_min_display = 0
+        map_max_tran = map_min_display + TRAN_MAX
+        map_max_display = int(round(map_max_tran + 5.1, -1))
+        print('Map min value: ', map_min)
+        print('Map max value: ', map_max)
+        ax_map.set_title('CAD80 Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
+
+        # Frame from prepped stack
+        cmap_frame = SCMaps.grayC.reversed()
+        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(), vmax=self.stack_real_frame.max())
+        img_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)
+        # img_frame = ax_frame.imshow(self.stack_real_full[frame_num, :, :], cmap=cmap_frame)
+        # Cropped
+        # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
+        #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
+        # signal trace and location on frame
+        signal_x_real, signal_y_real = \
+            (int(self.stack_real_frame.shape[1] / 2),
+             int(self.stack_real_frame.shape[0] / 2))  # center of real stack
+        signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))
+        points_lw = 3
+        # signal_r = self.kernel / 2
+        signal = self.stack[:, signal_y, signal_x]
+        ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
+
+        frame_signal = Rectangle((signal_x_real - int(self.kernel), signal_y_real - int(self.kernel)),
+                                 self.kernel, self.kernel,
+                                 fc=colors_times['Downstroke'], ec=colors_times['Downstroke'],
+                                 lw=points_lw)
+        # frame_signal_spot = Circle((signal_x, signal_y), 3,
+        #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
+        ax_frame.add_artist(frame_signal)
+        # signal duration
+        i_activation = find_tran_act(signal)  # 1st df max, Activation
+        duration = calc_tran_duration(signal)
+        # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
+        #                color=colors_times['Downstroke'], label='Downstroke')
+        ax_signal.axhline(y=signal[i_activation + duration],
+                          xmin=self.time[i_activation]/max(self.time),
+                          xmax=self.time[i_activation + duration]/max(self.time),
+                          color=colors_times['Downstroke'], linewidth=1,
+                          label='Downstroke')
+        # add colorbar (lower right of frame)
+        ax_ins_img = inset_axes(ax_frame, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_frame.transAxes,
+                                borderpad=0)
+        cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+
+        # Duration Map
+        img_map_frame = ax_map.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
+        #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
+        cmap_norm_duration = colors.Normalize(vmin=map_min_display,
+                                              vmax=map_max_display)
+        img_map = ax_map.imshow(analysis_map, norm=cmap_norm_duration, cmap=cmap_duration)
+
+        # Add colorbar (right of map)
+        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
+                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map.transAxes,
+                                 borderpad=0)
+        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
+        cbar.ax.set_xlabel('ms', fontsize=fontsize3)
+        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(20))
+        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
+        cbar.ax.tick_params(labelsize=fontsize3)
+
+        # Histogram/Violin plot of analysis values (along left side of colorbar)
+        ax_map_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
+                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                 borderpad=0)
+        [s.set_visible(False) for s in ax_map_hist.spines.values()]
+        # TODO try combos of histogram, swarm, and violin
+        ax_map_hist.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                         orientation='horizontal', color='gray')
+        # ax_act_hist.violinplot(map_flat)
+        # print('Generating swarmplot ... ')
+        # sns.swarmplot(ax=ax_map_hist, data=map_flat,
+        #               size=1, color='k', alpha=0.7)  # and slightly transparent
+
+        ax_map_hist.set_ylim([map_min_display, map_max_display])
+        ax_map_hist.set_yticks([])
+        ax_map_hist.set_yticklabels([])
+        ax_map_hist.invert_xaxis()
+        ax_map_hist.set_xticks([])
+        ax_map_hist.set_xticklabels([])
+
+        fig_map_snr.savefig(dir_integration + '/results/integration_MapDuration_NEW.png')
         fig_map_snr.show()
 
 
