@@ -42,7 +42,7 @@ def find_tran_peak(signal_in, props=False):
     signal_range = signal_bounds[1] - signal_bounds[0]
     unique, counts = np.unique(signal_in, return_counts=True)
 
-    if len(unique) < 5:    # signal is too flat to have a valid peak
+    if len(unique) < 10:    # signal is too flat to have a valid peak
         if props:
             return np.nan, np.nan
         else:
@@ -71,6 +71,11 @@ def find_tran_baselines(signal_in, peak_side='left'):
     signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak (roughly)
     i_peaks, properties = find_tran_peak(signal_in, props=True)
+    if i_peaks is np.nan:
+        return np.nan
+    # if type(i_peaks) is float:
+    #     raise ArithmeticError('float i_peaks is: \'{}\' for signal with range: '
+    #                           .format(i_peaks, signal_range))
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
     # use the prominence of the peak and the activation time to find a "rough" baseline
