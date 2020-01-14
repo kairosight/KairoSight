@@ -214,10 +214,12 @@ class TestMaskGenerate(unittest.TestCase):
         # Load data to test with
         # file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
         # file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
-        file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
-        file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        self.file_name, self.file_stack = file_name_pig, file_stack_pig
-        self.stack_real_full, self.stack_real_meta = open_stack(source=file_stack_pig)
+        # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        file_name_rat = '2020/01/09 rata-05, PCL 200ms'
+        file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
+        self.file_name, self.file_stack = file_name_rat, file_stack_rat
+        self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
 
         # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
         # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
@@ -312,7 +314,7 @@ class TestMaskGenerate(unittest.TestCase):
         img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
-        fig_mask.savefig(dir_unit + '/results/prep_Mask_NEW.png')
+        fig_mask.savefig(dir_unit + '/results/prep_Mask_RatNEW.png')
         fig_mask.show()
 
 
