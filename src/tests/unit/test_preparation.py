@@ -1,4 +1,5 @@
 import unittest
+from memory_profiler import profile
 from util.datamodel import *
 from util.preparation import *
 import sys
@@ -200,9 +201,19 @@ class TestCropDual(unittest.TestCase):
     def setUp(self):
         # Load data to test with
         file_name_rat = '2020/01/09 rata-02, PCL 350ms'
-        file_stack_rat = dir_tests + '/data/20200109-rata/02-350_1-100.tif'
-        self.file_name, self.file_stack = file_name_rat, file_stack_rat
-        self.stack_full, self.stack_meta = open_stack(source=self.file_stack)
+        self.file = '02-350_1-100'
+        extension = '.tif'
+        file_stack_rat = dir_tests + '/data/20200109-rata/' + self.file + extension
+
+        # # # for real cropping
+        # self.file = '05-200'
+        # extension = '.pcoraw'
+        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+
+        self.file_path = file_stack_rat
+        print('Opening stack ...')
+        self.stack_full, self.stack_meta = open_stack(source=self.file_path)
+        print('DONE Opening stack\n')
         self.stack_frame = self.stack_full[0, :, :]  # frame from stack
 
         # Crop twice for each: once from the bottom/right, once for top/left
@@ -210,11 +221,11 @@ class TestCropDual(unittest.TestCase):
         shape_in = (self.stack_full.shape[2], self.stack_full.shape[1])
         shape_out = (680, 680)
         vm_x0, vm_y0 = (130, 110)
-        self.crop_vm_1 = (shape_in[0] - (shape_out[1] + vm_x0), shape_in[1] - (shape_out[0] + vm_y0))
+        self.crop_vm_1 = (shape_in[0] - (shape_out[0] + vm_x0), shape_in[1] - (shape_out[1] + vm_y0))
         self.crop_vm_2 = (-vm_x0, -vm_y0)
 
         ca_x0, ca_y0 = (1050, 110)
-        self.crop_ca_1 = (shape_in[0] - (shape_out[1] + ca_x0), shape_in[1] - (shape_out[0] + ca_y0))
+        self.crop_ca_1 = (shape_in[0] - (shape_out[0] + ca_x0), shape_in[1] - (shape_out[1] + ca_y0))
         self.crop_ca_2 = (-ca_x0, -ca_y0)
 
     def test_plot(self):
@@ -256,7 +267,7 @@ class TestCropDual(unittest.TestCase):
         cmap_in_norm = colors.Normalize(vmin=self.stack_frame.min(), vmax=self.stack_frame.max())
         img_in = axis_in.imshow(self.stack_frame, norm=cmap_in_norm, cmap=cmap_frames)
         vm_region = Rectangle((-self.crop_vm_2[0], -self.crop_vm_2[1]),
-                              frame_vm.shape[0], frame_vm.shape[1],
+                              frame_vm.shape[1], frame_vm.shape[0],
                               fill=False, ec=color_vm, lw=1)
         axis_in.add_artist(vm_region)
         ca_region = Rectangle((-self.crop_ca_2[0], -self.crop_ca_2[1]),
@@ -300,16 +311,25 @@ class TestCropDual(unittest.TestCase):
         fig_crop.savefig(dir_unit + '/results/prep_CropDual.png')
         fig_crop.show()
 
+    @profile
     def test_save(self):
         # Make sure dual-image files are cropped correctly
+        print('Cropping Vm ...')
         stack_vm_dirty = crop_stack(self.stack_full, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
         stack_vm = crop_stack(stack_vm_dirty, d_x=self.crop_vm_2[0], d_y=self.crop_vm_2[1])
 
+        print('Cropping Ca ...')
         stack_ca_dirty = crop_stack(self.stack_full, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
         stack_ca = crop_stack(stack_ca_dirty, d_x=self.crop_ca_2[0], d_y=self.crop_ca_2[1])
 
-        volwrite(dir_unit + '/results/prep_CropDual_Vm.tif', stack_vm)
-        volwrite(dir_unit + '/results/prep_CropDual_Ca.tif', stack_ca)
+        # volwrite(dir_unit + '/results/prep_CropDual_Vm.tif', stack_vm)
+        # volwrite(dir_unit + '/results/prep_CropDual_Ca.tif', stack_ca)
+
+        print('Saving Vm ...')
+        volwrite(dir_tests + '/data/20200109-rata/baseline/' + self.file + '_Vm.tif', stack_vm)
+        print('Saving Ca ...')
+        volwrite(dir_tests + '/data/20200109-rata/baseline/' + self.file + '_Ca.tif', stack_ca)
+        print('DONE Cropping Dual\n')
 
 
 class TestMaskGenerate(unittest.TestCase):
@@ -350,6 +370,7 @@ class TestMaskGenerate(unittest.TestCase):
         self.stack1, self.meta1 = open_stack(source=self.file_stack)
         self.frame1 = self.stack1[10, :, :]
 
+    @profile
     def test_params(self):
         # Make sure type errors are raised when necessary
         # frame_in : ndarray, 2-D array (Y, X)

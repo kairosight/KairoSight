@@ -176,15 +176,16 @@ def crop_stack(stack_in, d_x, d_y):
     if type(d_y) is not int:
         raise TypeError('Y pixels to crop must be an "int"')
 
-    stack_out = stack_in.copy()
+    # stack_out = stack_in.copy()
 
     if (d_x > 0) and (d_y > 0):
-        stack_out = stack_out[:, 0:-d_y, 0:-d_x]
+        stack_out = stack_in[:, 0:-d_y, 0:-d_x]
     else:
         if d_x < 0:
-            stack_out = stack_out[:, :, -d_x:]
+            stack_out = stack_in[:, :, -d_x:]
+            stack_in = stack_out
         if d_y < 0:
-            stack_out = stack_out[:, -d_y:, :]
+            stack_out = stack_in[:, -d_y:, :]
 
     return stack_out
 
