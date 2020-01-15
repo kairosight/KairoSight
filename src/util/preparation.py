@@ -1,7 +1,8 @@
 import os
 from math import floor
 import numpy as np
-from imageio import volread, get_reader
+from pathlib import Path, PurePath
+from imageio import volread, volwrite, get_reader
 from skimage.util import img_as_uint, img_as_float
 from skimage.filters import sobel, rank, threshold_otsu, threshold_mean, threshold_minimum
 from skimage.segmentation import felzenszwalb, slic, quickshift, watershed, random_walker
@@ -70,7 +71,7 @@ def open_signal(source, fps=500):
 
 
 def open_stack(source, meta=None):
-    """Open a stack of images from a file containing one signal source or channel.
+    """Open a stack of images (.tif, .tiff, .pcoraw) from a file containing.
 
        Parameters
        ----------
@@ -85,6 +86,11 @@ def open_stack(source, meta=None):
             A 3-D array (T, Y, X) of optical data, 16-bit
        meta : dict
             A dict of metadata
+
+        Notes
+        -----
+            Files with .pcoraw extension are converted and saved as .tif.
+            Expecting volume dimension order XYCZT
        """
     # Check parameter types
     if type(source) not in [str]:
@@ -99,8 +105,17 @@ def open_stack(source, meta=None):
     if meta and not os.path.isfile(meta):
         raise FileNotFoundError('Optional "meta" ' + meta + ' is not a file or does not exist.')
 
+    # If a .pcoraw file, convert to .tiff
+    f_purepath = PurePath(source)
+    f_ext = f_purepath.suffix
+    if f_ext == '.pcoraw':
+        p = Path(source)
+        p.rename(p.with_suffix('.tif'))
+        source = os.path.splitext(source)[0] + '.tif'
+        print('* .pcoraw covnerted to a .tif')
+
     # Open the metadata, if provided
-    stack_meta = get_reader(source).get_meta_data()
+    stack_meta = get_reader(source, mode='v').get_meta_data()
     # Open the file
     # file_source = open(source, 'rb')
     # tags = exifread.process_file(file)  # Read EXIF data
@@ -130,7 +145,8 @@ def crop_frame(frame_in, d_x, d_y):
 
 
 def crop_stack(stack_in, d_x, d_y):
-    """Crop a stack (3-D array, TYX) of optical data.
+    """Crop a stack (3-D array, TYX) of optical data,
+    by default removes from right and bottom.
 
        Parameters
        ----------

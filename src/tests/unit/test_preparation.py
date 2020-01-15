@@ -5,6 +5,10 @@ import sys
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
+import matplotlib.colors as colors
+from matplotlib.patches import Circle, Rectangle
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
 
 # File paths needed for tests
@@ -185,10 +189,127 @@ class TestCropStack(unittest.TestCase):
 
         axis_in.set_ylabel('{} px'.format(frame_in.shape[1]), fontsize=fontsize3)
         axis_in.set_xlabel('{} px'.format(frame_in.shape[0]), fontsize=fontsize3)
+
         axis_crop.set_ylabel('{} px'.format(frame_crop.shape[1]), fontsize=fontsize3)
-        axis_crop.set_xlabel('{} px'.format(frame_crop.shape[1]), fontsize=fontsize3)
+        axis_crop.set_xlabel('{} px'.format(frame_crop.shape[0]), fontsize=fontsize3)
 
         fig_crop.show()
+
+
+class TestCropDual(unittest.TestCase):
+    def setUp(self):
+        # Load data to test with
+        file_name_rat = '2020/01/09 rata-02, PCL 350ms'
+        file_stack_rat = dir_tests + '/data/20200109-rata/02-350_1-100.tif'
+        self.file_name, self.file_stack = file_name_rat, file_stack_rat
+        self.stack_full, self.stack_meta = open_stack(source=self.file_stack)
+        self.stack_frame = self.stack_full[0, :, :]  # frame from stack
+
+        # Crop twice for each: once from the bottom/right, once for top/left
+        # Size of resulting stacks: 680 x 680
+        shape_in = (self.stack_full.shape[2], self.stack_full.shape[1])
+        shape_out = (680, 680)
+        vm_x0, vm_y0 = (130, 110)
+        self.crop_vm_1 = (shape_in[0] - (shape_out[1] + vm_x0), shape_in[1] - (shape_out[0] + vm_y0))
+        self.crop_vm_2 = (-vm_x0, -vm_y0)
+
+        ca_x0, ca_y0 = (1050, 110)
+        self.crop_ca_1 = (shape_in[0] - (shape_out[1] + ca_x0), shape_in[1] - (shape_out[0] + ca_y0))
+        self.crop_ca_2 = (-ca_x0, -ca_y0)
+
+    def test_plot(self):
+        # Make sure dual-image files are cropped correctly
+        stack_vm_dirty = crop_stack(self.stack_full, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
+        stack_vm = crop_stack(stack_vm_dirty, d_x=self.crop_vm_2[0], d_y=self.crop_vm_2[1])
+        frame_vm = stack_vm[0, :, :]
+
+        stack_ca_dirty = crop_stack(self.stack_full, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
+        stack_ca = crop_stack(stack_ca_dirty, d_x=self.crop_ca_2[0], d_y=self.crop_ca_2[1])
+        frame_ca = stack_ca[0, :, :]
+
+        # Plot a frame from the input stack and cropped stacks
+        fig_crop = plt.figure(figsize=(8, 5))  # _ x _ inch page
+        gs0 = fig_crop.add_gridspec(2, 1, height_ratios=[0.4, 0.6])  # 2 rows, 1 column
+        gs_crops = gs0[1].subgridspec(1, 2, wspace=0.2)  # 1 row, 2 columns
+
+        axis_in = fig_crop.add_subplot(gs0[0])
+        axis_vm = fig_crop.add_subplot(gs_crops[0])
+        axis_ca = fig_crop.add_subplot(gs_crops[1])
+
+        # Common between the two
+        for ax in [axis_in, axis_vm, axis_ca]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        # fig_crop.suptitle('Cropping ({} X {})'.format(frame_vm.shape[0], frame_vm.shape[1]))
+        axis_in.set_title('Input stack')
+        axis_vm.set_title('Cropped Vm stack')
+        axis_ca.set_title('Cropped Ca stack')
+
+        # Plot a frame from each stack
+        cmap_frames = SCMaps.grayC.reversed()
+        cmap_in_norm = colors.Normalize(vmin=self.stack_frame.min(), vmax=self.stack_frame.max())
+        img_in = axis_in.imshow(self.stack_frame, norm=cmap_in_norm, cmap=cmap_frames)
+        vm_region = Rectangle((-self.crop_vm_2[0], -self.crop_vm_2[1]),
+                              frame_vm.shape[0], frame_vm.shape[1],
+                              fill=False, ec=color_vm, lw=1)
+        axis_in.add_artist(vm_region)
+        ca_region = Rectangle((-self.crop_ca_2[0], -self.crop_ca_2[1]),
+                              frame_ca.shape[0], frame_ca.shape[1],
+                              fill=False, ec=color_ca, lw=1)
+        axis_in.add_artist(ca_region)
+
+        # Vm frame
+        cmap_vm_norm = colors.Normalize(vmin=stack_vm.min(), vmax=stack_vm.max())
+        img_vm = axis_vm.imshow(frame_vm, norm=cmap_vm_norm, cmap=cmap_frames)
+        # add colorbar (lower right of frame)
+        ax_ins_img = inset_axes(axis_vm, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=axis_vm.transAxes,
+                                borderpad=0)
+        cb_img = plt.colorbar(img_vm, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+
+        # Ca frame
+        cmap_ca_norm = colors.Normalize(vmin=frame_ca.min(), vmax=frame_ca.max())
+        img_ca = axis_ca.imshow(frame_ca, norm=cmap_ca_norm, cmap=cmap_frames)
+        # add colorbar (lower right of frame)
+        ax_ins_img = inset_axes(axis_ca, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=axis_ca.transAxes,
+                                borderpad=0)
+        cb_img = plt.colorbar(img_ca, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+
+        axis_in.set_ylabel('{} px'.format(self.stack_frame.shape[0]), fontsize=fontsize3)
+        axis_in.set_xlabel('{} px'.format(self.stack_frame.shape[1]), fontsize=fontsize3)
+        axis_vm.set_ylabel('{} px'.format(frame_vm.shape[0]), fontsize=fontsize3)
+        axis_vm.set_xlabel('{} px'.format(frame_vm.shape[1]), fontsize=fontsize3)
+        axis_ca.set_ylabel('{} px'.format(frame_ca.shape[0]), fontsize=fontsize3)
+        axis_ca.set_xlabel('{} px'.format(frame_ca.shape[1]), fontsize=fontsize3)
+
+        fig_crop.savefig(dir_unit + '/results/prep_CropDual.png')
+        fig_crop.show()
+
+    def test_save(self):
+        # Make sure dual-image files are cropped correctly
+        stack_vm_dirty = crop_stack(self.stack_full, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
+        stack_vm = crop_stack(stack_vm_dirty, d_x=self.crop_vm_2[0], d_y=self.crop_vm_2[1])
+
+        stack_ca_dirty = crop_stack(self.stack_full, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
+        stack_ca = crop_stack(stack_ca_dirty, d_x=self.crop_ca_2[0], d_y=self.crop_ca_2[1])
+
+        volwrite(dir_unit + '/results/prep_CropDual_Vm.tif', stack_vm)
+        volwrite(dir_unit + '/results/prep_CropDual_Ca.tif', stack_ca)
 
 
 class TestMaskGenerate(unittest.TestCase):

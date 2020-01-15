@@ -349,7 +349,7 @@ class TestMapAnalysis(unittest.TestCase):
         _, self.mask_out = mask_generate(self.frame_bright, mask_type)
         stack_out = mask_apply(stack_out, self.mask_out)
 
-        # # Crop (to be _X x _Y)
+        # # Crop (to size of _ X _)
         # new_width, new_height = int(300 / self.reduction), int(300 / self.reduction)
         # d_x, d_y = int(-127 / self.reduction), int(-154 / self.reduction)  # coordinates of top left corner
         # # must crop un-prepped frame, prepped stack, and mask
