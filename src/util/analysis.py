@@ -328,7 +328,7 @@ def calc_tran_di(signal_in):
 
         Notes
         -----
-            Should not be applied to signal data containing at least one transient.
+            Should not be applied to signal data containing only 1 transient.
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -508,6 +508,10 @@ def calc_ensemble(time_in, signal_in):
             The indexes of peaks from signal_in used
         est_cycle : float
             Estimated cycle length (ms) of transients in signal_in
+
+        Notes
+        -----
+            Normalizes signal from 0-1 in the process
         """
     # Check parameters
     if type(time_in) is not np.ndarray:
@@ -529,17 +533,19 @@ def calc_ensemble(time_in, signal_in):
                             distance=20)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
-    if len(i_peaks) > 1:
-        # raise ArithmeticError('{} peaks detected at {} for a single given transient'.format(len(i_peaks), i_peaks))
-        print('{} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+    if len(i_peaks) > 3:
+        print('* {} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
     else:
         raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
+    # do not use the first and last peaks
+    i_peaks = i_peaks[1:-1]
+    # Split up the signal using peaks and estimated cycle length
     est_cycle = np.diff(i_peaks).astype(float)
     est_cycle_i = np.nanmean(est_cycle)
     est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
     est_cycle_i = np.floor(est_cycle_i).astype(int)
-    cycle_shift = min(i_peaks[0], np.floor(est_cycle_i / 2).astype(int))
+    cycle_shift = np.floor(est_cycle_i / 2).astype(int)
 
     signal_time = time_in[0: est_cycle_i]
     signals_trans_peak = []
@@ -560,9 +566,6 @@ def calc_ensemble(time_in, signal_in):
 
     # With that peak detection, find activation times and align transient
     for act_num, signal in enumerate(signals_trans_peak):
-        # skip the first (often messy baseline)
-        if act_num == 0:
-            continue
         # i_start_signal = find_tran_start(signal)
         signal = normalize_signal(signal)
         i_act_signal = find_tran_act(signal)
@@ -589,10 +592,45 @@ def calc_ensemble(time_in, signal_in):
 
     # use the mean of all signals (except the last)
     # TODO try a rms calculation instead of a mean
-    signal_out = np.nanmean(signals_trans_act[:-1], axis=0)
-    signals = signals_trans_act[:-1]
-    i_peaks = i_peaks[:-1]
+    signal_out = np.nanmean(signals_trans_act, axis=0)
+    signals = signals_trans_act
     # signal_out = np.nanmean(signals_trans_act, axis=0)
     # signals = signals_trans_act
 
     return signal_time, signal_out, signals, i_peaks, est_cycle
+
+
+def calc_ensemble_stack(stack_in):
+    """Convert a stack from pixels with multiple transients to those with an averaged signal,
+    segmented by activation times. Discards the first and last transients.
+
+        Parameters
+        ----------
+        stack_in : ndarray
+            A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
+
+        Returns
+        -------
+        stack_out : ndarray
+             A spatially isolated 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
+
+        Notes
+        -----
+            Should not be applied to signal data containing at least one transient.
+        """
+
+    print('Ensembling a stack ...')
+    stack_out = np.empty_like(stack_in)
+    map_shape = stack_in.shape[1:]
+    # Assign a value to each pixel
+    for iy, ix in np.ndindex(map_shape):
+        print('\r\tEnsemble of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
+              end='', flush=True)
+        pixel_data = stack_in[:, iy, ix]
+        pixel_data_ens = calc_ensemble(pixel_data)
+        stack_out[:, iy, ix] = pixel_data_ens
+
+    print('\nDONE Ensembling stack')
+
+    return stack_out
+

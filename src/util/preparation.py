@@ -72,7 +72,7 @@ def open_signal(source, fps=500):
 
 
 def open_stack(source, meta=None):
-    """Open a stack of images (.tif, .tiff, .pcoraw) from a file containing.
+    """Open a stack of images (.tif, .tiff, .pcoraw) from a file.
 
        Parameters
        ----------
@@ -100,7 +100,11 @@ def open_stack(source, meta=None):
         raise TypeError('Optional "meta" ' + meta + ' parameter must be a string')
 
     # Check validity
-    # Make sure the source is an existing file
+    # Make sure the directory, source file, and optional meta file exists
+
+    if not os.path.isdir(os.path.split(source)[0]):
+        raise FileNotFoundError('Required directory ' + os.path.split(source)[0]
+                                + ' is not a directory or does not exist.')
     if not os.path.isfile(source):
         raise FileNotFoundError('Required "source" ' + source + ' is not a file or does not exist.')
     if meta and not os.path.isfile(meta):

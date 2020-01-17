@@ -3,9 +3,9 @@ import unittest
 from matplotlib.patches import Circle, ConnectionPatch
 
 from util.datamodel import *
-from util.analysis import *
-from util.preparation import open_signal
+from util.preparation import *
 from util.processing import *
+from util.analysis import *
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -590,22 +590,51 @@ class TestEnsemble(unittest.TestCase):
         self.signal_f0 = 1000
         self.signal_famp = 100
         self.signal_fps = 500
-        self.signal_noise = 5  # as a % of the signal amplitude
         self.signal_num = 'full'
         self.signal_cl = 150
-
+        self.signal_noise = 5  # as a % of the signal amplitude
+        # trace
         self.time_vm, self.signal_vm = \
             model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
                              f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
                              num=self.signal_num, cl=self.signal_cl)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+        # # stack
+        # self.d_noise = 45  # as a % of the signal amplitude
+        # self.time_stack, self.stack_ca = \
+        #     model_stack_heart(model_type='Ca', d_noise=self.d_noise,
+        #                       t=self.signal_t, t0=self.signal_t0,
+        #                       f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+        #                       num=self.signal_num, cl=self.signal_cl)
 
-        # Import real data
-        file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
-        file_name_pig = '2019/03/22 pigb-01-Ca'
-        self.file_name, file_signal = file_name_pig, file_signal_pig
-        self.file_cl = '350'
-        self.time_real, self.signal_real = open_signal(source=file_signal, fps=404)
+        # # Import real data
+        # # trace
+        # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
+        # file_name_pig = '2019/03/22 pigb-01-Ca'
+        # self.file_name, file_signal = file_name_pig, file_signal_pig
+        # self.file_cl = '350'
+        # self.time_real, self.signal_real = open_signal(source=file_signal, fps=404)
+        #
+        # # real stack
+        # self.file = '02-350_ca'
+        # extension = '.tif'
+        # fps = 500
+        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+        # self.file_path = file_stack_rat
+        # print('Opening stack ...')
+        # self.stack_real, self.stack_meta = open_stack(source=self.file_path)
+        # print('DONE Opening stack\n')
+        # self.stack_frame = self.stack_real[0, :, :]  # frame from stack
+        #
+        # # Generate array of timestamps
+        # FRAMES = self.stack_real.shape[0]
+        # FPMS = fps / 1000
+        # FINAL_T = floor(FRAMES / FPMS)
+        # self.stack_time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+        #
+        # # real stack trace
+        # self.stack_real_trace_X, self.stack_real_trace_Y = 400, 300
+        # self.stack_real_trace = self.stack_real[:, self.stack_real_trace_Y, self.stack_real_trace_X]
 
     def test_params(self):
         time_bad_type = np.full(100, True)
@@ -646,7 +675,7 @@ class TestEnsemble(unittest.TestCase):
         self.assertIsInstance(est_cycle, float)  # estimated cycle length (ms) of ensemble
         self.assertAlmostEqual(est_cycle, self.signal_cl, delta=5)  #
 
-    def test_plot(self):
+    def test_trace(self):
         # Make sure ensembled transient looks correct
         time_ensemble, signal_ensemble, signals, signal_peaks, est_cycle_length = calc_ensemble(self.time, self.signal)
 
@@ -673,8 +702,8 @@ class TestEnsemble(unittest.TestCase):
                        linestyle='None', marker='+', label='Ca pixel data')
         ax_signal.plot(self.time[signal_peaks], self.signal[signal_peaks],
                        "x", color=colors_times['Peak'], markersize=10, label='Peaks')
-        ax_signal.plot(self.time[last_baselines], self.signal[last_baselines],
-                       "x", color=colors_times['Peak'], label='Baselines')
+        # ax_signal.plot(self.time[last_baselines], self.signal[last_baselines],
+        #                "x", color=colors_times['Peak'], label='Baselines')
 
         ax_ensemble.spines['right'].set_visible(False)
         ax_ensemble.spines['top'].set_visible(False)
@@ -737,14 +766,14 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         # Text: Conditions
-        ax_ensemble.text(0.75, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
+        ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.6, 'SNR actual: {}'.format(snr_model),
+        ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # Text: Cycles
-        ax_ensemble.text(0.75, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
+        ax_ensemble.text(0.72, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
+        ax_ensemble.text(0.72, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # Stats: SNRs
         snr_old = round(np.mean(signal_snrs), 3)
@@ -755,9 +784,9 @@ class TestEnsemble(unittest.TestCase):
         # Text
         ax_ensemble.plot(time_ensemble[ir_noise_new], signal_ensemble[ir_noise_new],
                          ".", color=gray_heavy, markersize=15, label='Noise')
-        ax_ensemble.text(0.75, 0.35, 'SNR detected: {}'.format(snr_old),
+        ax_ensemble.text(0.72, 0.35, 'SNR detected: {}'.format(snr_old),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.3, 'SNR ensembled: {}'.format(snr_new),
+        ax_ensemble.text(0.72, 0.3, 'SNR ensembled: {}'.format(snr_new),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
 
         # # Activation error bar
@@ -771,10 +800,79 @@ class TestEnsemble(unittest.TestCase):
         # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
         fig_ensemble.show()
 
-    def test_plot_real(self):
-        # Make sure ensembled transient looks correct
+    def test_stack(self):
+        # Make sure filtered stack signals looks correct
+        signal_x, signal_y = (int(self.WIDTH / 3), int(self.HEIGHT / 3))
+        signal_r = self.kernel / 2
+        # Filter a noisy stack
+        stack_filtered = np.empty_like(self.stack_noisy_ca)
+        for idx, frame in enumerate(self.stack_noisy_ca):
+            f_filtered = filter_spatial(frame, filter_type=self.filter_type)
+            stack_filtered[idx, :, :] = f_filtered
+        frame_filtered = stack_filtered[self.frame_num]
+
+        # General layout
+        fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
+        gs0 = fig_filter_traces.add_gridspec(1, 3)  # 1 row, 3 columns
+        titles = ['Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
+                  'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel),
+                  'Model Data']
+        # Create normalization colormap range for all frames (round up to nearest 10)
+        cmap_frames = SCMaps.grayC.reversed()
+        frames_min, frames_max = 0, 0
+        for idx, frame in enumerate([self.frame_noisy_ca, frame_filtered, self.frame_ideal_ca]):
+            frames_min = min(frames_max, np.nanmin(frame))
+            frames_max = max(frames_max, np.nanmax(frame))
+            cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
+                                         vmax=round(frames_max + 5.1, -1))
+
+        # Plot the frame and a trace from the stack
+        for idx, stack in enumerate([self.stack_noisy_ca, stack_filtered, self.stack_ideal_ca]):
+            frame = stack[self.frame_num]
+            signal = stack[:, signal_y, signal_x]
+            gs_frame_signal = gs0[idx].subgridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 columns
+            ax_frame = fig_filter_traces.add_subplot(gs_frame_signal[0])
+            # Frame image
+            ax_frame.set_title(titles[idx], fontsize=fontsize2)
+            img_frame = ax_frame.imshow(frame, cmap=cmap_frames, norm=cmap_norm)
+            ax_frame.set_yticks([])
+            ax_frame.set_yticklabels([])
+            ax_frame.set_xticks([])
+            ax_frame.set_xticklabels([])
+            frame_signal_rect = Rectangle((signal_x - signal_r, signal_y - signal_r),
+                                          width=signal_r * 2, height=signal_r * 2,
+                                          fc=gray_med, ec=gray_heavy, lw=1, linestyle='--')
+            ax_frame.add_artist(frame_signal_rect)
+            if idx is len(titles) - 1:
+                # Add colorbar (right of frame)
+                ax_ins_filtered = inset_axes(ax_frame, width="5%", height="80%", loc=5, bbox_to_anchor=(0.15, 0, 1, 1),
+                                             bbox_transform=ax_frame.transAxes, borderpad=0)
+                cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
+                cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
+                cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+                cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+                cb_filtered.ax.tick_params(labelsize=fontsize3)
+            # Signal trace
+            ax_signal = fig_filter_traces.add_subplot(gs_frame_signal[1])
+            ax_signal.set_xlabel('Time (ms)')
+            ax_signal.set_yticks([])
+            ax_signal.set_yticklabels([])
+            # Common between the two
+            for ax in [ax_frame, ax_signal]:
+                ax.spines['right'].set_visible(False)
+                ax.spines['left'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+            ax_signal.plot(self.time_noisy_ca, signal, color=gray_heavy, linestyle='None', marker='+')
+
+        # fig_filter_traces.savefig(dir_unit + '/results/processing_SpatialFilter_Trace.png')
+        fig_filter_traces.show()
+
+    def test_real_trace(self):
+        # Make sure ensemble of a trace looks correct
         time_ensemble, signal_ensemble, signals, signal_peaks, est_cycle_length = \
-            calc_ensemble(self.time_real, self.signal_real)
+            calc_ensemble(self.stack_time_real, self.stack_real_trace)
+            # calc_ensemble(self.time_real, self.signal_real)
 
         last_baselines = find_tran_baselines(signals[-1])
 
@@ -895,14 +993,19 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Real.png')
+        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Real.png')
         fig_ensemble.show()
 
-    # def test_plot_real(self):
-    #     file_name_pig = '2019/03/22 pigb-01-Ca, PCL 150ms'
-    #     file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
-    #     file_name, file_signal = file_name_pig, file_signal_pig
-    #     time, signal = open_signal(source=file_signal)
+    # def test_stack(self):
+    #     # Make sure ensemble of a model stack looks correct
+
+
+    # def test_real_stack(self):
+    #     # Make sure ensemble of a real stack looks correct
+    # #     file_name_pig = '2019/03/22 pigb-01-Ca, PCL 150ms'
+    # #     file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
+    # #     file_name, file_signal = file_name_pig, file_signal_pig
+    # #     time, signal = open_signal(source=file_signal)
 
 
 class TestMapAnalysis(unittest.TestCase):
