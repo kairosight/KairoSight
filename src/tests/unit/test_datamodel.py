@@ -1,5 +1,5 @@
 import unittest
-from util.datamodel import model_transients, model_stack, model_stack_propagation, circle_area, model_transients_pig
+from util.datamodel import *
 from pathlib import Path
 import time
 from math import pi
@@ -398,6 +398,65 @@ class TestModelStackPropagation(unittest.TestCase):
         volwrite(dir_unit + '/results/ModelStackPropagationSNR_vm.tif', data_vm)
         time_ca, data_ca = model_stack_propagation(model_type='Ca', d_noise=10, noise=5, num='full')
         volwrite(dir_unit + '/results/ModelStackPropagationSNR_ca.tif', data_ca)
+
+
+class TestModelStackHeart(unittest.TestCase):
+    def setUp(self):
+        # Create data to test with, a propagating stack of varying SNR (highest in the center)
+        self.size = (100, 100)
+        self.d_noise = 45  # as a % of the signal amplitude
+        self.signal_t = 500
+        self.signal_t0 = 100
+        self.signal_f0 = 1000
+        self.signal_famp = 500
+        self.signal_num = 'full'
+        self.signal_cl = 100
+        self.signal_noise = 5  # as a % of the signal amplitude
+
+        self.time_vm, self.stack_vm = \
+            model_stack_heart(size=self.size, d_noise=self.d_noise,
+                              t=self.signal_t, t0=self.signal_t0,
+                              f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+                              num=self.signal_num, cl=self.signal_cl)
+        self.time_ca, self.stack_ca = \
+            model_stack_heart(model_type='Ca', size=self.size, d_noise=self.d_noise,
+                              t=self.signal_t, t0=self.signal_t0,
+                              f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+                              num=self.signal_num, cl=self.signal_cl)
+
+    def test_params(self):
+        # Make sure type errors are raised when necessary
+        self.assertRaises(TypeError, model_stack_heart, size=20)  # size must be a tuple, e.g. (100, 50)
+        self.assertRaises(TypeError, model_stack_heart, velocity='50')
+        self.assertRaises(TypeError, model_stack_heart, snr='10')
+        # Make sure parameters are valid, and valid errors are raised when necessary
+        self.assertRaises(ValueError, model_stack_heart, size=(20, 5))  # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack_heart, size=(5, 20))  # no size > (10, 10)
+        self.assertRaises(ValueError, model_stack_heart, velocity=4)  # no velocity > 5
+        self.assertRaises(ValueError, model_stack_heart, t=90)  # no t < 100
+
+    def test_results(self):
+        # Make sure model stack results are valid
+        self.assertIsInstance(model_stack_heart(), tuple)  # results returned as a tuple
+        self.assertEqual(len(model_stack_heart()), 2)  # time and data arrays returned
+        stack_time, stack_data = model_stack_heart()
+        self.assertEqual(stack_time.size, stack_data.shape[0])
+
+        # Test the returned time array
+        self.assertEqual(stack_time.size, 150)  # default velocity of 20 -> t of 150
+        self.assertGreaterEqual(stack_time.all(), 0)  # no negative times
+
+        # Test the returned data array
+        self.assertEqual(stack_data.shape, (150, 100, 50))  # default dimensions (T, Y, X)
+        self.assertGreaterEqual(stack_data.all(), 0)  # no negative values
+        self.assertLess(stack_data.all(), 2 ** 16)  # no values >= 16-bit max
+        stackSize_time, stackSize_data = model_stack_heart(size=(100, 100))
+        self.assertEqual(stackSize_data.shape, (150, 100, 100))  # dimensions (T, Y, X)
+
+    def test_tiff(self):
+        # Make sure this stack is similar to a 16-bit .tif/.tiff
+        volwrite(dir_unit + '/results/ModelStackHeart_vm.tif', self.stack_vm)
+        volwrite(dir_unit + '/results/ModelStackHeart_ca.tif', self.stack_ca)
 
 
 # Example tests

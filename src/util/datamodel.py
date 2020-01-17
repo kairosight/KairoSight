@@ -497,6 +497,7 @@ def model_stack(size=(100, 50), **kwargs):
     return model_time, model_data.astype(np.uint16)
 
 
+# TODO test SNR map with d_amp
 # TODO add variation along propagation (noise, amplitude, duration, Tau) to validate mapping
 def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
@@ -617,6 +618,50 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
         model_data[:, iy, ix] = pixel_data
 
     return model_time, model_data.astype(np.uint16)
+
+
+def model_stack_heart(size=(100, 100), velocity=20, d_noise=0, **kwargs):
+    """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
+        murine action potential (OAP) or a propagating murine calcium transient (OCT),
+        with a "dark" background around the pixels of interest.
+
+           Parameters
+           ----------
+           # size : tuple
+           #      The height and width (px) of the optical data. default is (100, 50)
+           # d_noise : int
+           #      Units of Noise SD to increase along propagation, default is 0
+
+           Other Parameters
+           ----------------
+           **kwargs : `.model_transients`. parameter, optional
+                All parameters supported by `.model_transients`.
+
+           Returns
+           -------
+           model_time : ndarray
+                An array of timestamps corresponding to model_data
+           model_data : ndarray
+                A 3-D array (T, Y, X) of model 16-bit data, dtype is int
+           """
+
+    # Create a propagating model stack
+    model_time, model_data = model_stack_propagation(size, velocity, d_noise, **kwargs)
+
+    # Create a circular mask from the first frame
+    nrows, ncols = model_data[0].shape
+    row, col = np.ogrid[:nrows, :ncols]
+    cnt_row, cnt_col = nrows / 2, ncols / 2
+    outer_disk_mask = ((row - cnt_row) ** 2 + (col - cnt_col) ** 2 > (nrows / 2) ** 2)
+
+    # Apply the mask to each frame
+    print('* Masking model heart stack ...')
+    for idx, frame in enumerate(model_data):
+        print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, model_data.shape[0]), end='', flush=True)
+        model_data[idx][outer_disk_mask] = 0
+    print('\n* DONE Masking model heart stack')
+
+    return model_time, model_data
 
 
 # Code for example tests

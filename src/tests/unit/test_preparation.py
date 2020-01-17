@@ -199,16 +199,18 @@ class TestCropStack(unittest.TestCase):
 
 class TestCropDual(unittest.TestCase):
     def setUp(self):
-        # Load data to test with
-        file_name_rat = '2020/01/09 rata-02, PCL 350ms'
-        self.file = '02-350_1-100'
-        extension = '.tif'
-        file_stack_rat = dir_tests + '/data/20200109-rata/' + self.file + extension
+        # # Load data to test with
+        # file_name_rat = '2020/01/09 rata-02, PCL 350ms'
+        # self.file = '02-350_1-100'
+        # extension = '.tif'
+        # file_stack_rat = dir_tests + '/data/20200109-rata/' + self.file + extension
 
-        # # # for real cropping
-        # self.file = '05-200'
-        # extension = '.pcoraw'
-        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+        # # for real cropping
+        self.file = '12-150'
+        extension = '.pcoraw'
+        # extension = '.tif'
+        file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+        file_stack_rat = dir_tests + '/data/20200109-rata/BPA 10 nM/' + self.file + extension
 
         self.file_path = file_stack_rat
         print('Opening stack ...')
@@ -311,9 +313,13 @@ class TestCropDual(unittest.TestCase):
         fig_crop.savefig(dir_unit + '/results/prep_CropDual.png')
         fig_crop.show()
 
-    @profile
+    # @profile
     def test_save(self):
-        # Make sure dual-image files are cropped correctly
+        # Save cropped dual-image files
+        directory = os.path.split(self.file_path)[0]
+        directory_vm = directory + '/' + self.file + '_Vm.tif'
+        directory_ca = directory + '/' + self.file + '_Ca.tif'
+
         print('Cropping Vm ...')
         stack_vm_dirty = crop_stack(self.stack_full, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
         stack_vm = crop_stack(stack_vm_dirty, d_x=self.crop_vm_2[0], d_y=self.crop_vm_2[1])
@@ -326,9 +332,9 @@ class TestCropDual(unittest.TestCase):
         # volwrite(dir_unit + '/results/prep_CropDual_Ca.tif', stack_ca)
 
         print('Saving Vm ...')
-        volwrite(dir_tests + '/data/20200109-rata/baseline/' + self.file + '_Vm.tif', stack_vm)
+        volwrite(directory_vm, stack_vm)
         print('Saving Ca ...')
-        volwrite(dir_tests + '/data/20200109-rata/baseline/' + self.file + '_Ca.tif', stack_ca)
+        volwrite(directory_ca, stack_ca)
         print('DONE Cropping Dual\n')
 
 
@@ -370,7 +376,7 @@ class TestMaskGenerate(unittest.TestCase):
         self.stack1, self.meta1 = open_stack(source=self.file_stack)
         self.frame1 = self.stack1[10, :, :]
 
-    @profile
+    # @profile
     def test_params(self):
         # Make sure type errors are raised when necessary
         # frame_in : ndarray, 2-D array (Y, X)
