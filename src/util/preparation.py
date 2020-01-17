@@ -1,4 +1,5 @@
 import os
+from memory_profiler import profile
 from math import floor
 import numpy as np
 from pathlib import Path, PurePath
@@ -107,8 +108,8 @@ def open_stack(source, meta=None):
 
     # If a .pcoraw file, convert to .tiff
     f_purepath = PurePath(source)
-    f_ext = f_purepath.suffix
-    if f_ext == '.pcoraw':
+    f_extension = f_purepath.suffix
+    if f_extension == '.pcoraw':
         p = Path(source)
         p.rename(p.with_suffix('.tif'))
         source = os.path.splitext(source)[0] + '.tif'
@@ -116,11 +117,12 @@ def open_stack(source, meta=None):
 
     # Open the metadata, if provided
     stack_meta = get_reader(source, mode='v').get_meta_data()
+
     # Open the file
     # file_source = open(source, 'rb')
     # tags = exifread.process_file(file)  # Read EXIF data
-    stack_data = np.array(volread(source))  # Read image data, closes the file after reading
-    stack = img_as_uint(stack_data)  # Read image data, closes the file after reading
+    stack = img_as_uint((volread(source)))  # Read image data, closes the file after reading
+
     if meta:
         file_meta = open(meta)
         meta = file_meta.read()
