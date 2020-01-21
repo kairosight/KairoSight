@@ -31,7 +31,8 @@ colors_times = {'Start': '#C07B60',
                 'Peak': '#4B133D',
                 'Downstroke': '#436894',
                 'End': '#94B0C3',
-                'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
+                'Baseline': gray_med}  # SCMapsViko, circular colormap
+                # 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
 # colors_times = {'Start': '#FFD649',
 #                 'Activation': '#FFA253',
 #                 'Peak': '#F6756B',
@@ -164,8 +165,8 @@ class TestActivation(unittest.TestCase):
         # Create data to test with
         self.signal_t = 200
         self.signal_t0 = 10
-        self.signal_fps = 1000
-        self.signal_noise = 3
+        self.signal_fps = 500
+        self.signal_noise = 5
 
         self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
                                                         fps=self.signal_fps, noise=self.signal_noise)
@@ -213,32 +214,35 @@ class TestActivation(unittest.TestCase):
         signal_bounds = (self.signal.min(), self.signal.max())
         signal_range = signal_bounds[1] - signal_bounds[0]
         # find the peak
-        i_peaks, properties = find_peaks(self.signal, prominence=(signal_range / 2))
-        i_peak = i_peaks[0]  # the first detected peak
-        # use the prominence of the peak to find a baseline
-        prominece_floor = self.signal[i_peak] - (properties['prominences'][0] * 0.8)
-        i_baslines = np.where(self.signal[:i_peak] <= prominece_floor)
-        i_baseline = np.max(i_baslines)
-
+        # i_peaks, properties = find_peaks(self.signal, prominence=(signal_range / 2))
+        # i_peak = i_peaks[0]  # the first detected peak
+        # # use the prominence of the peak to find a baseline
+        # prominece_floor = self.signal[i_peak] - (properties['prominences'][0] * 0.8)
+        # i_baslines = np.where(self.signal[:i_peak] <= prominece_floor)
+        i_peak = find_tran_peak(self.signal)
+        i_baselines = find_tran_baselines(self.signal)
+        i_baseline = np.max(i_baselines)
+        #
         search_min = i_baseline
         search_max = i_peak
-
-        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        spl = UnivariateSpline(time_x, self.signal)
-
-        df_spline = spl(time_x, nu=1)
-        df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-        # spl_df_smooth = UnivariateSpline(time_x, df_smooth)
-
-        # d2f_smooth = spl_df_smooth(time_x, nu=1)
+        #
+        # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        # spl = UnivariateSpline(time_x, self.signal)
+        #
+        # df_spline = spl(time_x, nu=1)
+        # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+        # # spl_df_smooth = UnivariateSpline(time_x, df_smooth)
+        #
+        # # d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
-        ax_dfs.plot(self.time, df_smooth,
+        time_spline, df_spline, spline_fidelity = spline_signal(self.time, self.signal)
+        ax_dfs.plot(time_spline, df_spline,
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
         # ax_dfs.plot(self.time, d2f_smooth,
         #             color=gray_med, linestyle=':', label='d2F/dt2')
-        df_max = round(max(df_smooth, key=abs) + 5.1, -1)
+        df_max = round(max(df_spline, key=abs) + 5.1, -1)
         ax_dfs.set_ylim([-df_max, df_max])
 
         # Activation
@@ -460,8 +464,8 @@ class TestAnalysisPoints(unittest.TestCase):
                                   color=colors_times['End'], label='End')
         ax_data.add_artist(end_con)
 
-        # ax_data.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
-        # ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
+        ax_data.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
+        ax_df1.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
 
         # fig_analysis.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
         fig_analysis.show()
@@ -585,9 +589,9 @@ class TestAnalysisPoints(unittest.TestCase):
 class TestEnsemble(unittest.TestCase):
     def setUp(self):
         # Create data to test with
-        self.signal_t = 1600
+        self.signal_t = 600
         self.signal_t0 = 50
-        self.signal_f0 = 1000
+        # self.signal_f0 = 1000
         self.signal_famp = 100
         self.signal_fps = 500
         self.signal_num = 'full'
@@ -596,24 +600,25 @@ class TestEnsemble(unittest.TestCase):
         # trace
         self.time_vm, self.signal_vm = \
             model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-                             f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+                             # f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+                             famp=self.signal_famp, noise=self.signal_noise,
                              num=self.signal_num, cl=self.signal_cl)
-        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
-        # # stack
-        # self.d_noise = 45  # as a % of the signal amplitude
-        # self.time_stack, self.stack_ca = \
-        #     model_stack_heart(model_type='Ca', d_noise=self.d_noise,
-        #                       t=self.signal_t, t0=self.signal_t0,
-        #                       f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
-        #                       num=self.signal_num, cl=self.signal_cl)
+        # self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+        # stack
+        self.d_noise = 45  # as a % of the signal amplitude
+        self.time_stack, self.stack = \
+            model_stack_heart(model_type='Ca', d_noise=self.d_noise,
+                              t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+                              famp=self.signal_famp, noise=self.signal_noise,
+                              num=self.signal_num, cl=self.signal_cl)
 
-        # # Import real data
-        # # trace
-        # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
-        # file_name_pig = '2019/03/22 pigb-01-Ca'
-        # self.file_name, file_signal = file_name_pig, file_signal_pig
-        # self.file_cl = '350'
-        # self.time_real, self.signal_real = open_signal(source=file_signal, fps=404)
+        # Import real data
+        # trace
+        file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
+        file_name_pig = '2019/03/22 pigb-01-Ca'
+        self.file_name, file_signal = file_name_pig, file_signal_pig
+        self.signal_cl = '350'
+        self.time, self.signal = open_signal(source=file_signal, fps=404)
         #
         # # real stack
         # self.file = '02-350_ca'
@@ -654,7 +659,7 @@ class TestEnsemble(unittest.TestCase):
 
     def test_results(self):
         # Make sure spatial filter results are correct
-        time_out, signal_out, signals, i_peaks, est_cycle = calc_ensemble(self.time, self.signal)
+        time_out, signal_out, signals, i_peaks, i_acts, est_cycle = calc_ensemble(self.time, self.signal)
         # time_out : ndarray
         self.assertIsInstance(time_out, np.ndarray)  # ensembled signal
         self.assertAlmostEqual(len(time_out), est_cycle * (self.signal_fps / 1000), delta=10)  #
@@ -671,13 +676,18 @@ class TestEnsemble(unittest.TestCase):
         self.assertIsInstance(i_peaks, np.ndarray)  # indicies of peaks
         self.assertEqual(len(i_peaks), self.signal_num)
 
+        # i_acts : ndarray
+        self.assertIsInstance(i_acts, np.ndarray)  # indicies of activations
+        self.assertEqual(len(i_acts), self.signal_num)
+
         # est_cycle : float
         self.assertIsInstance(est_cycle, float)  # estimated cycle length (ms) of ensemble
         self.assertAlmostEqual(est_cycle, self.signal_cl, delta=5)  #
 
     def test_trace(self):
         # Make sure ensembled transient looks correct
-        time_ensemble, signal_ensemble, signals, signal_peaks, est_cycle_length = calc_ensemble(self.time, self.signal)
+        time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length\
+            = calc_ensemble(self.time, self.signal)
 
         snr_model = round(self.signal_famp / self.signal_noise, 3)
         last_baselines = find_tran_baselines(signals[-1])
@@ -698,37 +708,45 @@ class TestEnsemble(unittest.TestCase):
 
         ax_signal.set_ylabel('arb. u.')
         # ax_snr.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
-        ax_signal.plot(self.time, self.signal, color=gray_light,
+        ax_signal.plot(self.signal, color=gray_light,
                        linestyle='None', marker='+', label='Ca pixel data')
-        ax_signal.plot(self.time[signal_peaks], self.signal[signal_peaks],
+        # ax_signal.plot(self.time[last_baselines], self.signal[],
+        #                "x", color=colors_times['Activation'], label='Activations')
+        ax_signal.plot(signal_peaks, self.signal[signal_peaks],
                        "x", color=colors_times['Peak'], markersize=10, label='Peaks')
-        # ax_signal.plot(self.time[last_baselines], self.signal[last_baselines],
-        #                "x", color=colors_times['Peak'], label='Baselines')
+        ax_signal.plot(signal_acts, self.signal[signal_acts],
+                       "x", color=colors_times['Activation'], markersize=10, label='Activations')
 
         ax_ensemble.spines['right'].set_visible(False)
         ax_ensemble.spines['top'].set_visible(False)
         ax_ensemble.set_ylabel('Fluorescence (arb. u.)')
-        ax_ensemble.set_xlabel('Time (ms)')
+        ax_ensemble.set_xlabel('Time (frame #)')
 
         signal_snrs = []
-        for signal in signals:
-            ax_ensemble.plot(time_ensemble, signal, color=gray_light, linestyle='-')
+        for num, signal in enumerate(signals):
+            ax_ensemble.plot(signal, color=gray_light, linestyle='-')
+            # Baseline
+            i_baseline = find_tran_baselines(signal)  # 1st df2 max, Start
+            ax_ensemble.plot(i_baseline, signal[i_baseline],
+                             "x", color=colors_times['Baseline'], markersize=5)
+
+        for num, signal in enumerate(signals):
             # # Start
             # i_start = find_tran_start(signal)  # 1st df2 max, Start
             # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
             #                  "x", color=colors_times['Start'], markersize=10)
-            # # Activation
-            # i_activation = find_tran_act(signal)  # 1st df max, Activation
-            # ax_ensemble.plot(time_ensemble[i_activation], signal[i_activation],
-            #                  "x", color=colors_times['Activation'], markersize=10)
-            # # Peak
-            # i_peak = find_tran_peak(signal)  # max of signal, Peak
-            # ax_ensemble.plot(time_ensemble[i_peak], signal[i_peak],
-            #                  "x", color=colors_times['Peak'], markersize=10)
+            # Activation
+            i_activation = find_tran_act(signal)  # 1st df max, Activation
+            ax_ensemble.plot(i_activation, signal[i_activation],
+                             ".", color=colors_times['Activation'], markersize=10)
+            # Peak
+            i_peak = find_tran_peak(signal)  # max of signal, Peak
+            ax_ensemble.plot(i_peak, signal[i_peak],
+                             ".", color=colors_times['Peak'], markersize=10)
             # # Downstroke
             # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
             # ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
-            #                  "x", color=colors_times['Downstroke'], markersize=10)
+            #                  ".", color=colors_times['Downstroke'], markersize=10)
             # # End
             # i_end = find_tran_end(signal)  # 2st df2 max, End
             # ax_ensemble.plot(time_ensemble[i_end], signal[i_end],
@@ -738,11 +756,19 @@ class TestEnsemble(unittest.TestCase):
             snr = snr_results[0]
             ir_noise = snr_results[-2]
             signal_snrs.append(snr)
-            ax_ensemble.plot(time_ensemble[ir_noise], signal[ir_noise],
-                             "x", color=gray_med, markersize=10)
+            # ax_ensemble.plot(ir_noise, signal[ir_noise],
+            #                  "x", color=gray_med, markersize=10)
 
-        ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
+        # Stats: SNRs
+        snr_old = round(np.mean(signal_snrs), 3)
+        snr_results = calculate_snr(signal_ensemble)
+        snr_new = round(snr_results[0], 3)
+        ir_noise_new = snr_results[-2]
+
+        ax_ensemble.plot(signal_ensemble, color=gray_heavy,
                          linestyle='-', marker='+', label='Ensemble signal')
+        ax_ensemble.plot(ir_noise_new, signal_ensemble[ir_noise_new],
+                         ".", color=gray_heavy, markersize=10, label='Noise')
         # # Start
         # i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
         # ax_ensemble.plot(time_ensemble[i_start], signal_ensemble[i_start],
@@ -768,22 +794,17 @@ class TestEnsemble(unittest.TestCase):
         # Text: Conditions
         ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
+        # ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
+        #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        ax_ensemble.text(0.72, 0.6, 'File: {}'.format(self.file_name),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # Text: Cycles
         ax_ensemble.text(0.72, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         ax_ensemble.text(0.72, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        # Stats: SNRs
-        snr_old = round(np.mean(signal_snrs), 3)
-        snr_results = calculate_snr(signal_ensemble)
-        snr_new = round(snr_results[0], 3)
-        ir_noise_new = snr_results[-2]
 
         # Text
-        ax_ensemble.plot(time_ensemble[ir_noise_new], signal_ensemble[ir_noise_new],
-                         ".", color=gray_heavy, markersize=15, label='Noise')
         ax_ensemble.text(0.72, 0.35, 'SNR detected: {}'.format(snr_old),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         ax_ensemble.text(0.72, 0.3, 'SNR ensembled: {}'.format(snr_new),
@@ -801,34 +822,33 @@ class TestEnsemble(unittest.TestCase):
         fig_ensemble.show()
 
     def test_stack(self):
+        stack_ens = calc_ensemble_stack(self.time_stack, self.stack)
+
         # Make sure filtered stack signals looks correct
-        signal_x, signal_y = (int(self.WIDTH / 3), int(self.HEIGHT / 3))
-        signal_r = self.kernel / 2
-        # Filter a noisy stack
-        stack_filtered = np.empty_like(self.stack_noisy_ca)
-        for idx, frame in enumerate(self.stack_noisy_ca):
-            f_filtered = filter_spatial(frame, filter_type=self.filter_type)
-            stack_filtered[idx, :, :] = f_filtered
-        frame_filtered = stack_filtered[self.frame_num]
+        height, width = self.stack.shape[1], self.stack.shape[2]
+        signal_x, signal_y = (int(width / 3), int(height / 3))
+        signal_r = 3
+        frame_num = 10
+        frame_noisy = self.stack[frame_num]
+        frame_ens = stack_ens[frame_num]
 
         # General layout
         fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
-        gs0 = fig_filter_traces.add_gridspec(1, 3)  # 1 row, 3 columns
+        gs0 = fig_filter_traces.add_gridspec(1, 2)  # 1 row, 3 columns
         titles = ['Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
-                  'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel),
-                  'Model Data']
+                  'Ensembled Data']
         # Create normalization colormap range for all frames (round up to nearest 10)
         cmap_frames = SCMaps.grayC.reversed()
         frames_min, frames_max = 0, 0
-        for idx, frame in enumerate([self.frame_noisy_ca, frame_filtered, self.frame_ideal_ca]):
+        for idx, frame in enumerate([frame_noisy, frame_ens]):
             frames_min = min(frames_max, np.nanmin(frame))
             frames_max = max(frames_max, np.nanmax(frame))
             cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
                                          vmax=round(frames_max + 5.1, -1))
 
         # Plot the frame and a trace from the stack
-        for idx, stack in enumerate([self.stack_noisy_ca, stack_filtered, self.stack_ideal_ca]):
-            frame = stack[self.frame_num]
+        for idx, stack in enumerate([self.stack, stack_ens]):
+            frame = stack[frame_num]
             signal = stack[:, signal_y, signal_x]
             gs_frame_signal = gs0[idx].subgridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 columns
             ax_frame = fig_filter_traces.add_subplot(gs_frame_signal[0])
@@ -863,7 +883,7 @@ class TestEnsemble(unittest.TestCase):
                 ax.spines['left'].set_visible(False)
                 ax.spines['top'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)
-            ax_signal.plot(self.time_noisy_ca, signal, color=gray_heavy, linestyle='None', marker='+')
+            ax_signal.plot(self.time_stack, signal, color=gray_heavy, linestyle='None', marker='+')
 
         # fig_filter_traces.savefig(dir_unit + '/results/processing_SpatialFilter_Trace.png')
         fig_filter_traces.show()

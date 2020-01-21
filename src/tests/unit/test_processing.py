@@ -1063,14 +1063,15 @@ class TestSnrSignal(unittest.TestCase):
         ax_data.plot(ir_noise, self.signal[ir_noise], "x", color=color_raw, markersize=points_size)
 
         # df/dt
-        spline_fidelity = 10
-        time_baseline = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        # spl = UnivariateSpline(time_baseline, signal_noise)
-        spl = InterpolatedUnivariateSpline(self.time, self.signal)
-        time_spline = np.linspace(0, len(self.signal) - 1, len(self.signal) * spline_fidelity)
-        spl.set_smoothing_factor(200)
-        df_spline = spl(time_spline, nu=1)
+        # spline_fidelity = 10
+        # time_baseline = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        # # spl = UnivariateSpline(time_baseline, signal_noise)
+        # spl = InterpolatedUnivariateSpline(self.time, self.signal)
+        # time_spline = np.linspace(0, len(self.signal) - 1, len(self.signal) * spline_fidelity)
+        # spl.set_smoothing_factor(200)
+        # df_spline = spl(time_spline, nu=1)
 
+        time_spline, df_spline, spline_fidelity = spline_signal(self.time, self.signal)
         ax_df1.plot(time_spline, df_spline, color=gray_med,
                     linestyle='--', label='dF/dt')
         ax_df1.plot(time_spline[ir_noise * spline_fidelity],
@@ -1099,7 +1100,7 @@ class TestSnrSignal(unittest.TestCase):
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
-        fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
+        # fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
         fig_snr.show()
 
     def test_stats(self):

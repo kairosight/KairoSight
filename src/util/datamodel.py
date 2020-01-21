@@ -2,14 +2,16 @@ from math import pi, floor, ceil, sqrt
 import numpy as np
 from random import gauss, seed
 from scipy import interpolate
+from scipy.stats import truncnorm
 from scipy.interpolate import UnivariateSpline
+
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
 # Spatial resolution (cm/px)
 # resolution = 0.005    # 1 cm / 200 px
 # resolution = 0.0149   # pig video resolution
-RESOLUTION = 0.01       # 1 cm / 100 px
+RESOLUTION = 0.01  # 1 cm / 100 px
 # Set seed of random number generator
 seed(1)
 
@@ -112,8 +114,8 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
         num = ceil(FINAL_T / cl)
 
     # Initialize full model arrays
-    model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)     # time array
-    model_data = np.full(int(FPMS * t), f0, dtype=np.uint16)      # data array, default value is f_0
+    model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)  # time array
+    model_data = np.full(int(FPMS * t), f0, dtype=np.uint16)  # data array, default value is f_0
     if not np.equal(model_time.size, model_data.size):
         raise ArithmeticError('Lengths of time and data arrays not equal!')
 
@@ -129,25 +131,25 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
         for i in range(0, model_dep_period):
             model_dep_full[i] = f0 + (vm_amp * np.exp(-(((i - model_dep_period) / 3) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
-        model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
+        model_dep = model_dep_full[::floor(model_dep_period / model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to APD 20, aka 80% of peak)
         model_rep1_period = apd['20']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         apd_ratio = 0.8
-        m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period     # slope of this phase
+        m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period  # slope of this phase
         model_rep1 = np.full(model_rep1_frames, f0, dtype=np.uint16)
         for i in range(0, model_rep1_frames):
-            model_rep1[i] = ((m_rep1 * i) + vm_amp + f0)    # linear
+            model_rep1[i] = ((m_rep1 * i) + vm_amp + f0)  # linear
 
         # Late repolarization phase
         model_rep2_period = 50 - model_dep_period - model_rep1_period  # remaining OAP time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, 50, model_rep2_frames)
-        A, B, C = vm_amp * 0.8, (5 / m_rep1), f0     # exponential decay parameters
+        A, B, C = vm_amp * 0.8, (5 / m_rep1), f0  # exponential decay parameters
         # model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
         tauFall = 10
-        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave down, using tauFall
+        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C  # exponential decay, concave down, using tauFall
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
         # Pad the end with 50 ms of baseline
         model_rep2Pad_frames = floor(50 / FRAME_T)
@@ -165,28 +167,28 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
         for i in range(0, model_dep_period):
             model_dep_full[i] = f0 + (famp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
-        model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
+        model_dep = model_dep_full[::floor(model_dep_period / model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to CAD 40, aka 60% of peak)
         model_rep1_period = cad['40']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         cad_ratio = 0.6
-        m_rep1 = -(famp - (famp * cad_ratio)) / model_rep1_period     # slope of this phase
+        m_rep1 = -(famp - (famp * cad_ratio)) / model_rep1_period  # slope of this phase
         model_rep1_full = np.full(model_rep1_period, f0, dtype=np.uint16)
         # Generate high-fidelity data
         for i in range(0, model_rep1_period):
-            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)    # linear
+            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)  # linear
         # Under-sample the high-fidelity data
-        model_rep1 = model_rep1_full[::floor(model_rep1_period/model_rep1_frames)][:model_rep1_frames]
+        model_rep1 = model_rep1_full[::floor(model_rep1_period / model_rep1_frames)][:model_rep1_frames]
 
         # Late repolarization phase
         model_rep2_period = 100 - model_dep_period - model_rep1_period  # remaining OCT time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, 100, model_rep2_frames)
-        A, B, C = famp * cad_ratio, (0.8 / m_rep1), f0     # exponential decay parameters
+        A, B, C = famp * cad_ratio, (0.8 / m_rep1), f0  # exponential decay parameters
         # model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
         tauFall = 30
-        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave up, using tauFall
+        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C  # exponential decay, concave up, using tauFall
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
 
     # Assemble the transient
@@ -221,18 +223,28 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
     model_data = spline(model_time)
 
     # Add gaussian noise, mean: 0, standard deviation: noise% of peak, length
-    model_noise = np.random.normal(0, (noise/100) * famp, model_data.size)
-    # create white noise series
-    white_noise = [gauss(0.0, noise) for i in range(len(model_data))]
-
-    model_data = model_data + np.round(white_noise)
+    # model_noise = np.random.normal(0, (noise/100) * famp, model_data.size)
     # model_data = model_data + np.round(model_noise)
+
+    # create white noise series
+    # white_noise = [gauss(0.0, noise) for i in range(len(model_data))]
+    # model_data = model_data + np.round(white_noise)
+
+    # create truncated white noise series
+    model_noise = truncnorm((-noise - 0.0) / noise, (noise - 0.0) / noise,
+                  loc=0.0, scale=noise)
+    model_data = model_data + np.round(model_noise.rvs(len(model_data)))
+
+    for num, v in enumerate(model_data):
+        if abs(v - f0) > (famp * 3):
+            # raise ValueError('All signal values must be >= 0')
+            print('* WEIRD value: #{}\t:\t{}'.format(num, v))
 
     return model_time, model_data.astype(np.uint16)
 
 
 def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=100, noise=0,
-                     num=1, cl=200, apd=None, cad=None):
+                         num=1, cl=200, apd=None, cad=None):
     """Create a 2-D array of model 16-bit optical data of either
     pig action potentials (OAP) or pig calcium transients (OCT).
 
@@ -330,8 +342,8 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         num = ceil(FINAL_T / cl)
 
     # Initialize full model arrays
-    model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)     # time array
-    model_data = np.full(int(FPMS * t), f0, dtype=np.uint16)      # data array, default value is f_0
+    model_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)  # time array
+    model_data = np.full(int(FPMS * t), f0, dtype=np.uint16)  # data array, default value is f_0
     if not np.equal(model_time.size, model_data.size):
         raise ArithmeticError('Lengths of time and data arrays not equal!')
 
@@ -348,25 +360,25 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         for i in range(0, model_dep_period):
             model_dep_full[i] = f0 + (vm_amp * np.exp(-(((i - model_dep_period) / 3) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
-        model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
+        model_dep = model_dep_full[::floor(model_dep_period / model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to APD 20, aka 80% of peak)
         model_rep1_period = apd['20']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         apd_ratio = 0.8
-        m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period     # slope of this phase
+        m_rep1 = -(vm_amp - (vm_amp * apd_ratio)) / model_rep1_period  # slope of this phase
         model_rep1 = np.full(model_rep1_frames, f0, dtype=np.uint16)
         for i in range(0, model_rep1_frames):
-            model_rep1[i] = ((m_rep1 * i) + vm_amp + f0)    # linear
+            model_rep1[i] = ((m_rep1 * i) + vm_amp + f0)  # linear
 
         # Late repolarization phase
         model_rep2_period = vm_duration - model_dep_period - model_rep1_period  # remaining OAP time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, vm_duration, model_rep2_frames)
-        A, B, C = vm_amp * apd_ratio, (5 / m_rep1), f0     # exponential decay parameters
+        A, B, C = vm_amp * apd_ratio, (5 / m_rep1), f0  # exponential decay parameters
         # model_rep2 = A * np.exp(-B * model_rep2_t) + C    # exponential decay, concave down
         tauFall = 30
-        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave down, using tauFall
+        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C  # exponential decay, concave down, using tauFall
 
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
         # Pad the end with 50 ms of baseline
@@ -386,29 +398,29 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
         for i in range(0, model_dep_period):
             model_dep_full[i] = f0 + (famp * np.exp(-(((i - model_dep_period) / 6) ** 2)))  # a simplified Gaussian
         # Under-sample the high-fidelity data
-        model_dep = model_dep_full[::floor(model_dep_period/model_dep_frames)][:model_dep_frames]
+        model_dep = model_dep_full[::floor(model_dep_period / model_dep_frames)][:model_dep_frames]
 
         # Early repolarization phase (from peak to CAD 40, aka 60% of peak)
         model_rep1_period = cad['40']  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
         cad_ratio = 0.6
-        m_rep1 = -(famp - (famp * cad_ratio)) / model_rep1_period     # slope of this phase
+        m_rep1 = -(famp - (famp * cad_ratio)) / model_rep1_period  # slope of this phase
         model_rep1_full = np.full(model_rep1_period, f0, dtype=np.uint16)
         # Generate high-fidelity data
         for i in range(0, model_rep1_period):
-            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)    # linear, decreasing
+            model_rep1_full[i] = ((m_rep1 * i) + famp + f0)  # linear, decreasing
         # Under-sample the high-fidelity data
-        model_rep1 = model_rep1_full[::floor(model_rep1_period/model_rep1_frames)][:model_rep1_frames]
+        model_rep1 = model_rep1_full[::floor(model_rep1_period / model_rep1_frames)][:model_rep1_frames]
         # model_rep1 = model_rep1_full[::floor(model_rep1_period/model_rep1_frames)][:model_rep1_frames]
 
         # Late repolarization phase
         model_rep2_period = ca_duration - model_dep_period - model_rep1_period  # remaining OCT time
         model_rep2_frames = floor(model_rep2_period / FRAME_T)
         model_rep2_t = np.linspace(0, ca_duration, model_rep2_frames)
-        A, B, C = famp * cad_ratio, (0.8 / m_rep1), f0     # exponential decay parameters
+        A, B, C = famp * cad_ratio, (0.8 / m_rep1), f0  # exponential decay parameters
         # model_rep2 = A * np.exp(B * model_rep2_t) + C    # exponential decay, concave up
         tauFall = 50
-        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C    # exponential decay, concave up, using tauFall
+        model_rep2 = A * np.exp(-model_rep2_t / tauFall) + C  # exponential decay, concave up, using tauFall
         model_rep2 = model_rep2.astype(np.uint16, copy=False)
 
     # Assemble the transient
@@ -443,7 +455,7 @@ def model_transients_pig(model_type='Vm', t=150, t0=10, fps=1000, f0=150, famp=1
     model_data = spline(model_time)
 
     # Add gaussian noise, mean: 0, standard deviation: noise% of peak, length
-    model_noise = np.random.normal(0, (noise/100) * famp, model_data.size)
+    model_noise = np.random.normal(0, (noise / 100) * famp, model_data.size)
     # create white noise series
     white_noise = [gauss(0.0, noise) for i in range(len(model_data))]
 
@@ -475,7 +487,7 @@ def model_stack(size=(100, 50), **kwargs):
             A 3-D array (T, Y, X) of model 16-bit data, dtype is int
        """
     # Constants
-    MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
+    MIN_SIZE = (10, 10)  # Minimum stack size (Height, Width)
     # Check parameters
     if type(size) not in [tuple]:
         raise TypeError('Image size must be a tuple, e.g. (20, 20)')
@@ -489,7 +501,7 @@ def model_stack(size=(100, 50), **kwargs):
     FRAMES = pixel_data.size
     model_time = pixel_time
     model_size = (FRAMES, size[0], size[1])
-    model_data = np.empty(model_size, dtype=np.uint16)      # data array, default value is f_0
+    model_data = np.empty(model_size, dtype=np.uint16)  # data array, default value is f_0
     for i_frame in range(0, FRAMES):
         # Set every pixel value in that of the model transient
         model_data[i_frame, :, :] = np.full(size, pixel_data[i_frame], dtype=np.uint16)
@@ -528,10 +540,10 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
        """
     # Constants
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)
-    MIN_SIZE = (10, 10)   # Minimum stack size (Height, Width)
-    MIN_VELOCITY = 10   # Minimum velocity (cm/s)
-    MAX_VELOCITY = 50   # Minimum velocity (cm/s)
-    DIV_NOISE = 4   # Divisions of noise variation radiating outward from the center
+    MIN_SIZE = (10, 10)  # Minimum stack size (Height, Width)
+    MIN_VELOCITY = 10  # Minimum velocity (cm/s)
+    MAX_VELOCITY = 50  # Minimum velocity (cm/s)
+    DIV_NOISE = 4  # Divisions of noise variation radiating outward from the center
     # Check parameters
     if type(size) not in [tuple]:
         raise TypeError('Image size must be a tuple, e.g. (20, 20)')
@@ -551,17 +563,17 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     HEIGHT_cm, WIDTH_cm = HEIGHT * RESOLUTION, WIDTH * RESOLUTION
 
     # Calculate region borders (as distance from the center) for varying a transient parameter
-    div_borders = np.linspace(start=int(HEIGHT/2), stop=HEIGHT/2/DIV_NOISE, num=DIV_NOISE)
+    div_borders = np.linspace(start=int(HEIGHT / 2), stop=HEIGHT / 2 / DIV_NOISE, num=DIV_NOISE)
 
     # Calculate the absolute minimum time needed for a single propagation, assuming the max velocity
-    MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_VELOCITY * 1000)   # ms
+    MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_VELOCITY * 1000)  # ms
 
     if 't' in kwargs:
         if kwargs.get('t') < MIN_t:
             raise ValueError('The total stack time must be longer than {}'.format(MIN_t))
         t_propagation = kwargs.get('t')
-    else:   # Use a calculated min total time
-        t_propagation = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / velocity * 1000)     # ms
+    else:  # Use a calculated min total time
+        t_propagation = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / velocity * 1000)  # ms
 
     if 't0' in kwargs:
         t_propagation = t_propagation + kwargs.get('t0')
@@ -575,7 +587,7 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     FRAMES = pixel_data.size
     model_time = pixel_time
     model_size = (FRAMES, size[0], size[1])
-    model_data = np.empty(model_size, dtype=np.uint16)      # data array, default value is f_0
+    model_data = np.empty(model_size, dtype=np.uint16)  # data array, default value is f_0
 
     # Generate an isotropic activation map, radiating from the center
     origin_x, origin_y = WIDTH / 2, HEIGHT / 2
@@ -605,7 +617,7 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
                 pass
             else:
                 if d_noise:
-                    noise_offset = noise_offset + (d_noise / (idx+1))
+                    noise_offset = noise_offset + (d_noise / (idx + 1))
                     kwargs_new['noise'] = noise_offset
                     break
 
@@ -672,4 +684,4 @@ def circle_area(r):
     if type(r) not in [int, float]:
         raise TypeError('The radius must be a non-negative real number')
 
-    return pi * (r**2)
+    return pi * (r ** 2)

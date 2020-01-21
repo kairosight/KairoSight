@@ -13,6 +13,21 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
+def spline_signal(xx, signal_in):
+
+    # d_xx = np.diff(xx)
+    d_xx = xx[2] - xx[1]
+    spl = InterpolatedUnivariateSpline(xx, signal_in)
+    # df/dt (with x20 as many time samples)
+    spline_fidelity = 20    # TODO optimize here
+    time_spline = np.linspace(xx[0], xx[-1] - d_xx,
+                              (xx[-1] - xx[0])*spline_fidelity)
+    spl.set_smoothing_factor(200)    # TODO optimize here
+    df_spline = spl(time_spline, nu=1, ext='extrapolate')
+
+    return time_spline, df_spline, spline_fidelity
+
+
 def find_tran_peak(signal_in, props=False):
     """Find the time of the peak of a transient,
     defined as the maximum value
@@ -49,7 +64,7 @@ def find_tran_peak(signal_in, props=False):
             return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.6)
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.4, width=5)
 
     if len(i_peaks) is 0:   # no peak detected
         if props:
@@ -97,16 +112,19 @@ def find_tran_baselines(signal_in, peak_side='left'):
     if len(i_baselines_all) < 20:
         return i_baselines_all
 
-    # use a spline of the rough baseline and find the "flattest" section
-    # df/dt (with x20 as many time samples)
-    spline_fidelity = 10    # TODO optimize here
     signal_baseline = signal_in[i_baselines_all]
-    time_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
-    # spl = UnivariateSpline(time_baseline, signal_baseline)
-    spl = InterpolatedUnivariateSpline(time_baseline, signal_baseline)
-    time_spline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline)*spline_fidelity)
-    spl.set_smoothing_factor(200)    # TODO optimize here
-    df_spline = spl(time_spline, nu=1, ext='extrapolate')
+    xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
+
+    # # use a spline of the rough baseline and find the "flattest" section
+    # # df/dt (with x20 as many time samples)
+    # spline_fidelity = 10    # TODO optimize here
+    # # spl = UnivariateSpline(time_baseline, signal_baseline)
+    # spl = InterpolatedUnivariateSpline(xx_baseline, signal_baseline)
+    # time_spline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline)*spline_fidelity)
+    # spl.set_smoothing_factor(200)    # TODO optimize here
+    # df_spline = spl(time_spline, nu=1, ext='extrapolate')
+
+    time_spline, df_spline, spline_fidelity = spline_signal(xx_baseline, signal_baseline)
 
     d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
     d1f_prominence_floor = d1f_sd / 5
@@ -123,19 +141,19 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
     i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
-    # use the middle 3/5 of these
-    search_buffer = int((len(i_baselines_search) / 5) / spline_fidelity)
-    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
-    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
+    # use the 2nd and 3rd 1/5s of these
+    # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
+    search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 3)
+    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
+    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - (search_buffer)
 
     # # use all detected indexes
     # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
     # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right)
-
-    if len(i_baselines) < 10:
-        return i_baselines_all
+    # if len(i_baselines) < 10:
+    #     return i_baselines_all
 
     return i_baselines
 
@@ -680,6 +698,10 @@ def map_snr(stack_in, noise_count=10):
         -------
         map : ndarray
              A 2-D array of Signal-to-Noise ratios, dtype : float
+
+        Notes
+        -----
+            Pixels with incalculable SNRs assigned a value of NaN
         """
     # Check parameters
     if type(stack_in) is not np.ndarray:
