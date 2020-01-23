@@ -1026,7 +1026,7 @@ class TestSnrSignal(unittest.TestCase):
         # Make sure auto-detection of noise and peak regions looks correct
         snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak \
             = calculate_snr(self.signal)
-        signal_noise = self.signal[ir_noise]
+        # signal_noise = self.signal[ir_noise]
 
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout

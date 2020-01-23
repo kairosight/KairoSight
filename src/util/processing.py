@@ -22,7 +22,7 @@ def spline_signal(xx, signal_in):
     spline_fidelity = 20    # TODO optimize here
     time_spline = np.linspace(xx[0], xx[-1] - d_xx,
                               (xx[-1] - xx[0])*spline_fidelity)
-    spl.set_smoothing_factor(200)    # TODO optimize here
+    spl.set_smoothing_factor(7000)    # TODO optimize here
     df_spline = spl(time_spline, nu=1, ext='extrapolate')
 
     return time_spline, df_spline, spline_fidelity
@@ -93,7 +93,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
     #                           .format(i_peaks, signal_range))
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
-    # use the prominence of the peak and the activation time to find a "rough" baseline
+    # use the prominence of the peak to find a "rough" baseline
     prominence_floor = signal_in[i_peak] - (properties['prominences'][0] / 1.6)
     i_baselines_far_l, i_baselines_far_r = 0, 0
 
@@ -110,7 +110,13 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r+1)
 
     if len(i_baselines_all) < 20:
-        return i_baselines_all
+        if peak_side is 'left':
+            # attempt on right side
+            i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
+            if len(i_baselines_all_r) < 10:
+                return max(i_baselines_all, i_baselines_all_r)
+            else:
+                return i_baselines_all_r
 
     signal_baseline = signal_in[i_baselines_all]
     xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
@@ -127,7 +133,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
     time_spline, df_spline, spline_fidelity = spline_signal(xx_baseline, signal_baseline)
 
     d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
-    d1f_prominence_floor = d1f_sd / 5
+    d1f_prominence_floor = d1f_sd / 2
     # if d1f_sd < d1f_prominence_floor:
     #     # where the derivative is less than (min * 2)
     #     i_baselines_search = np.where(df_spline <= d1f_prominence_floor)[0]
@@ -143,7 +149,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     # use the 2nd and 3rd 1/5s of these
     # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
-    search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 3)
+    search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 5)
     i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
     i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - (search_buffer)
 

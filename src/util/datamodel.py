@@ -14,6 +14,7 @@ MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
 RESOLUTION = 0.01  # 1 cm / 100 px
 # Set seed of random number generator
 seed(1)
+np.random.seed(seed=1)
 
 
 def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, noise=0,
@@ -231,12 +232,14 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
     # model_data = model_data + np.round(white_noise)
 
     # create truncated white noise series
-    model_noise = truncnorm((-noise - 0.0) / noise, (noise - 0.0) / noise,
+    noise_trunc = 3
+    model_noise = truncnorm((-noise_trunc*noise - 0.0) / noise,
+                            (noise_trunc*noise - 0.0) / noise,
                   loc=0.0, scale=noise)
     model_data = model_data + np.round(model_noise.rvs(len(model_data)))
 
     for num, v in enumerate(model_data):
-        if abs(v - f0) > (famp * 3):
+        if abs(v - f0) > (famp * noise_trunc):
             # raise ValueError('All signal values must be >= 0')
             print('* WEIRD value: #{}\t:\t{}'.format(num, v))
 
