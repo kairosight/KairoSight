@@ -64,7 +64,8 @@ def find_tran_peak(signal_in, props=False):
             return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range * 0.65, width=5)
+    prominence = signal_range * 0.4
+    i_peaks, properties = find_peaks(signal_in, prominence=prominence, distance=8)
 
     if len(i_peaks) is 0:   # no peak detected
         if props:
@@ -94,7 +95,8 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
     # use the prominence of the peak to find a "rough" baseline
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] / 1.6)
+    # assumes SNR > 2.85
+    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.65)
     i_baselines_far_l, i_baselines_far_r = 0, 0
 
     if peak_side is 'left':
@@ -109,31 +111,23 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r+1)
 
-    if len(i_baselines_all) < 20:
+    if len(i_baselines_all) < 100:
         if peak_side is 'left':
             # attempt on right side
             i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
-            if len(i_baselines_all_r) < 10:
-                return max(i_baselines_all, i_baselines_all_r)
+            if len(i_baselines_all_r) < len(i_baselines_all):
+                i_baselines_all = i_baselines_all
             else:
-                return i_baselines_all_r
+                i_baselines_all = i_baselines_all_r
 
     signal_baseline = signal_in[i_baselines_all]
     xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
 
     # # use a spline of the rough baseline and find the "flattest" section
-    # # df/dt (with x20 as many time samples)
-    # spline_fidelity = 10    # TODO optimize here
-    # # spl = UnivariateSpline(time_baseline, signal_baseline)
-    # spl = InterpolatedUnivariateSpline(xx_baseline, signal_baseline)
-    # time_spline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline)*spline_fidelity)
-    # spl.set_smoothing_factor(200)    # TODO optimize here
-    # df_spline = spl(time_spline, nu=1, ext='extrapolate')
-
     time_spline, df_spline, spline_fidelity = spline_signal(xx_baseline, signal_baseline)
 
     d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
-    d1f_prominence_floor = d1f_sd / 2
+    d1f_prominence_floor = d1f_sd * 1.5
     # if d1f_sd < d1f_prominence_floor:
     #     # where the derivative is less than (min * 2)
     #     i_baselines_search = np.where(df_spline <= d1f_prominence_floor)[0]
@@ -147,17 +141,23 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
     i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
-    # use the 2nd and 3rd 1/5s of these
-    # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
-    search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 5)
-    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
-    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - (search_buffer)
+    # # use the middle 3/5s of these
+    # # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
+    # search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 5)
+    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
+    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
 
-    # # use all detected indexes
-    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
-    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
+    # use all detected indexes
+    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
+    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right)
+
+    if len(i_baselines) < 10:
+        # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
+        # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
+        # i_baselines = np.arange(i_baselines_left, i_baselines_right)
+        return i_baselines_all
     # if len(i_baselines) < 10:
     #     return i_baselines_all
 

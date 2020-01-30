@@ -80,35 +80,32 @@ def find_tran_act(signal_in):
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
 
-    # Limit search to just after the peak and after the median baseline point before the peak
+    # Limit the search to between the median baseline point
+    # and before the peak just after the peak
     i_peak = find_tran_peak(signal_in)
     if i_peak is np.nan:
         return np.nan
     i_baselines = find_tran_baselines(signal_in, peak_side='left')
     i_baseline = int(np.median(i_baselines))
 
-    search_min = i_baseline
-    search_max = i_peak + (i_peak - i_baseline)
+    if i_baseline < i_peak:
+        search_min = i_baseline
+        search_max = i_peak + (i_peak - i_baseline)
+    else:
+        search_min = 0  # not enough baselines before the peak, use everything before the peak
+        search_max = i_peak
 
-    # use a spline
     time_search = np.linspace(search_min, search_max - 1,
                               search_max - search_min)
     signal_search = signal_in[search_min:search_max]
 
-    # spl = UnivariateSpline(time_baseline, signal_baseline)
-    # spl = InterpolatedUnivariateSpline(time_baseline, signal_baseline)
-    # # df/dt (with x20 as many time samples)
-    # spline_fidelity = 20    # TODO optimize here
-    # time_spline = np.linspace(search_min, search_max - 1,
-    #                           (search_max - search_min)*spline_fidelity)
-    # spl.set_smoothing_factor(200)    # TODO optimize here
-    # df_spline = spl(time_spline, nu=1, ext='extrapolate')
-
-    time_spline, df_spline, spline_fidelity = spline_signal(time_search, signal_search, smoothing=500)
+    # use a spline
+    time_spline, df_spline, spline_fidelity = spline_signal(time_search, signal_search,
+                                                            smoothing=80)
 
     # find the 1st derivative max within the search area
-    i_act_search = np.argmax(df_spline)
-    i_act_search = int(i_act_search / spline_fidelity)
+    i_act_search_df = np.argmax(df_spline)
+    i_act_search = int(i_act_search_df / spline_fidelity)
 
     # time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
     # # print('Starting analysis splines')
@@ -516,9 +513,9 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
         signal_in : ndarray
             The array of fluorescent data to be converted
-        crop : str or int
+        crop : str or tuple
             The type of cropping applied, default is center
-            If an int, begin aligned crop at that time index
+            If a tuple, begin aligned crop at crop[0] time index and end at crop[1]
 
         Returns
         -------
@@ -560,8 +557,9 @@ def calc_ensemble(time_in, signal_in, crop='center'):
         return np.zeros_like(signal_in)
 
     # Find the peaks
-    i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 4,
-                            distance=20)
+    i_peaks, _ = find_tran_peak(signal_in, props=True)
+    # i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 4,
+    #                         distance=20)
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 3:
@@ -627,7 +625,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             i_align = i_act_full - (i_acts_full[0] - i_baselines_full[0][-1])
             signal_align = signal_in[i_align:i_align + est_cycle_i]
             # signal_align = normalize_signal(signal_align)
-        elif type(crop) is int:
+        elif type(crop) is tuple:
             # stack : crop transients using the cycle length
             # cropped to allow for an ensemble stack with propagating transients
 
@@ -635,9 +633,9 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
             # stacked to capture the second full transient
             # at the edge of a propogating wave and avoid sliced transients
-            # align starting with provided crop time, and ending using the first signal's left-most baseline
-            i_align = i_act_full - (i_acts_full[0] - crop)
-            signal_align = signal_in[i_align:i_align + est_cycle_i]
+            # align starting with provided crop times,
+            i_align = i_act_full - (i_acts_full[0] - crop[0])
+            signal_align = signal_in[i_align:i_align + crop[1]]
             # signal_align = normalize_signal(signal_align)
         signals_trans_act.append(signal_align)
 
@@ -710,6 +708,8 @@ def calc_ensemble_stack(time_in, stack_in):
         #                         distance=20)
         i_peaks, _ = find_tran_peak(pixel_data, props=True)
 
+        if i_peaks is np.nan:
+            continue
         if len(i_peaks) < 4:
             # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
             # np.zeros_like(pixel_data)
@@ -728,9 +728,9 @@ def calc_ensemble_stack(time_in, stack_in):
         # i_peak_1_min = max(i_peaks[1], i_peak_1_min)
 
     # calculating alignment crop needed to preserve activation propagation
-    pixel_data_peak_1_min = stack_in[:int(stack_in.shape[0]), yx_peak_1_min[0], yx_peak_1_min[1]]
+    pixel_data = stack_in[:, yx_peak_1_min[0], yx_peak_1_min[1]]
 
-    i_peaks, _ = find_tran_peak(pixel_data_peak_1_min, props=True)
+    i_peaks, _ = find_tran_peak(pixel_data, props=True)
 
     # Split up the signal using peaks and estimated cycle length
     est_cycle = np.diff(i_peaks).astype(float)
@@ -739,21 +739,25 @@ def calc_ensemble_stack(time_in, stack_in):
     est_cycle_i = np.floor(est_cycle_i).astype(int)
     cycle_shift = np.floor(est_cycle_i / 2).astype(int)
 
-    i_peak_1_min_baselines = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
+    pixel_data_peak_1_min = pixel_data[i_peak_1_min - est_cycle_i: i_peak_1_min + est_cycle_i]
 
-    ensemble_crop = i_peak_1_min_baselines[-1]
+    i_peak_1_min_baselines_l = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
+    i_peak_1_min_baselines_r = find_tran_baselines(pixel_data_peak_1_min, peak_side='right')
+
+    ensemble_crop = (i_peak_1_min_baselines_l[-1], i_peak_1_min_baselines_r[1])
 
     # 3) Use the cycle time and time of that peak to align all ensembled signals
     # for each pixel ...
-    stack_out = np.empty_like(stack_in[est_cycle_i])
+    stack_out = np.empty_like(stack_in[:est_cycle_i, :, :])
 
     for iy, ix in np.ndindex(map_shape):
         print('\r\tEnsemble of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
               end='', flush=True)
         # get signal
         pixel_data = stack_in[:, iy, ix]
+        unique, counts = np.unique(pixel_data, return_counts=True)
         if len(unique) < 10:  # signal is too flat to have a valid peak
-            signal_ensemble = np.zeros_like(pixel_data)
+            signal_ensemble = np.zeros_like(pixel_data[:est_cycle_i])
         else:
             # calculate the ensemble of it
             time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \

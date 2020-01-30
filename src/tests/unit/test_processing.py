@@ -956,7 +956,7 @@ class TestSnrSignal(unittest.TestCase):
     def setUp(self):
         # Create data to test with
         self.signal_t = 300
-        self.signal_t0 = 100
+        self.signal_t0 = 50
         self.signal_fps = 1000
         self.signal_f0 = 1000
         self.signal_famp = 200
@@ -1042,7 +1042,7 @@ class TestSnrSignal(unittest.TestCase):
         # ax_data.set_xticklabels([])
         ax_df1.set_xlabel('Time (ms)')
         ax_df1.set_ylabel('dF/dt')
-        points_size = 3
+        signal_markersize = 8
         # Set axes z orders so connecting lines are shows
         ax_data.set_zorder(3)
         ax_df1.set_zorder(2)
@@ -1057,31 +1057,61 @@ class TestSnrSignal(unittest.TestCase):
             # ax.set_yticklabels([])
 
         # Plot signals and points
-        ax_data.plot(self.time, self.signal, color=gray_heavy, linestyle='None', marker='+')
+        ax_data.plot(self.time, self.signal, color=gray_med,
+                     linestyle='-', marker='+', )
         # ax_data.plot(self.time_ca, self.signal_ca, color=gray_heavy,
         #              linestyle='-', marker='.', markersize=points_lw*3)
-        ax_data.plot(ir_noise, self.signal[ir_noise], "x", color=color_raw, markersize=points_size)
+        # ax_data.plot(ir_noise, self.signal[ir_noise], "x", color=color_raw, markersize=signal_markersize)
+
+        # Characterize the signal
+        signal_bounds = (self.signal.min(), self.signal.max())
+        signal_range = signal_bounds[1] - signal_bounds[0]
+        # find the peak (roughly)
+        i_peaks, properties = find_tran_peak(self.signal, props=True)
+        if i_peaks is np.nan:
+            return np.nan
+        # if type(i_peaks) is float:
+        #     raise ArithmeticError('float i_peaks is: \'{}\' for signal with range: '
+        #                           .format(i_peaks, signal_range))
+        i_peak = i_peaks[np.argmax(properties['prominences'])]
+
+        # use the prominence of the peak to find a "rough" baseline
+        prominence_floor = self.signal[i_peak] - (properties['prominences'][0] * 0.7)
+        i_baselines_far_l, i_baselines_far_r = 0, 0
+
+        # if peak_side is 'left':
+        #     # Find first index below the prominence floor
+        # i_baselines_far_l = np.where(self.signal[:i_peak] <= prominence_floor)[0][0]
+        # i_baselines_far_r = np.where(self.signal[:i_peak] <= prominence_floor)[0][-1]
+
+        # if peak_side is 'right':
+        #     # Find first index below the prominence floor
+        i_baselines_far_l = np.where(self.signal[i_peak:] <= prominence_floor)[0][0] + i_peak
+        i_baselines_far_r = np.where(self.signal[i_peak:] <= prominence_floor)[0][-1] + i_peak
+
+        i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r + 1)
+
+        ax_data.plot(i_baselines_all, self.signal[i_baselines_all],
+                     "x", color=gray_heavy, markersize=signal_markersize / 2)
+        ax_data.plot(ir_noise, self.signal[ir_noise],
+                     ".", color=color_raw, markersize=signal_markersize, label='Noise')
 
         # df/dt
-        # spline_fidelity = 10
-        # time_baseline = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        # # spl = UnivariateSpline(time_baseline, signal_noise)
-        # spl = InterpolatedUnivariateSpline(self.time, self.signal)
-        # time_spline = np.linspace(0, len(self.signal) - 1, len(self.signal) * spline_fidelity)
-        # spl.set_smoothing_factor(200)
-        # df_spline = spl(time_spline, nu=1)
-
         time_spline, df_spline, spline_fidelity = spline_signal(self.time, self.signal)
         ax_df1.plot(time_spline, df_spline, color=gray_med,
                     linestyle='--', label='dF/dt')
+        ax_df1.plot(time_spline[i_baselines_all[:-2] * spline_fidelity],
+                    df_spline[i_baselines_all[:-2] * spline_fidelity],
+                    "x", color=gray_heavy, markersize=signal_markersize)
         ax_df1.plot(time_spline[ir_noise * spline_fidelity],
                     df_spline[ir_noise * spline_fidelity],
-                    "x", color=color_raw, markersize=points_size)
+                    ".", color=color_raw, markersize=signal_markersize)
 
         # ax_data.axhline(y=self.signal_f0 + self.signal_famp,
         #                 color=gray_light, linestyle='--', label='Peak, Actual')
         ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
-        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=points_size * 4, label='Peak')
+        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=signal_markersize * 4,
+                     label='Peak')
         #
         # ax_snr.plot(ir_noise, self.signal_ca[ir_noise], "x", color='r', markersize=3)
         # ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_f0,
@@ -1100,7 +1130,7 @@ class TestSnrSignal(unittest.TestCase):
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
-        # fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
+        fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
         fig_snr.show()
 
     def test_stats(self):
@@ -1324,7 +1354,7 @@ class TestSnrMap(unittest.TestCase):
         #                  orientation='horizontal', color='gray')
         # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display)
         sns.swarmplot(ax=ax_act_hist, data=snr_map_ca_flat,
-                      size=1, color='k', alpha=0.7) # and slightly transparent
+                      size=1, color='k', alpha=0.7)  # and slightly transparent
 
         ax_act_hist.set_ylim([0, snr_max_display])
         ax_act_hist.set_yticks([])

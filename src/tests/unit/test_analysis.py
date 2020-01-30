@@ -589,21 +589,21 @@ class TestAnalysisPoints(unittest.TestCase):
 class TestEnsemble(unittest.TestCase):
     def setUp(self):
         # Create data to test with
-        self.signal_t = 600
+        self.signal_t = 2000
         self.signal_t0 = 50
         # self.signal_f0 = 1000
         self.signal_famp = 100
         self.signal_fps = 500
         self.signal_num = 'full'
         self.signal_cl = 150
-        self.signal_noise = 5  # as a % of the signal amplitude
-        # # trace
-        # self.time_vm, self.signal_vm = \
-        #     model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-        #                      # f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
-        #                      famp=self.signal_famp, noise=self.signal_noise,
-        #                      num=self.signal_num, cl=self.signal_cl)
-        # # self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+        self.signal_noise = 2  # as a % of the signal amplitude
+        # trace
+        self.time_vm, self.signal_vm = \
+            model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+                             # f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+                             famp=self.signal_famp, noise=self.signal_noise,
+                             num=self.signal_num, cl=self.signal_cl)
+        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
         # # stack
         # self.d_noise = 45  # as a % of the signal amplitude
         # self.time_stack, self.stack = \
@@ -618,7 +618,7 @@ class TestEnsemble(unittest.TestCase):
         file_name_pig = '2019/03/22 pigb-01-Ca'
         self.file_name, file_signal = file_name_pig, file_signal_pig
         self.signal_cl = '350'
-        self.time, self.signal = open_signal(source=file_signal, fps=404)
+        # self.time, self.signal = open_signal(source=file_signal, fps=404)
         #
         # # real stack
         # self.file = '02-350_ca'
@@ -695,9 +695,10 @@ class TestEnsemble(unittest.TestCase):
         # Build a figure to plot SNR results
         # fig_snr, ax_snr = plot_test()
         fig_ensemble = plt.figure(figsize=(12, 8))  # _ x _ inch page
-        gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.2, 0.8])  # 2 rows, 1 column
+        gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.2, 0.8])  # 3 rows, 1 column
         ax_signal = fig_ensemble.add_subplot(gs0[0])
         ax_ensemble = fig_ensemble.add_subplot(gs0[1])
+        # ax_ensemble_crop = fig_ensemble.add_subplot(gs0[2])
 
         ax_signal.spines['right'].set_visible(False)
         ax_signal.spines['top'].set_visible(False)
@@ -705,6 +706,7 @@ class TestEnsemble(unittest.TestCase):
         ax_signal.tick_params(axis='x', which='major', length=8, bottom=True)
         plt.rc('xtick', labelsize=fontsize2)
         plt.rc('ytick', labelsize=fontsize2)
+        signal_markersize = 8
 
         ax_signal.set_ylabel('arb. u.')
         # ax_snr.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
@@ -713,25 +715,27 @@ class TestEnsemble(unittest.TestCase):
         # ax_signal.plot(self.time[last_baselines], self.signal[],
         #                "x", color=colors_times['Activation'], label='Activations')
         ax_signal.plot(signal_peaks, self.signal[signal_peaks],
-                       "x", color=colors_times['Peak'], markersize=10, label='Peaks')
+                       "x", color=colors_times['Peak'], markersize=signal_markersize, label='Peaks')
         ax_signal.plot(signal_acts, self.signal[signal_acts],
-                       "x", color=colors_times['Activation'], markersize=10, label='Activations')
+                       "x", color=colors_times['Activation'], markersize=signal_markersize, label='Activations')
 
+        # # Common between the two
+        # for ax in [ax_ensemble, ax_ensemble_crop]:
         ax_ensemble.spines['right'].set_visible(False)
         ax_ensemble.spines['top'].set_visible(False)
         ax_ensemble.set_ylabel('Fluorescence (arb. u.)')
         ax_ensemble.set_xlabel('Time (frame #)')
 
         signal_snrs = []
-        for num, signal in enumerate(signals):
-            ax_ensemble.plot(signal, color=gray_light, linestyle='-')
-            # Baseline
-            i_baseline = find_tran_baselines(signal)  # 1st df2 max, Start
-            ax_ensemble.plot(i_baseline, signal[i_baseline],
-                             "x", color=colors_times['Baseline'], markersize=5)
+        # for num, signal in enumerate(signals):
+        #     ax_ensemble.plot(signal, color=gray_light, linestyle='-')
+        #     # Baseline
+        #     # i_baseline = find_tran_baselines(signal)  # 1st df2 max, Start
+        #     # ax_ensemble.plot(i_baseline, signal[i_baseline],
+        #     #                  "x", color=colors_times['Baseline'], markersize=5)
 
         for num, signal in enumerate(signals):
-            signal_markersize = 8
+            ax_ensemble.plot(signal, color=gray_light, linestyle='-')
             # # Start
             # i_start = find_tran_start(signal)  # 1st df2 max, Start
             # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
@@ -757,8 +761,8 @@ class TestEnsemble(unittest.TestCase):
             snr = snr_results[0]
             ir_noise = snr_results[-2]
             signal_snrs.append(snr)
-            # ax_ensemble.plot(ir_noise, signal[ir_noise],
-            #                  "x", color=gray_med, markersize=10)
+            ax_ensemble.plot(ir_noise, signal[ir_noise],
+                             "x", color=gray_med, markersize=signal_markersize/2)
 
         # Stats: SNRs
         snr_old = round(np.mean(signal_snrs), 3)
@@ -769,7 +773,7 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.plot(signal_ensemble, color=gray_heavy,
                          linestyle='-', marker='+', label='Ensemble signal')
         ax_ensemble.plot(ir_noise_new, signal_ensemble[ir_noise_new],
-                         ".", color=gray_heavy, markersize=10, label='Noise')
+                         ".", color=gray_heavy, markersize=signal_markersize, label='Noise')
 
         ens_signal_markersize = 25
         # # Start
@@ -797,11 +801,11 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         # Text: Conditions
-        ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        # ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
+        # ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
         #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.72, 0.6, 'File: {}'.format(self.file_name),
+        # ax_ensemble.text(0.72, 0.6, 'File: {}'.format(self.file_name),
+        #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # Text: Cycles
         ax_ensemble.text(0.72, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
@@ -824,6 +828,7 @@ class TestEnsemble(unittest.TestCase):
         #                      capsize=4, capthick=1.0)
 
         fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
+        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Pig.png')
         fig_ensemble.show()
 
     def test_stack(self):
@@ -879,147 +884,153 @@ class TestEnsemble(unittest.TestCase):
                 cb_filtered.ax.tick_params(labelsize=fontsize3)
             # Signal trace
             ax_signal = fig_filter_traces.add_subplot(gs_frame_signal[1])
-            ax_signal.set_xlabel('Time (ms)')
-            ax_signal.set_yticks([])
-            ax_signal.set_yticklabels([])
+            ax_signal.set_ylabel('Fluorescence (arb. u.)')
+            ax_signal.set_xlabel('Time (frame #)')
+            # ax_signal.spines['right'].set_visible(False)
+            # ax_signal.spines['top'].set_visible(False)
+            ax_signal.tick_params(axis='x', which='minor', length=3, bottom=True)
+            ax_signal.tick_params(axis='x', which='major', length=8, bottom=True)
+            plt.rc('xtick', labelsize=fontsize2)
+            plt.rc('ytick', labelsize=fontsize2)
+
             # Common between the two
             for ax in [ax_frame, ax_signal]:
                 ax.spines['right'].set_visible(False)
                 ax.spines['left'].set_visible(False)
                 ax.spines['top'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)
-            ax_signal.plot(self.time_stack, signal, color=gray_heavy, linestyle='None', marker='+')
+            ax_signal.plot(signal, color=gray_heavy, linestyle='None', marker='+')
 
         # fig_filter_traces.savefig(dir_unit + '/results/processing_SpatialFilter_Trace.png')
         fig_filter_traces.show()
-
-    def test_real_trace(self):
-        # Make sure ensemble of a trace looks correct
-        time_ensemble, signal_ensemble, signals, signal_peaks, est_cycle_length = \
-            calc_ensemble(self.stack_time_real, self.stack_real_trace)
-            # calc_ensemble(self.time_real, self.signal_real)
-
-        last_baselines = find_tran_baselines(signals[-1])
-
-        # Build a figure to plot SNR results
-        # fig_snr, ax_snr = plot_test()
-        fig_ensemble = plt.figure(figsize=(12, 8))  # _ x _ inch page
-        gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.2, 0.8])  # 2 rows, 1 column
-        ax_signal = fig_ensemble.add_subplot(gs0[0])
-        ax_ensemble = fig_ensemble.add_subplot(gs0[1])
-
-        ax_signal.spines['right'].set_visible(False)
-        ax_signal.spines['top'].set_visible(False)
-        ax_signal.tick_params(axis='x', which='minor', length=3, bottom=True)
-        ax_signal.tick_params(axis='x', which='major', length=8, bottom=True)
-        plt.rc('xtick', labelsize=fontsize2)
-        plt.rc('ytick', labelsize=fontsize2)
-
-        ax_signal.set_ylabel('arb. u.')
-        # ax_snr.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
-        ax_signal.plot(self.time_real, self.signal_real, color=gray_light,
-                       linestyle='None', marker='+', label='Ca pixel data')
-        ax_signal.plot(self.time_real[signal_peaks], self.signal_real[signal_peaks],
-                       "x", color=colors_times['Peak'], markersize=10, label='Peaks')
-        ax_signal.plot(self.time_real[last_baselines], self.signal_real[last_baselines],
-                       "x", color=colors_times['Baseline'], label='Baselines')
-
-        ax_ensemble.spines['right'].set_visible(False)
-        ax_ensemble.spines['top'].set_visible(False)
-        ax_ensemble.set_ylabel('Fluorescence (arb. u.)')
-        ax_ensemble.set_xlabel('Time (ms)')
-
-        signal_snrs = []
-        for signal in signals:
-            ax_ensemble.plot(time_ensemble, signal, color=gray_light, linestyle='-')
-            # Start
-            i_start = find_tran_start(signal)  # 1st df2 max, Start
-            ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
-                             "x", color=colors_times['Start'], markersize=10)
-            # Activation
-            i_activation = find_tran_act(signal)  # 1st df max, Activation
-            ax_ensemble.plot(time_ensemble[i_activation], signal[i_activation],
-                             "x", color=colors_times['Activation'], markersize=10)
-            # Peak
-            i_peak = find_tran_peak(signal)  # max of signal, Peak
-            ax_ensemble.plot(time_ensemble[i_peak], signal[i_peak],
-                             "x", color=colors_times['Peak'], markersize=10)
-            # # Downstroke
-            # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
-            # ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
-            #                  "x", color=colors_times['Downstroke'], markersize=10, label='Downstroke')
-            # # End
-            # i_end = find_tran_end(signal)  # 2st df2 max, End
-            # ax_ensemble.plot(time_ensemble[i_end], signal[i_end],
-            #                  "x", color=colors_times['End'], markersize=10, label='End')
-
-            snr_results = calculate_snr(signal)
-            snr = snr_results[0]
-            ir_noise = snr_results[-2]
-            signal_snrs.append(snr)
-            ax_ensemble.plot(time_ensemble[ir_noise], signal[ir_noise],
-                             "x", color=gray_med, markersize=10)
-
-        ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
-                         linestyle='-', marker='+', label='Ensemble signal')
-        # Start
-        i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
-        ax_ensemble.plot(time_ensemble[i_start], signal_ensemble[i_start],
-                         ".", color=colors_times['Start'], markersize=15, label='Start')
-
-        # Activation
-        i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
-        ax_ensemble.plot(time_ensemble[i_activation], signal_ensemble[i_activation],
-                         ".", color=colors_times['Activation'], markersize=15, label='Activation')
-        # Peak
-        i_peak = find_tran_peak(signal_ensemble)  # max of signal, Peak
-        ax_ensemble.plot(time_ensemble[i_peak], signal_ensemble[i_peak],
-                         ".", color=colors_times['Peak'], markersize=15, label='Peak')
-        ax_ensemble.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-
-        # # Downstroke
-        # i_downstroke = find_tran_downstroke(signal_ensemble)  # df min, Downstroke
-        # ax_ensemble.plot(time_ensemble[i_downstroke], signal_ensemble[i_downstroke],
-        #                  ".", color=colors_times['Downstroke'], markersize=15, label='Downstroke')
-        # # End
-        # i_end = find_tran_end(signal_ensemble)  # 2st df2 max, End
-        # ax_ensemble.plot(time_ensemble[i_end], signal_ensemble[i_end],
-        #                  ".", color=colors_times['End'], markersize=15, label='End')
-
-        # Text: Conditions
-        ax_ensemble.text(0.75, 0.65, 'PCL actual: {}'.format(self.file_cl),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.6, 'File: {}'.format(self.file_name),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        # Text: Cycles
-        ax_ensemble.text(0.75, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        # Stats: SNRs
-        snr_old = round(np.mean(signal_snrs), 1)
-        snr_results = calculate_snr(signal_ensemble)
-        snr_new = round(snr_results[0], 1)
-        ir_noise_new = snr_results[-2]
-
-        # Text
-        ax_ensemble.plot(time_ensemble[ir_noise_new], signal_ensemble[ir_noise_new],
-                         ".", color=gray_heavy, markersize=15, label='Noise')
-        ax_ensemble.text(0.75, 0.35, 'SNR detected: {}'.format(snr_old),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.75, 0.3, 'SNR ensembled: {}'.format(snr_new),
-                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-
-        # # Activation error bar
-        # error_act = np.mean(signals_activations).astype(int)
-        # ax_ensemble.errorbar(time_ensemble[error_act],
-        #                      signal_ensemble[error_act],
-        #                      xerr=statistics.stdev(signals_activations), fmt="x",
-        #                      color=colors_times['Activation'], lw=3,
-        #                      capsize=4, capthick=1.0)
-
-        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Real.png')
-        fig_ensemble.show()
+    #
+    # def test_real_trace(self):
+    #     # Make sure ensemble of a trace looks correct
+    #     time_ensemble, signal_ensemble, signals, signal_peaks, est_cycle_length = \
+    #         calc_ensemble(self.stack_time_real, self.stack_real_trace)
+    #         # calc_ensemble(self.time_real, self.signal_real)
+    #
+    #     last_baselines = find_tran_baselines(signals[-1])
+    #
+    #     # Build a figure to plot SNR results
+    #     # fig_snr, ax_snr = plot_test()
+    #     fig_ensemble = plt.figure(figsize=(12, 8))  # _ x _ inch page
+    #     gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.2, 0.8])  # 2 rows, 1 column
+    #     ax_signal = fig_ensemble.add_subplot(gs0[0])
+    #     ax_ensemble = fig_ensemble.add_subplot(gs0[1])
+    #
+    #     ax_signal.spines['right'].set_visible(False)
+    #     ax_signal.spines['top'].set_visible(False)
+    #     ax_signal.tick_params(axis='x', which='minor', length=3, bottom=True)
+    #     ax_signal.tick_params(axis='x', which='major', length=8, bottom=True)
+    #     plt.rc('xtick', labelsize=fontsize2)
+    #     plt.rc('ytick', labelsize=fontsize2)
+    #
+    #     ax_signal.set_ylabel('arb. u.')
+    #     # ax_snr.set_ylim([self.signal_F0 - 20, self.signal_F0 + self.signal_amp + 20])
+    #     ax_signal.plot(self.time_real, self.signal_real, color=gray_light,
+    #                    linestyle='None', marker='+', label='Ca pixel data')
+    #     ax_signal.plot(self.time_real[signal_peaks], self.signal_real[signal_peaks],
+    #                    "x", color=colors_times['Peak'], markersize=10, label='Peaks')
+    #     ax_signal.plot(self.time_real[last_baselines], self.signal_real[last_baselines],
+    #                    "x", color=colors_times['Baseline'], label='Baselines')
+    #
+    #     ax_ensemble.spines['right'].set_visible(False)
+    #     ax_ensemble.spines['top'].set_visible(False)
+    #     ax_ensemble.set_ylabel('Fluorescence (arb. u.)')
+    #     ax_ensemble.set_xlabel('Time (ms)')
+    #
+    #     signal_snrs = []
+    #     for signal in signals:
+    #         ax_ensemble.plot(time_ensemble, signal, color=gray_light, linestyle='-')
+    #         # Start
+    #         i_start = find_tran_start(signal)  # 1st df2 max, Start
+    #         ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
+    #                          "x", color=colors_times['Start'], markersize=10)
+    #         # Activation
+    #         i_activation = find_tran_act(signal)  # 1st df max, Activation
+    #         ax_ensemble.plot(time_ensemble[i_activation], signal[i_activation],
+    #                          "x", color=colors_times['Activation'], markersize=10)
+    #         # Peak
+    #         i_peak = find_tran_peak(signal)  # max of signal, Peak
+    #         ax_ensemble.plot(time_ensemble[i_peak], signal[i_peak],
+    #                          "x", color=colors_times['Peak'], markersize=10)
+    #         # # Downstroke
+    #         # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
+    #         # ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
+    #         #                  "x", color=colors_times['Downstroke'], markersize=10, label='Downstroke')
+    #         # # End
+    #         # i_end = find_tran_end(signal)  # 2st df2 max, End
+    #         # ax_ensemble.plot(time_ensemble[i_end], signal[i_end],
+    #         #                  "x", color=colors_times['End'], markersize=10, label='End')
+    #
+    #         snr_results = calculate_snr(signal)
+    #         snr = snr_results[0]
+    #         ir_noise = snr_results[-2]
+    #         signal_snrs.append(snr)
+    #         ax_ensemble.plot(time_ensemble[ir_noise], signal[ir_noise],
+    #                          "x", color=gray_med, markersize=10)
+    #
+    #     ax_ensemble.plot(time_ensemble, signal_ensemble, color=gray_heavy,
+    #                      linestyle='-', marker='+', label='Ensemble signal')
+    #     # Start
+    #     i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
+    #     ax_ensemble.plot(time_ensemble[i_start], signal_ensemble[i_start],
+    #                      ".", color=colors_times['Start'], markersize=15, label='Start')
+    #
+    #     # Activation
+    #     i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
+    #     ax_ensemble.plot(time_ensemble[i_activation], signal_ensemble[i_activation],
+    #                      ".", color=colors_times['Activation'], markersize=15, label='Activation')
+    #     # Peak
+    #     i_peak = find_tran_peak(signal_ensemble)  # max of signal, Peak
+    #     ax_ensemble.plot(time_ensemble[i_peak], signal_ensemble[i_peak],
+    #                      ".", color=colors_times['Peak'], markersize=15, label='Peak')
+    #     ax_ensemble.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+    #
+    #     # # Downstroke
+    #     # i_downstroke = find_tran_downstroke(signal_ensemble)  # df min, Downstroke
+    #     # ax_ensemble.plot(time_ensemble[i_downstroke], signal_ensemble[i_downstroke],
+    #     #                  ".", color=colors_times['Downstroke'], markersize=15, label='Downstroke')
+    #     # # End
+    #     # i_end = find_tran_end(signal_ensemble)  # 2st df2 max, End
+    #     # ax_ensemble.plot(time_ensemble[i_end], signal_ensemble[i_end],
+    #     #                  ".", color=colors_times['End'], markersize=15, label='End')
+    #
+    #     # Text: Conditions
+    #     ax_ensemble.text(0.75, 0.65, 'PCL actual: {}'.format(self.file_cl),
+    #                      color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+    #     ax_ensemble.text(0.75, 0.6, 'File: {}'.format(self.file_name),
+    #                      color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+    #     # Text: Cycles
+    #     ax_ensemble.text(0.75, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
+    #                      color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+    #     ax_ensemble.text(0.75, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
+    #                      color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+    #     # Stats: SNRs
+    #     snr_old = round(np.mean(signal_snrs), 1)
+    #     snr_results = calculate_snr(signal_ensemble)
+    #     snr_new = round(snr_results[0], 1)
+    #     ir_noise_new = snr_results[-2]
+    #
+    #     # Text
+    #     ax_ensemble.plot(time_ensemble[ir_noise_new], signal_ensemble[ir_noise_new],
+    #                      ".", color=gray_heavy, markersize=15, label='Noise')
+    #     ax_ensemble.text(0.75, 0.35, 'SNR detected: {}'.format(snr_old),
+    #                      color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+    #     ax_ensemble.text(0.75, 0.3, 'SNR ensembled: {}'.format(snr_new),
+    #                      color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+    #
+    #     # # Activation error bar
+    #     # error_act = np.mean(signals_activations).astype(int)
+    #     # ax_ensemble.errorbar(time_ensemble[error_act],
+    #     #                      signal_ensemble[error_act],
+    #     #                      xerr=statistics.stdev(signals_activations), fmt="x",
+    #     #                      color=colors_times['Activation'], lw=3,
+    #     #                      capsize=4, capthick=1.0)
+    #
+    #     # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Real.png')
+    #     fig_ensemble.show()
 
     # def test_stack(self):
     #     # Make sure ensemble of a model stack looks correct
