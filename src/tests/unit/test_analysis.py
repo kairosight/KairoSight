@@ -597,20 +597,20 @@ class TestEnsemble(unittest.TestCase):
         self.signal_num = 'full'
         self.signal_cl = 150
         self.signal_noise = 5  # as a % of the signal amplitude
-        # trace
-        self.time_vm, self.signal_vm = \
-            model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-                             # f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
-                             famp=self.signal_famp, noise=self.signal_noise,
-                             num=self.signal_num, cl=self.signal_cl)
-        # self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
-        # stack
-        self.d_noise = 45  # as a % of the signal amplitude
-        self.time_stack, self.stack = \
-            model_stack_heart(model_type='Ca', d_noise=self.d_noise,
-                              t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-                              famp=self.signal_famp, noise=self.signal_noise,
-                              num=self.signal_num, cl=self.signal_cl)
+        # # trace
+        # self.time_vm, self.signal_vm = \
+        #     model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+        #                      # f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+        #                      famp=self.signal_famp, noise=self.signal_noise,
+        #                      num=self.signal_num, cl=self.signal_cl)
+        # # self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+        # # stack
+        # self.d_noise = 45  # as a % of the signal amplitude
+        # self.time_stack, self.stack = \
+        #     model_stack_heart(model_type='Ca', d_noise=self.d_noise,
+        #                       t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+        #                       famp=self.signal_famp, noise=self.signal_noise,
+        #                       num=self.signal_num, cl=self.signal_cl)
 
         # Import real data
         # trace
@@ -731,6 +731,7 @@ class TestEnsemble(unittest.TestCase):
                              "x", color=colors_times['Baseline'], markersize=5)
 
         for num, signal in enumerate(signals):
+            signal_markersize = 8
             # # Start
             # i_start = find_tran_start(signal)  # 1st df2 max, Start
             # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
@@ -738,11 +739,11 @@ class TestEnsemble(unittest.TestCase):
             # Activation
             i_activation = find_tran_act(signal)  # 1st df max, Activation
             ax_ensemble.plot(i_activation, signal[i_activation],
-                             ".", color=colors_times['Activation'], markersize=10)
+                             ".", color=colors_times['Activation'], markersize=signal_markersize)
             # Peak
             i_peak = find_tran_peak(signal)  # max of signal, Peak
             ax_ensemble.plot(i_peak, signal[i_peak],
-                             ".", color=colors_times['Peak'], markersize=10)
+                             ".", color=colors_times['Peak'], markersize=signal_markersize)
             # # Downstroke
             # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
             # ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
@@ -769,18 +770,22 @@ class TestEnsemble(unittest.TestCase):
                          linestyle='-', marker='+', label='Ensemble signal')
         ax_ensemble.plot(ir_noise_new, signal_ensemble[ir_noise_new],
                          ".", color=gray_heavy, markersize=10, label='Noise')
+
+        ens_signal_markersize = 25
         # # Start
         # i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
         # ax_ensemble.plot(time_ensemble[i_start], signal_ensemble[i_start],
         #                  ".", color=colors_times['Start'], markersize=15, label='Start')
-        # # Activation
-        # i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
-        # ax_ensemble.plot(time_ensemble[i_activation], signal_ensemble[i_activation],
-        #                  ".", color=colors_times['Activation'], markersize=15, label='Activation')
-        # # Peak
-        # i_peak = find_tran_peak(signal_ensemble)  # max of signal, Peak
-        # ax_ensemble.plot(time_ensemble[i_peak], signal_ensemble[i_peak],
-        #                  ".", color=colors_times['Peak'], markersize=15, label='Peak')
+        # Activation
+        i_activation = find_tran_act(signal_ensemble)  # 1st df max, Activation
+        ax_ensemble.plot(i_activation, signal_ensemble[i_activation],
+                         ".", color=colors_times['Activation'], fillstyle='none', markersize=ens_signal_markersize,
+                         label='Activation')
+        # Peak
+        i_peak = find_tran_peak(signal_ensemble)  # max of signal, Peak
+        ax_ensemble.plot(i_peak, signal_ensemble[i_peak],
+                         ".", color=colors_times['Peak'], fillstyle='none', markersize=ens_signal_markersize,
+                         label='Peak')
         # # Downstroke
         # i_downstroke = find_tran_downstroke(signal_ensemble)  # df min, Downstroke
         # ax_ensemble.plot(time_ensemble[i_downstroke], signal_ensemble[i_downstroke],
@@ -818,7 +823,7 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
+        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
         fig_ensemble.show()
 
     def test_stack(self):

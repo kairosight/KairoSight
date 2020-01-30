@@ -104,7 +104,7 @@ def find_tran_act(signal_in):
     # spl.set_smoothing_factor(200)    # TODO optimize here
     # df_spline = spl(time_spline, nu=1, ext='extrapolate')
 
-    time_spline, df_spline, spline_fidelity = spline_signal(time_search, signal_search)
+    time_spline, df_spline, spline_fidelity = spline_signal(time_search, signal_search, smoothing=500)
 
     # find the 1st derivative max within the search area
     i_act_search = np.argmax(df_spline)
@@ -506,7 +506,7 @@ def calc_phase(signal_in):
         raise TypeError('Signal data type must be an "ndarray"')
 
 
-def calc_ensemble(time_in, signal_in):
+def calc_ensemble(time_in, signal_in, crop='center'):
     """Convert a signal from multiple transients to an averaged signal,
     segmented by activation times. Discards the first and last transients.
 
@@ -516,6 +516,9 @@ def calc_ensemble(time_in, signal_in):
             The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
         signal_in : ndarray
             The array of fluorescent data to be converted
+        crop : str or int
+            The type of cropping applied, default is center
+            If an int, begin aligned crop at that time index
 
         Returns
         -------
@@ -585,6 +588,7 @@ def calc_ensemble(time_in, signal_in):
         signal = signal_in[i_peaks[peak_num] - cycle_shift:
                            i_peaks[peak_num] + est_cycle_i - cycle_shift]
         signals_trans_peak.append(signal)
+        # signal_norm = normalize_signal(signal)
 
         i_baselines = find_tran_baselines(signal)
         i_baselines_full.append((i_peaks[peak_num] - cycle_shift) + i_baselines)
@@ -593,7 +597,7 @@ def calc_ensemble(time_in, signal_in):
         i_acts_full.append(i_act_full)
 
     # With that peak detection, find activation times and align transient
-    for act_num, signal in enumerate(signals_trans_peak):
+    for act_num, i_act_full in enumerate(i_acts_full):
         # i_start_signal = find_tran_start(signal)
         # signal = normalize_signal(signal)
         # i_act_signal = find_tran_act(signal)
@@ -613,10 +617,28 @@ def calc_ensemble(time_in, signal_in):
         # # align along activation times, and crop using the first signal's left-most baseline
         # i_align = i_acts_full[act_num] - 40
         # i_align = i_acts_full[act_num] - (i_acts_full[0] - (i_peaks[0] - cycle_shift))
-        i_align = i_acts_full[act_num] - (i_acts_full[0] - i_baselines_full[0][0])
 
         # signal_align = normalize_signal(signal_in[i_align:i_align + est_cycle_i])
-        signal_align = signal_in[i_align:i_align + est_cycle_i]
+        if crop is 'center':
+            # center : crop transients using the cycle length
+            # cropped to center at the alignment points
+
+            # align along activation times, and crop using the first signal's left-most baseline
+            i_align = i_act_full - (i_acts_full[0] - i_baselines_full[0][-1])
+            signal_align = signal_in[i_align:i_align + est_cycle_i]
+            # signal_align = normalize_signal(signal_align)
+        elif type(crop) is int:
+            # stack : crop transients using the cycle length
+            # cropped to allow for an ensemble stack with propagating transients
+
+            # Use the earliest end of SNR in the frame
+
+            # stacked to capture the second full transient
+            # at the edge of a propogating wave and avoid sliced transients
+            # align starting with provided crop time, and ending using the first signal's left-most baseline
+            i_align = i_act_full - (i_acts_full[0] - crop)
+            signal_align = signal_in[i_align:i_align + est_cycle_i]
+            # signal_align = normalize_signal(signal_align)
         signals_trans_act.append(signal_align)
 
     # use the lowest activation time
@@ -641,6 +663,10 @@ def calc_ensemble_stack(time_in, stack_in):
     """Convert a stack from pixels with multiple transients to those with an averaged signal,
     segmented by activation times. Discards the first and last transients.
 
+        # 1) Confirm the brightest pixel has enough peaks
+        # 2) Find pixel(s) with earliest second peak
+        # 3) Use the cycle time and end time of that peak's left baseline to align all ensembled signals
+
         Parameters
         ----------
         time_in : ndarray
@@ -660,17 +686,17 @@ def calc_ensemble_stack(time_in, stack_in):
         """
 
     print('Ensembling a stack ...')
-    stack_out = np.empty_like(stack_in)
     map_shape = stack_in.shape[1:]
     i_peak_0_min = stack_in.shape[0]
-    # i_peak_1_min = len(stack_in)
+    yx_peak_1_min = (0, 0)
+    i_peak_1_min = stack_in.shape[0]
 
     # for each pixel ...
     for iy, ix in np.ndindex(map_shape):
         print('\r\tPeak Search of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(
             iy + 1, map_shape[0], ix + 1, map_shape[1]), end='', flush=True)
-        # get signal
-        pixel_data = stack_in[:, iy, ix]
+        # Get first half of signal to save time
+        pixel_data = stack_in[:int(stack_in.shape[0]), iy, ix]
         # Characterize the signal
         signal_bounds = (pixel_data.min(), pixel_data.max())
         signal_range = signal_bounds[1] - signal_bounds[0]
@@ -693,17 +719,34 @@ def calc_ensemble_stack(time_in, stack_in):
         # else:
         #     raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
+        # 2) Find pixel(s) with earliest second peak
         # find the first peak and preserve the minimum among all pixels
         if i_peaks[0] < i_peak_0_min:
             i_peak_0_min = i_peaks[0]
+            i_peak_1_min = i_peaks[1]
+            yx_peak_1_min = (iy, ix)
         # i_peak_1_min = max(i_peaks[1], i_peak_1_min)
 
-    # truncate start of stack to avoid improper ensemble by
-    # calculating padding needed to preserve activation propagation
-    # * Cut at the minimum peak_0
-    stack_in = stack_in[i_peak_0_min:]
+    # calculating alignment crop needed to preserve activation propagation
+    pixel_data_peak_1_min = stack_in[:int(stack_in.shape[0]), yx_peak_1_min[0], yx_peak_1_min[1]]
 
+    i_peaks, _ = find_tran_peak(pixel_data_peak_1_min, props=True)
+
+    # Split up the signal using peaks and estimated cycle length
+    est_cycle = np.diff(i_peaks).astype(float)
+    est_cycle_i = np.nanmean(est_cycle)
+    est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
+    est_cycle_i = np.floor(est_cycle_i).astype(int)
+    cycle_shift = np.floor(est_cycle_i / 2).astype(int)
+
+    i_peak_1_min_baselines = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
+
+    ensemble_crop = i_peak_1_min_baselines[-1]
+
+    # 3) Use the cycle time and time of that peak to align all ensembled signals
     # for each pixel ...
+    stack_out = np.empty_like(stack_in[est_cycle_i])
+
     for iy, ix in np.ndindex(map_shape):
         print('\r\tEnsemble of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
               end='', flush=True)
@@ -714,7 +757,7 @@ def calc_ensemble_stack(time_in, stack_in):
         else:
             # calculate the ensemble of it
             time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
-                = calc_ensemble(time_in, pixel_data)
+                = calc_ensemble(time_in, pixel_data, crop=ensemble_crop)
 
         # TODO ValueError: could not broadcast input array from shape (295) into shape (325)
         stack_out[:, iy, ix] = signal_ensemble

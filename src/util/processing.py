@@ -13,16 +13,16 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
-def spline_signal(xx, signal_in):
+def spline_signal(xx, signal_in, smoothing=7000):
 
     # d_xx = np.diff(xx)
     d_xx = xx[2] - xx[1]
     spl = InterpolatedUnivariateSpline(xx, signal_in)
     # df/dt (with x20 as many time samples)
-    spline_fidelity = 20    # TODO optimize here
+    spline_fidelity = 10    # TODO optimize here
     time_spline = np.linspace(xx[0], xx[-1] - d_xx,
                               (xx[-1] - xx[0])*spline_fidelity)
-    spl.set_smoothing_factor(7000)    # TODO optimize here
+    spl.set_smoothing_factor(smoothing)    # TODO optimize here
     df_spline = spl(time_spline, nu=1, ext='extrapolate')
 
     return time_spline, df_spline, spline_fidelity
@@ -64,7 +64,7 @@ def find_tran_peak(signal_in, props=False):
             return np.nan
 
     # Roughly find the peaks
-    i_peaks, properties = find_peaks(signal_in, prominence=signal_range / 1.4, width=5)
+    i_peaks, properties = find_peaks(signal_in, prominence=signal_range * 0.65, width=5)
 
     if len(i_peaks) is 0:   # no peak detected
         if props:
