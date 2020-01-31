@@ -19,9 +19,9 @@ def spline_signal(xx, signal_in, smoothing=7000):
     d_xx = xx[2] - xx[1]
     spl = InterpolatedUnivariateSpline(xx, signal_in)
     # df/dt (with x20 as many time samples)
-    spline_fidelity = 10    # TODO optimize here
+    spline_fidelity = 20    # TODO optimize here
     time_spline = np.linspace(xx[0], xx[-1] - d_xx,
-                              (xx[-1] - xx[0])*spline_fidelity)
+                              (len(xx))*spline_fidelity)
     spl.set_smoothing_factor(smoothing)    # TODO optimize here
     df_spline = spl(time_spline, nu=1, ext='extrapolate')
 
@@ -141,9 +141,9 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
     i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
 
-    # # use the middle 3/5s of these
-    # # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
-    # search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 5)
+    # use a subset of the flattest baselines
+    # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
+    # search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 4)
     # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
     # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
 

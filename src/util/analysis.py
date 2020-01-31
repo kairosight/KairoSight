@@ -80,8 +80,8 @@ def find_tran_act(signal_in):
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
 
-    # Limit the search to between the median baseline point
-    # and before the peak just after the peak
+    # Limit the search to be well before
+    # and well after the peak (depends on which side of the peak the baselines are)
     i_peak = find_tran_peak(signal_in)
     if i_peak is np.nan:
         return np.nan
@@ -90,51 +90,32 @@ def find_tran_act(signal_in):
 
     if i_baseline < i_peak:
         search_min = i_baseline
-        search_max = i_peak + (i_peak - i_baseline)
     else:
         search_min = 0  # not enough baselines before the peak, use everything before the peak
-        search_max = i_peak
+        # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
 
-    time_search = np.linspace(search_min, search_max - 1,
-                              search_max - search_min)
+    search_max = i_peak + (i_peak - search_min)
+
+    # search_max = len(signal_in) - 1
+
+    xx_search = np.linspace(search_min, search_max - 1,
+                            search_max - search_min)
     signal_search = signal_in[search_min:search_max]
 
     # use a spline
-    time_spline, df_spline, spline_fidelity = spline_signal(time_search, signal_search,
-                                                            smoothing=80)
+    time_spline, df_spline, spline_fidelity = spline_signal(xx_search, signal_search)
 
     # find the 1st derivative max within the search area
     i_act_search_df = np.argmax(df_spline)
     i_act_search = int(i_act_search_df / spline_fidelity)
 
-    # time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    # # print('Starting analysis splines')
-    # # print('** Starting UnivariateSpline')
-    # # start = time.process_time()
-    # spl = UnivariateSpline(time_x, signal_in)
-    # # spl.set_smoothing_factor(0.7)
-    # # end = time.process_time()
-    # # print('** Finished UnivariateSpline', end - start)
-    # # print('** Starting spl')
-    # # start = time.process_time()
-    # df_spline = spl(time_x, nu=1)
-    # # smooth the 1st with a Savitzky Golay filter
     # # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
     # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-    # # end = time.process_time()
-    # # print('** Finished spl', end - start)
-    # # print('Done with analysis splines')
-    # # print('Timing, test_tiff, Vm : ', end - start)
-    #
-    # # find the 1st derivative max within the search area
-    # signal_search_df_smooth = df_smooth[search_min:search_max]
-    # i_act_search = np.argmax(signal_search_df_smooth)  # 1st df max, Activation
 
     i_activation = search_min + i_act_search
 
-    # if i_act_search < 20:
-    #     print('\tLow rel. activation time: {}'.format(i_act_search),
-    #           end='', flush=True)
+    if i_activation == i_peak:
+        print('\tWarning! Activation time same as Peak: {}'.format(i_activation))
 
     return i_activation
 
@@ -623,6 +604,14 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
             # align along activation times, and crop using the first signal's left-most baseline
             i_align = i_act_full - (i_acts_full[0] - i_baselines_full[0][-1])
+
+            i_baseline = int(np.median(i_baselines_full[0]))
+            if i_baseline < i_act_full:
+                crop_l = i_baseline
+            else:
+                crop_l = 0  # not enough baselines before the act time, use everything before the peak
+
+            # i_align = i_act_full - (i_acts_full[0] - crop_l)
             signal_align = signal_in[i_align:i_align + est_cycle_i]
             # signal_align = normalize_signal(signal_align)
         elif type(crop) is tuple:

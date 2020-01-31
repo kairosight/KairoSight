@@ -957,7 +957,7 @@ class TestSnrSignal(unittest.TestCase):
         # Create data to test with
         self.signal_t = 300
         self.signal_t0 = 50
-        self.signal_fps = 1000
+        self.signal_fps = 500
         self.signal_f0 = 1000
         self.signal_famp = 200
         self.signal_noise = 5
@@ -1040,7 +1040,7 @@ class TestSnrSignal(unittest.TestCase):
         # Derivatives
         ax_df1 = fig_snr.add_subplot(gs0[1], sharex=ax_data)
         # ax_data.set_xticklabels([])
-        ax_df1.set_xlabel('Time (ms)')
+        ax_df1.set_xlabel('Time (frame #)')
         ax_df1.set_ylabel('dF/dt')
         signal_markersize = 8
         # Set axes z orders so connecting lines are shows
@@ -1057,7 +1057,7 @@ class TestSnrSignal(unittest.TestCase):
             # ax.set_yticklabels([])
 
         # Plot signals and points
-        ax_data.plot(self.time, self.signal, color=gray_med,
+        ax_data.plot(self.signal, color=gray_med,
                      linestyle='-', marker='+', )
         # ax_data.plot(self.time_ca, self.signal_ca, color=gray_heavy,
         #              linestyle='-', marker='.', markersize=points_lw*3)
@@ -1091,27 +1091,28 @@ class TestSnrSignal(unittest.TestCase):
 
         i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r + 1)
 
+        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=signal_markersize * 2,
+                     label='Peak')
         ax_data.plot(i_baselines_all, self.signal[i_baselines_all],
                      "x", color=gray_heavy, markersize=signal_markersize / 2)
         ax_data.plot(ir_noise, self.signal[ir_noise],
                      ".", color=color_raw, markersize=signal_markersize, label='Noise')
+        ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
 
         # df/dt
         time_spline, df_spline, spline_fidelity = spline_signal(self.time, self.signal)
-        ax_df1.plot(time_spline, df_spline, color=gray_med,
+        x_spline = np.arange(0, len(self.signal), 1/spline_fidelity)
+        ax_df1.plot(x_spline, df_spline, color=gray_med,
                     linestyle='--', label='dF/dt')
-        ax_df1.plot(time_spline[i_baselines_all[:-2] * spline_fidelity],
+        ax_df1.plot(i_baselines_all[:-2],
                     df_spline[i_baselines_all[:-2] * spline_fidelity],
                     "x", color=gray_heavy, markersize=signal_markersize)
-        ax_df1.plot(time_spline[ir_noise * spline_fidelity],
+        ax_df1.plot(ir_noise,
                     df_spline[ir_noise * spline_fidelity],
                     ".", color=color_raw, markersize=signal_markersize)
 
         # ax_data.axhline(y=self.signal_f0 + self.signal_famp,
         #                 color=gray_light, linestyle='--', label='Peak, Actual')
-        ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
-        ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=signal_markersize * 4,
-                     label='Peak')
         #
         # ax_snr.plot(ir_noise, self.signal_ca[ir_noise], "x", color='r', markersize=3)
         # ax_snr.plot_real_noise = ax_snr.axhline(y=self.signal_f0,

@@ -232,10 +232,10 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
     # model_data = model_data + np.round(white_noise)
 
     # create truncated white noise series
-    noise_trunc = 3
-    model_noise = truncnorm((-noise_trunc*noise - 0.0) / noise,
-                            (noise_trunc*noise - 0.0) / noise,
-                  loc=0.0, scale=noise)
+    noise_trunc = 2.5
+    model_noise = truncnorm((-noise_trunc * noise - 0.0) / noise,
+                            (noise_trunc * noise - 0.0) / noise,
+                            loc=0.0, scale=noise)
     model_data = model_data + np.round(model_noise.rvs(len(model_data)))
 
     for num, v in enumerate(model_data):

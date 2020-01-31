@@ -591,17 +591,16 @@ class TestEnsemble(unittest.TestCase):
         # Create data to test with
         self.signal_t = 2000
         self.signal_t0 = 50
-        # self.signal_f0 = 1000
-        self.signal_famp = 100
+        self.signal_f0 = 1000
+        self.signal_famp = 200
         self.signal_fps = 500
         self.signal_num = 'full'
         self.signal_cl = 150
-        self.signal_noise = 2  # as a % of the signal amplitude
+        self.signal_noise = 5  # as a % of the signal amplitude
         # trace
         self.time_vm, self.signal_vm = \
             model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-                             # f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
-                             famp=self.signal_famp, noise=self.signal_noise,
+                             f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
                              num=self.signal_num, cl=self.signal_cl)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
         # # stack
@@ -715,9 +714,9 @@ class TestEnsemble(unittest.TestCase):
         # ax_signal.plot(self.time[last_baselines], self.signal[],
         #                "x", color=colors_times['Activation'], label='Activations')
         ax_signal.plot(signal_peaks, self.signal[signal_peaks],
-                       "x", color=colors_times['Peak'], markersize=signal_markersize, label='Peaks')
+                       "+", color=colors_times['Peak'], markersize=signal_markersize, label='Peaks')
         ax_signal.plot(signal_acts, self.signal[signal_acts],
-                       "x", color=colors_times['Activation'], markersize=signal_markersize, label='Activations')
+                       ".", color=colors_times['Activation'], markersize=signal_markersize, label='Activations')
 
         # # Common between the two
         # for ax in [ax_ensemble, ax_ensemble_crop]:
@@ -726,16 +725,16 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.set_ylabel('Fluorescence (arb. u.)')
         ax_ensemble.set_xlabel('Time (frame #)')
 
+        # Ensembled and original signals
         signal_snrs = []
-        # for num, signal in enumerate(signals):
-        #     ax_ensemble.plot(signal, color=gray_light, linestyle='-')
-        #     # Baseline
-        #     # i_baseline = find_tran_baselines(signal)  # 1st df2 max, Start
-        #     # ax_ensemble.plot(i_baseline, signal[i_baseline],
-        #     #                  "x", color=colors_times['Baseline'], markersize=5)
 
         for num, signal in enumerate(signals):
             ax_ensemble.plot(signal, color=gray_light, linestyle='-')
+        ax_ensemble.plot(signal_ensemble, color=gray_heavy,
+                         linestyle='-', marker='+', label='Ensemble signal')
+
+        for num, signal in enumerate(signals):
+            # ax_ensemble.plot(signal, color=gray_light, linestyle='-')
             # # Start
             # i_start = find_tran_start(signal)  # 1st df2 max, Start
             # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
@@ -747,7 +746,7 @@ class TestEnsemble(unittest.TestCase):
             # Peak
             i_peak = find_tran_peak(signal)  # max of signal, Peak
             ax_ensemble.plot(i_peak, signal[i_peak],
-                             ".", color=colors_times['Peak'], markersize=signal_markersize)
+                             "+", color=colors_times['Peak'], markersize=signal_markersize)
             # # Downstroke
             # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
             # ax_ensemble.plot(time_ensemble[i_downstroke], signal[i_downstroke],
@@ -769,12 +768,10 @@ class TestEnsemble(unittest.TestCase):
         snr_results = calculate_snr(signal_ensemble)
         snr_new = round(snr_results[0], 3)
         ir_noise_new = snr_results[-2]
-
-        ax_ensemble.plot(signal_ensemble, color=gray_heavy,
-                         linestyle='-', marker='+', label='Ensemble signal')
         ax_ensemble.plot(ir_noise_new, signal_ensemble[ir_noise_new],
                          ".", color=gray_heavy, markersize=signal_markersize, label='Noise')
 
+        # Ensemble signal points
         ens_signal_markersize = 25
         # # Start
         # i_start = find_tran_start(signal_ensemble)  # 1st df2 max, Start
