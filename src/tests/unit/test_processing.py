@@ -1081,13 +1081,13 @@ class TestSnrSignal(unittest.TestCase):
 
         # if peak_side is 'left':
         #     # Find first index below the prominence floor
-        # i_baselines_far_l = np.where(self.signal[:i_peak] <= prominence_floor)[0][0]
-        # i_baselines_far_r = np.where(self.signal[:i_peak] <= prominence_floor)[0][-1]
+        i_baselines_far_l = np.where(self.signal[:i_peak] <= prominence_floor)[0][0]
+        i_baselines_far_r = np.where(self.signal[:i_peak] <= prominence_floor)[0][-1]
 
         # if peak_side is 'right':
         #     # Find first index below the prominence floor
-        i_baselines_far_l = np.where(self.signal[i_peak:] <= prominence_floor)[0][0] + i_peak
-        i_baselines_far_r = np.where(self.signal[i_peak:] <= prominence_floor)[0][-1] + i_peak
+        # i_baselines_far_l = np.where(self.signal[i_peak:] <= prominence_floor)[0][0] + i_peak
+        # i_baselines_far_r = np.where(self.signal[i_peak:] <= prominence_floor)[0][-1] + i_peak
 
         i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r + 1)
 
@@ -1100,8 +1100,11 @@ class TestSnrSignal(unittest.TestCase):
         ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
 
         # df/dt
-        time_spline, df_spline, spline_fidelity = spline_signal(self.time, self.signal)
-        x_spline = np.arange(0, len(self.signal), 1/spline_fidelity)
+        x_signal = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        # x_signal = np.arange(0, len(self.signal), (self.signal_fps/1000))
+        df_spline, spline_fidelity = spline_signal(x_signal, self.signal)
+        # x_spline = np.arange(0, len(x_signal), (self.signal_fps/1000) / spline_fidelity)
+        x_spline = np.linspace(0, len(self.signal) - 1, len(df_spline))
         ax_df1.plot(x_spline, df_spline, color=gray_med,
                     linestyle='--', label='dF/dt')
         ax_df1.plot(i_baselines_all[:-2],

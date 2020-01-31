@@ -95,7 +95,6 @@ def find_tran_act(signal_in):
         # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
 
     search_max = i_peak + (i_peak - search_min)
-
     # search_max = len(signal_in) - 1
 
     xx_search = np.linspace(search_min, search_max - 1,
@@ -103,7 +102,7 @@ def find_tran_act(signal_in):
     signal_search = signal_in[search_min:search_max]
 
     # use a spline
-    time_spline, df_spline, spline_fidelity = spline_signal(xx_search, signal_search)
+    df_spline, spline_fidelity = spline_signal(xx_search, signal_search)
 
     # find the 1st derivative max within the search area
     i_act_search_df = np.argmax(df_spline)
@@ -539,8 +538,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
     # Find the peaks
     i_peaks, _ = find_tran_peak(signal_in, props=True)
-    # i_peaks, _ = find_peaks(signal_in, prominence=signal_range / 4,
-    #                         distance=20)
+
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
     if len(i_peaks) > 3:
@@ -563,11 +561,13 @@ def calc_ensemble(time_in, signal_in, crop='center'):
     i_acts_full = []
     signals_trans_act = []
 
+    # roughly isolate all transients centered on their peaks
+    # and cropped with a cycle-length-wide window
     for peak_num, peak in enumerate(i_peaks):
         signal = signal_in[i_peaks[peak_num] - cycle_shift:
-                           i_peaks[peak_num] + est_cycle_i - cycle_shift]
+                           i_peaks[peak_num] + cycle_shift]
         signals_trans_peak.append(signal)
-        # signal_norm = normalize_signal(signal)
+        # signal = normalize_signal(signal)
 
         i_baselines = find_tran_baselines(signal)
         i_baselines_full.append((i_peaks[peak_num] - cycle_shift) + i_baselines)
@@ -602,8 +602,10 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             # center : crop transients using the cycle length
             # cropped to center at the alignment points
 
-            # align along activation times, and crop using the first signal's left-most baseline
-            i_align = i_act_full - (i_acts_full[0] - i_baselines_full[0][-1])
+            # align along activation times, and crop using the first signal's baseline
+            # i_baseline = i_baselines_full[0][-1]
+            i_baseline = int(np.median(i_baselines_full[0]))
+            i_align = i_act_full - (i_acts_full[0] - i_baseline)
 
             i_baseline = int(np.median(i_baselines_full[0]))
             if i_baseline < i_act_full:
@@ -613,7 +615,6 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
             # i_align = i_act_full - (i_acts_full[0] - crop_l)
             signal_align = signal_in[i_align:i_align + est_cycle_i]
-            # signal_align = normalize_signal(signal_align)
         elif type(crop) is tuple:
             # stack : crop transients using the cycle length
             # cropped to allow for an ensemble stack with propagating transients
@@ -625,7 +626,8 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             # align starting with provided crop times,
             i_align = i_act_full - (i_acts_full[0] - crop[0])
             signal_align = signal_in[i_align:i_align + crop[1]]
-            # signal_align = normalize_signal(signal_align)
+
+        signal_align = normalize_signal(signal_align)
         signals_trans_act.append(signal_align)
 
     # use the lowest activation time

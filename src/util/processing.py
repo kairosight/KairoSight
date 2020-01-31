@@ -13,19 +13,22 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
-def spline_signal(xx, signal_in, smoothing=7000):
-
-    # d_xx = np.diff(xx)
+def spline_signal(xx, signal_in, smoothing=3):
     d_xx = xx[2] - xx[1]
-    spl = InterpolatedUnivariateSpline(xx, signal_in)
-    # df/dt (with x20 as many time samples)
-    spline_fidelity = 20    # TODO optimize here
-    time_spline = np.linspace(xx[0], xx[-1] - d_xx,
-                              (len(xx))*spline_fidelity)
-    spl.set_smoothing_factor(smoothing)    # TODO optimize here
-    df_spline = spl(time_spline, nu=1, ext='extrapolate')
+    xx_signal = np.arange(0, (len(xx)))
+    spl = InterpolatedUnivariateSpline(xx_signal, signal_in, ext='extrapolate')
+    # df/dt (with X__ as many samples)
+    spline_fidelity = 200    # TODO optimize here
+    # time_spline = np.linspace(xx[0], xx[-1] - d_xx,
+    #                           (len(xx))*spline_fidelity)
+    # xx_spline = np.linspace(0, 1, (len(xx)) * spline_fidelity)
+    xx_spline = np.arange(0, len(xx_signal) - d_xx, d_xx / spline_fidelity)
+    spl_array = spl(xx_spline)
+    # spl.set_smoothing_factor(smoothing)    # TODO optimize here
+    df_spline = spl.derivative()(xx_spline)
+    # df_spline = spl(xx_spline, nu=1, ext='extrapolate')
 
-    return time_spline, df_spline, spline_fidelity
+    return df_spline, spline_fidelity
 
 
 def find_tran_peak(signal_in, props=False):
@@ -65,7 +68,7 @@ def find_tran_peak(signal_in, props=False):
 
     # Roughly find the peaks
     prominence = signal_range * 0.4
-    i_peaks, properties = find_peaks(signal_in, prominence=prominence, distance=8)
+    i_peaks, properties = find_peaks(signal_in, prominence=prominence, distance=20)
 
     if len(i_peaks) is 0:   # no peak detected
         if props:
@@ -111,7 +114,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r+1)
 
-    if len(i_baselines_all) < 100:
+    if len(i_baselines_all) < 20:
         if peak_side is 'left':
             # attempt on right side
             i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
@@ -124,7 +127,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
     xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
 
     # # use a spline of the rough baseline and find the "flattest" section
-    time_spline, df_spline, spline_fidelity = spline_signal(xx_baseline, signal_baseline)
+    df_spline, spline_fidelity = spline_signal(xx_baseline, signal_baseline)
 
     d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
     d1f_prominence_floor = d1f_sd * 1.5

@@ -199,7 +199,7 @@ class TestActivation(unittest.TestCase):
         fig_points, ax_points = plot_test()
         ax_points.set_title('Analysis Point: Activation')
         ax_points.set_ylabel('Arbitrary Fluorescent Units')
-        ax_points.set_xlabel('Time (ms)')
+        ax_points.set_xlabel('Time (frame #)')
         points_lw = 3
 
         ax_points.plot(self.time, self.signal, color=gray_heavy,
@@ -236,8 +236,8 @@ class TestActivation(unittest.TestCase):
         # # d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
-        time_spline, df_spline, spline_fidelity = spline_signal(self.time, self.signal)
-        ax_dfs.plot(time_spline, df_spline,
+        df_spline, spline_fidelity = spline_signal(self.time, self.signal)
+        ax_dfs.plot(df_spline,
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
         # ax_dfs.plot(self.time, d2f_smooth,
@@ -611,12 +611,12 @@ class TestEnsemble(unittest.TestCase):
         #                       famp=self.signal_famp, noise=self.signal_noise,
         #                       num=self.signal_num, cl=self.signal_cl)
 
-        # Import real data
-        # trace
-        file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
-        file_name_pig = '2019/03/22 pigb-01-Ca'
-        self.file_name, file_signal = file_name_pig, file_signal_pig
-        self.signal_cl = '350'
+        # # Import real data
+        # # trace
+        # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
+        # file_name_pig = '2019/03/22 pigb-01-Ca'
+        # self.file_name, file_signal = file_name_pig, file_signal_pig
+        # self.signal_cl = '350'
         # self.time, self.signal = open_signal(source=file_signal, fps=404)
         #
         # # real stack
@@ -798,8 +798,8 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         # Text: Conditions
-        # ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
-        #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
+                         color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # ax_ensemble.text(0.72, 0.6, 'File: {}'.format(self.file_name),
         #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
