@@ -25,6 +25,7 @@ fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
+color_clear = (0, 0, 0, 0)
 color_vm, color_ca = ['#FF9999', '#99FF99']
 colors_times = {'Start': '#C07B60',
                 'Activation': '#842926',
@@ -32,7 +33,7 @@ colors_times = {'Start': '#C07B60',
                 'Downstroke': '#436894',
                 'End': '#94B0C3',
                 'Baseline': gray_med}  # SCMapsViko, circular colormap
-                # 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
+# 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
 # colors_times = {'Start': '#FFD649',
 #                 'Activation': '#FFA253',
 #                 'Peak': '#F6756B',
@@ -606,15 +607,28 @@ class TestEnsemble(unittest.TestCase):
         # stack
         self.stack_size = (20, 20)
         self.signal_t = 1000
-        self.d_noise = 45  # as a % of the signal amplitude
+        self.d_noise = 20  # as a % of the signal amplitude
+        self.snr_range = (int((self.signal_famp / (self.signal_noise + self.d_noise))),
+                          int(self.signal_famp / self.signal_noise))
         self.time_stack, self.stack = \
             model_stack_heart(model_type='Ca', size=self.stack_size, d_noise=self.d_noise,
                               t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
                               famp=self.signal_famp, noise=self.signal_noise,
                               num=self.signal_num, cl=self.signal_cl)
-        # Crop the model stack (remove bottom half)
-        d_y = int(self.stack_size[0]/2)
-        self.stack = crop_stack(self.stack, d_y=d_y)
+        # # Crop the model stack (remove bottom half)
+        # d_x = int(self.stack_size[0] / 2)
+        # d_y = int(self.stack_size[0] / 3)
+        # self.stack = crop_stack(self.stack, d_x=d_x, d_y=d_y)
+        # import model data
+        self.file = 'ModelStackHeart_ca'
+        extension = '.tif'
+        fps = 500
+        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+        file_stack_model = dir_unit + '/results/' + self.file + extension
+        print('Opening stack ...')
+        self.stack_import, self.stack_meta = open_stack(source=file_stack_model)
+        print('DONE Opening stack\n')
+
 
         # # Import real data
         # # trace
@@ -690,8 +704,9 @@ class TestEnsemble(unittest.TestCase):
 
     def test_trace(self):
         # Make sure ensembled transient looks correct
-        time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length\
-            = calc_ensemble(self.time, self.signal)
+        ensemble_crop = (50, 150)
+        time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
+            = calc_ensemble(self.time, self.signal, crop=ensemble_crop)
 
         snr_model = round(self.signal_famp / self.signal_noise, 3)
         last_baselines = find_tran_baselines(signals[-1])
@@ -766,7 +781,7 @@ class TestEnsemble(unittest.TestCase):
             ir_noise = snr_results[-2]
             signal_snrs.append(snr)
             ax_ensemble.plot(ir_noise, signal[ir_noise],
-                             "x", color=gray_med, markersize=signal_markersize/2)
+                             "x", color=gray_med, markersize=signal_markersize / 2)
 
         # Stats: SNRs
         snr_old = round(np.mean(signal_snrs), 3)
@@ -834,60 +849,78 @@ class TestEnsemble(unittest.TestCase):
         fig_ensemble.show()
 
     def test_stack(self):
-        stack_ens = calc_ensemble_stack(self.time_stack, self.stack)
+        stack_ens, ensemble_crop, ensemble_yx = calc_ensemble_stack(self.time_stack, self.stack)
 
         # Make sure filtered stack signals looks correct
         height, width = self.stack.shape[1], self.stack.shape[2]
-        signal_x, signal_y = (int(width / 3), int(height / 3))
+        signal_x, signal_y = (int(width / 2), int(height / 2))
+        # signal_x, signal_y = ensemble_yx[1], ensemble_yx[0]
+        signal_saved = []
         signal_r = 1
+        signal_markersize = 8
         points_lw = 3
-        frame_num = 10
+        frame_num = 100
         frame_noisy = self.stack[frame_num]
         frame_ens = stack_ens[frame_num]
+        # # find brightest frames
+        # frame_bright = np.zeros_like(self.stack[0])
+        # frame_bright_idx = 0
+        # for idx, frame in enumerate(self.stack):
+        #     frame_brightness = np.nanmean(frame)
+        #     if frame_brightness > np.nanmean(frame_bright):
+        #         frame_bright_idx = idx
+        #         frame_noisy = frame
+        # for idx, frame in enumerate(stack_ens):
+        #     frame_brightness = np.nanmean(frame)
+        #     if frame_brightness > np.nanmean(frame_bright):
+        #         frame_bright_idx = idx
+        #         frame_ens = frame
 
         # General layout
-        fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
-        gs0 = fig_filter_traces.add_gridspec(1, 2)  # 1 row, 3 columns
-        titles = ['Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
+        fig_ens_stack = plt.figure(figsize=(8, 6))  # _ x _ inch page
+        gs0 = fig_ens_stack.add_gridspec(1, 2)  # 1 row, 3 columns
+        titles = ['Model Data (SNR: {}-{})'.format(self.snr_range[0], self.snr_range[1]),
                   'Ensembled Data']
-        # Create normalization colormap range based on all frames (round up to nearest 10)
-        cmap_frames = SCMaps.grayC.reversed()
-        frames_min, frames_max = 0, 0
-        for idx, frame in enumerate([frame_noisy, frame_ens]):
-            frames_min = min(frames_max, np.nanmin(frame))
-            frames_max = max(frames_max, np.nanmax(frame))
-            cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
-                                         vmax=round(frames_max + 5.1, -1))
 
         # Plot the frame and a trace from the stack
         for idx, stack in enumerate([self.stack, stack_ens]):
             frame = stack[frame_num]
             signal = stack[:, signal_y, signal_x]
+
             gs_frame_signal = gs0[idx].subgridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 columns
-            ax_frame = fig_filter_traces.add_subplot(gs_frame_signal[0])
+            ax_frame = fig_ens_stack.add_subplot(gs_frame_signal[0])
             # Frame image
             ax_frame.set_title(titles[idx], fontsize=fontsize2)
+            # Create normalization colormap range based on all frames (round up to nearest 10)
+            cmap_frames = SCMaps.grayC.reversed()
+            if idx is 0:
+                frame_min = round(np.nanmin(frame), -1)
+                frame_max = round(np.nanmax(frame) + 5.1, -1)
+            else:
+                frame_min, frame_max = 0, 1
+            cmap_norm = colors.Normalize(vmin=frame_min,
+                                         vmax=frame_max)
             img_frame = ax_frame.imshow(frame, cmap=cmap_frames, norm=cmap_norm)
             ax_frame.set_yticks([])
             ax_frame.set_yticklabels([])
             ax_frame.set_xticks([])
             ax_frame.set_xticklabels([])
-            frame_signal_rect = Rectangle((signal_x - signal_r/2, signal_y - signal_r/2),
+            frame_signal_rect = Rectangle((signal_x - signal_r / 2, signal_y - signal_r / 2),
                                           width=signal_r, height=signal_r,
-                                          fc=color_raw, ec=color_raw, lw=points_lw)
+                                          fc=color_clear, ec=color_raw, lw=points_lw)
             ax_frame.add_artist(frame_signal_rect)
-            if idx is len(titles) - 1:
-                # Add colorbar (right of frame)
-                ax_ins_filtered = inset_axes(ax_frame, width="5%", height="100%", loc=5,
-                                             bbox_to_anchor=(0.08, 0, 1, 1),
-                                             bbox_transform=ax_frame.transAxes, borderpad=0)
-                cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
-                cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
-                cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
-                cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-                cb_filtered.ax.tick_params(labelsize=fontsize3)
+            # if idx is len(titles) - 1:
+            # Add colorbar (right of frame)
+            ax_ins_filtered = inset_axes(ax_frame, width="5%", height="100%", loc=5,
+                                         bbox_to_anchor=(0.08, 0, 1, 1),
+                                         bbox_transform=ax_frame.transAxes, borderpad=0)
+            cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
+            cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
+            cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+            cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+            cb_filtered.ax.tick_params(labelsize=fontsize3)
             # Signal trace
-            ax_signal = fig_filter_traces.add_subplot(gs_frame_signal[1])
+            ax_signal = fig_ens_stack.add_subplot(gs_frame_signal[1])
             ax_signal.set_ylabel('Fluorescence (arb. u.)')
             ax_signal.set_xlabel('Time (frame #)')
             # ax_signal.spines['right'].set_visible(False)
@@ -905,8 +938,62 @@ class TestEnsemble(unittest.TestCase):
                 ax.spines['bottom'].set_visible(False)
             ax_signal.plot(signal, color=gray_heavy, linestyle='None', marker='+')
 
-        # fig_filter_traces.savefig(dir_unit + '/results/processing_SpatialFilter_Trace.png')
-        fig_filter_traces.show()
+            # if this is the original signal
+            if idx is 0:
+                # plot where ensemble crop was applied
+                ax_signal.axvline(ensemble_crop[0], color=color_raw)
+                ax_signal.axvline(ensemble_crop[1], color=color_raw)
+                signal_saved = signal
+                # calculate the ensemble
+                time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
+                    = calc_ensemble(self.time_stack, signal)
+                # Activation
+                i_activation = find_tran_act(signal)  # 1st df max, Activation
+                ax_signal.plot(signal_acts, signal[signal_acts],
+                               ".", color=colors_times['Activation'], markersize=signal_markersize)
+                # Peak
+                i_peak = find_tran_peak(signal)  # max of signal, Peak
+                ax_signal.plot(signal_peaks, signal[signal_peaks],
+                               "+", color=colors_times['Peak'], markersize=signal_markersize)
+            else:
+                # calculate the ensemble
+                time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
+                    = calc_ensemble(self.time_stack, signal_saved)
+                for num, signal in enumerate(signals):
+                    ax_signal.plot(signal, color=gray_light, linestyle='-')
+                    # # Start
+                    # i_start = find_tran_start(signal)  # 1st df2 max, Start
+                    # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
+                    #                  "x", color=colors_times['Start'], markersize=10)
+                    # Activation
+                    i_activation = find_tran_act(signal)  # 1st df max, Activation
+                    ax_signal.plot(i_activation, signal[i_activation],
+                                   ".", color=colors_times['Activation'], markersize=signal_markersize)
+                    # Peak
+                    i_peak = find_tran_peak(signal)  # max of signal, Peak
+                    ax_signal.plot(i_peak, signal[i_peak],
+                                   "+", color=colors_times['Peak'], markersize=signal_markersize)
+
+                    snr_results = calculate_snr(signal)
+
+        fig_ens_stack.savefig(dir_unit + '/results/analysis_EnsembleStack.png')
+        fig_ens_stack.show()
+
+    def test_export(self):
+        # Save ensemble stack
+        directory_ens = dir_unit + '/results/EnsembleModelStack.tif'
+
+        stack_ens, ensemble_crop, ensemble_yx = calc_ensemble_stack(self.time_stack, self.stack)
+        print('Saving ensemble stack ...')
+        volwrite(directory_ens, stack_ens)
+
+    def test_import_export(self):
+        # Save ensemble stack
+        directory_ens = dir_unit + '/results/' + self.file + '_Ensemble.tif'
+        stack_ens, ensemble_crop, ensemble_yx = calc_ensemble_stack(self.time_stack, self.stack_import)
+        print('Saving ensemble stack ...')
+        volwrite(directory_ens, stack_ens)
+
     #
     # def test_real_trace(self):
     #     # Make sure ensemble of a trace looks correct
@@ -1038,7 +1125,6 @@ class TestEnsemble(unittest.TestCase):
 
     # def test_stack(self):
     #     # Make sure ensemble of a model stack looks correct
-
 
     # def test_real_stack(self):
     #     # Make sure ensemble of a real stack looks correct

@@ -13,12 +13,12 @@ FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 # TODO add TV, a non-local, and a weird filter
 
 
-def spline_signal(xx, signal_in, smoothing=3):
+def spline_signal(xx, signal_in, smoothing=200):
     d_xx = xx[2] - xx[1]
     xx_signal = np.arange(0, (len(xx)))
-    spl = InterpolatedUnivariateSpline(xx_signal, signal_in, ext='extrapolate')
+    spl = InterpolatedUnivariateSpline(xx_signal, signal_in, ext='const')
     # df/dt (with X__ as many samples)
-    spline_fidelity = 200    # TODO optimize here
+    spline_fidelity = 3    # TODO optimize here
     # time_spline = np.linspace(xx[0], xx[-1] - d_xx,
     #                           (len(xx))*spline_fidelity)
     # xx_spline = np.linspace(0, 1, (len(xx)) * spline_fidelity)

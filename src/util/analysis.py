@@ -94,7 +94,8 @@ def find_tran_act(signal_in):
         search_min = 0  # not enough baselines before the peak, use everything before the peak
         # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
 
-    search_max = i_peak + (i_peak - search_min)
+    search_max_calc = i_peak + (i_peak - search_min)
+    search_max = np.min((search_max_calc, len(signal_in)-1))
     # search_max = len(signal_in) - 1
 
     xx_search = np.linspace(search_min, search_max - 1,
@@ -106,7 +107,7 @@ def find_tran_act(signal_in):
 
     # find the 1st derivative max within the search area
     i_act_search_df = np.argmax(df_spline)
-    i_act_search = int(i_act_search_df / spline_fidelity)
+    i_act_search = int(np.floor(i_act_search_df / spline_fidelity))
 
     # # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
     # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
@@ -547,10 +548,10 @@ def calc_ensemble(time_in, signal_in, crop='center'):
         raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
     # do not use the first and last peaks
-    i_peaks = i_peaks[1:-1]
+    i_peaks = i_peaks[1:-2]
     # Split up the signal using peaks and estimated cycle length
-    est_cycle = np.diff(i_peaks).astype(float)
-    est_cycle_i = np.nanmean(est_cycle)
+    est_cycle_array = np.diff(i_peaks).astype(float)
+    est_cycle_i = np.nanmean(est_cycle_array)
     est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
     est_cycle_i = np.floor(est_cycle_i).astype(int)
     cycle_shift = np.floor(est_cycle_i / 2).astype(int)
@@ -563,6 +564,8 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
     # roughly isolate all transients centered on their peaks
     # and cropped with a cycle-length-wide window
+    # TODO ensembles are too wide due to bad activation times
+    # TODO ensembles distorted by early peaks (late activation times?)
     for peak_num, peak in enumerate(i_peaks):
         signal = signal_in[i_peaks[peak_num] - cycle_shift:
                            i_peaks[peak_num] + cycle_shift]
@@ -574,6 +577,8 @@ def calc_ensemble(time_in, signal_in, crop='center'):
         i_act_signal = find_tran_act(signal)
         i_act_full = (i_peaks[peak_num] - cycle_shift) + i_act_signal
         i_acts_full.append(i_act_full)
+
+    # TODO exclude those with abnormal rise times?
 
     # With that peak detection, find activation times and align transient
     for act_num, i_act_full in enumerate(i_acts_full):
@@ -758,9 +763,9 @@ def calc_ensemble_stack(time_in, stack_in):
             time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
                 = calc_ensemble(time_in, pixel_data, crop=ensemble_crop)
 
-        # TODO ValueError: could not broadcast input array from shape (295) into shape (325)
         stack_out[:, iy, ix] = signal_ensemble
 
+    ensemble_yx = yx_peak_1_min
     print('\nDONE Ensembling stack')
 
-    return stack_out
+    return stack_out, ensemble_crop, ensemble_yx
