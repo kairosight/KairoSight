@@ -625,7 +625,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             # at the edge of a propogating wave and avoid sliced transients
             # align starting with provided crop times,
             i_align = i_act_full - (i_acts_full[0] - crop[0])
-            signal_align = signal_in[i_align:i_align + crop[1]]
+            signal_align = signal_in[i_align:i_align + (crop[1] - crop[0])]
 
         signal_align = normalize_signal(signal_align)
         signals_trans_act.append(signal_align)
@@ -666,7 +666,7 @@ def calc_ensemble_stack(time_in, stack_in):
         Returns
         -------
         stack_out : ndarray
-             A spatially isolated 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
+             A spatially isolated 3-D array (T, Y, X) of optical data, dtype : float
 
         Notes
         -----
@@ -726,20 +726,24 @@ def calc_ensemble_stack(time_in, stack_in):
     # Split up the signal using peaks and estimated cycle length
     est_cycle = np.diff(i_peaks).astype(float)
     est_cycle_i = np.nanmean(est_cycle)
-    est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
     est_cycle_i = np.floor(est_cycle_i).astype(int)
-    cycle_shift = np.floor(est_cycle_i / 2).astype(int)
+    # est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
+    # cycle_shift = np.floor(est_cycle_i / 2).astype(int)
 
-    pixel_data_peak_1_min = pixel_data[i_peak_1_min - est_cycle_i: i_peak_1_min + est_cycle_i]
+    peak_1_min_crop = (i_peak_1_min - est_cycle_i, i_peak_1_min + est_cycle_i)
+    pixel_data_peak_1_min = pixel_data[peak_1_min_crop[0]: peak_1_min_crop[1]]
 
     i_peak_1_min_baselines_l = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
     i_peak_1_min_baselines_r = find_tran_baselines(pixel_data_peak_1_min, peak_side='right')
 
-    ensemble_crop = (i_peak_1_min_baselines_l[-1], i_peak_1_min_baselines_r[1])
+    # ensemble_crop = (i_peak_1_min_baselines_l[-1], i_peak_1_min_baselines_r[1])
+    ensemble_crop = (i_peak_1_min_baselines_l[1] + peak_1_min_crop[0],
+                     i_peak_1_min_baselines_r[-1] + peak_1_min_crop[0])
+    ensemble_crop_len = ensemble_crop[1] - ensemble_crop[0]
 
     # 3) Use the cycle time and time of that peak to align all ensembled signals
     # for each pixel ...
-    stack_out = np.empty_like(stack_in[:est_cycle_i, :, :])
+    stack_out = np.empty_like(stack_in[:ensemble_crop_len, :, :], dtype=float)
 
     for iy, ix in np.ndindex(map_shape):
         print('\r\tEnsemble of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
@@ -748,7 +752,7 @@ def calc_ensemble_stack(time_in, stack_in):
         pixel_data = stack_in[:, iy, ix]
         unique, counts = np.unique(pixel_data, return_counts=True)
         if len(unique) < 10:  # signal is too flat to have a valid peak
-            signal_ensemble = np.zeros_like(pixel_data[:est_cycle_i])
+            signal_ensemble = np.zeros_like(pixel_data[:ensemble_crop_len])
         else:
             # calculate the ensemble of it
             time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \

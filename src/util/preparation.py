@@ -150,7 +150,7 @@ def crop_frame(frame_in, d_x, d_y):
     return frame_out
 
 
-def crop_stack(stack_in, d_x, d_y):
+def crop_stack(stack_in, d_x=False, d_y=False):
     """Crop a stack (3-D array, TYX) of optical data,
     by default removes from right and bottom.
 
@@ -177,12 +177,17 @@ def crop_stack(stack_in, d_x, d_y):
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
-    if type(d_x) is not int:
-        raise TypeError('X pixels to crop must be an "int"')
-    if type(d_y) is not int:
-        raise TypeError('Y pixels to crop must be an "int"')
+    # if type(d_x) is not int:
+    #     raise TypeError('X pixels to crop must be an "int"')
+    # if type(d_y) is not int:
+    #     raise TypeError('Y pixels to crop must be an "int"')
 
     # stack_out = stack_in.copy()
+    # if either X or Y crop is unused, set to 0
+    if d_x is False:
+        d_x = 0
+    if d_y is False:
+        d_y = 0
 
     if (d_x > 0) and (d_y > 0):
         stack_out = stack_in[:, 0:-d_y, 0:-d_x]
@@ -190,8 +195,14 @@ def crop_stack(stack_in, d_x, d_y):
         if d_x < 0:
             stack_out = stack_in[:, :, -d_x:]
             stack_in = stack_out
+        elif d_x > 0:
+            stack_out = stack_in[:, :, 0:-d_x:]
+            stack_in = stack_out
+
         if d_y < 0:
             stack_out = stack_in[:, -d_y:, :]
+        elif d_y > 0:
+            stack_out = stack_in[:, 0:-d_y:, :]
 
     return stack_out
 

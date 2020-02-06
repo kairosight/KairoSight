@@ -56,19 +56,25 @@ def find_tran_peak(signal_in, props=False):
     #     raise ValueError('All signal values must be >= 0')
 
     # Characterize the signal
-    signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
     unique, counts = np.unique(signal_in, return_counts=True)
-
     if len(unique) < 10:    # signal is too flat to have a valid peak
         if props:
             return np.nan, np.nan
         else:
             return np.nan
 
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_mean = np.nanmean(signal_in)
+    if signal_in.dtype is np.uint16:
+        signal_mean = int(np.floor(np.nanmean(signal_in)))
+    signal_range = signal_bounds[1] - signal_mean
+
     # Roughly find the peaks
-    prominence = signal_range * 0.4
-    i_peaks, properties = find_peaks(signal_in, prominence=prominence, distance=20)
+    # prominence = signal_range * 0.4
+    prominence = signal_range * 0.9
+    i_peaks, properties = find_peaks(signal_in,
+                                     height=signal_mean, prominence=prominence,
+                                     distance=10)
 
     if len(i_peaks) is 0:   # no peak detected
         if props:

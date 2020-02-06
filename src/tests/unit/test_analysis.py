@@ -603,13 +603,18 @@ class TestEnsemble(unittest.TestCase):
                              f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
                              num=self.signal_num, cl=self.signal_cl)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
-        # # stack
-        # self.d_noise = 45  # as a % of the signal amplitude
-        # self.time_stack, self.stack = \
-        #     model_stack_heart(model_type='Ca', d_noise=self.d_noise,
-        #                       t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-        #                       famp=self.signal_famp, noise=self.signal_noise,
-        #                       num=self.signal_num, cl=self.signal_cl)
+        # stack
+        self.stack_size = (20, 20)
+        self.signal_t = 1000
+        self.d_noise = 45  # as a % of the signal amplitude
+        self.time_stack, self.stack = \
+            model_stack_heart(model_type='Ca', size=self.stack_size, d_noise=self.d_noise,
+                              t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+                              famp=self.signal_famp, noise=self.signal_noise,
+                              num=self.signal_num, cl=self.signal_cl)
+        # Crop the model stack (remove bottom half)
+        d_y = int(self.stack_size[0]/2)
+        self.stack = crop_stack(self.stack, d_y=d_y)
 
         # # Import real data
         # # trace
@@ -824,7 +829,7 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
+        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
         # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Pig.png')
         fig_ensemble.show()
 
@@ -834,7 +839,8 @@ class TestEnsemble(unittest.TestCase):
         # Make sure filtered stack signals looks correct
         height, width = self.stack.shape[1], self.stack.shape[2]
         signal_x, signal_y = (int(width / 3), int(height / 3))
-        signal_r = 3
+        signal_r = 1
+        points_lw = 3
         frame_num = 10
         frame_noisy = self.stack[frame_num]
         frame_ens = stack_ens[frame_num]
@@ -844,7 +850,7 @@ class TestEnsemble(unittest.TestCase):
         gs0 = fig_filter_traces.add_gridspec(1, 2)  # 1 row, 3 columns
         titles = ['Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
                   'Ensembled Data']
-        # Create normalization colormap range for all frames (round up to nearest 10)
+        # Create normalization colormap range based on all frames (round up to nearest 10)
         cmap_frames = SCMaps.grayC.reversed()
         frames_min, frames_max = 0, 0
         for idx, frame in enumerate([frame_noisy, frame_ens]):
@@ -866,13 +872,14 @@ class TestEnsemble(unittest.TestCase):
             ax_frame.set_yticklabels([])
             ax_frame.set_xticks([])
             ax_frame.set_xticklabels([])
-            frame_signal_rect = Rectangle((signal_x - signal_r, signal_y - signal_r),
-                                          width=signal_r * 2, height=signal_r * 2,
-                                          fc=gray_med, ec=gray_heavy, lw=1, linestyle='--')
+            frame_signal_rect = Rectangle((signal_x - signal_r/2, signal_y - signal_r/2),
+                                          width=signal_r, height=signal_r,
+                                          fc=color_raw, ec=color_raw, lw=points_lw)
             ax_frame.add_artist(frame_signal_rect)
             if idx is len(titles) - 1:
                 # Add colorbar (right of frame)
-                ax_ins_filtered = inset_axes(ax_frame, width="5%", height="80%", loc=5, bbox_to_anchor=(0.15, 0, 1, 1),
+                ax_ins_filtered = inset_axes(ax_frame, width="5%", height="100%", loc=5,
+                                             bbox_to_anchor=(0.08, 0, 1, 1),
                                              bbox_transform=ax_frame.transAxes, borderpad=0)
                 cb_filtered = plt.colorbar(img_frame, cax=ax_ins_filtered, orientation="vertical")
                 cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
