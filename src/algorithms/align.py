@@ -14,14 +14,34 @@ def get_gradient(im):
     return grad
 
 
-def align_stacks(stack1, stack2):
-    """Aligns two stacks of images using gradient .
+def align_signals(signal1, signal2):
+    """Aligns two signal arrays using a similarity measure
+    called Enhanced Correlation Coefficient (ECC).
 
     Parameters
     ----------
-    stack1 : ndarray
+    signal1 : ndarray, dtype : uint16 or float
+        Signal array
+    signal2 : ndarray, dtype : uint16 or float
+        Signal array, will be aligned to signal1
+
+    Returns
+    -------
+    signal2_aligned : ndarray
+        Aligned version of signal2
+    """
+
+
+def align_stacks(stack1, stack2):
+    """Aligns two stacks of images using the gradient representation of the image
+    and a similarity measure called Enhanced Correlation Coefficient (ECC).
+    TODO try Feature-Based approach https://www.learnopencv.com/image-alignment-feature-based-using-opencv-c-python/, https://github.com/spmallick/learnopencv/blob/c8e3ae2d2b0423f5c6d21c6189ee8ff3192c0555/ImageAlignment-FeatureBased/align.py
+
+    Parameters
+    ----------
+    stack1 : ndarray, dtype : uint16
         Image stack with shape (x, y, t)
-    stack2 : ndarray
+    stack2 : ndarray, dtype : uint16
         Image stack with shape (x, y, t), will be aligned to stack1
 
     Returns

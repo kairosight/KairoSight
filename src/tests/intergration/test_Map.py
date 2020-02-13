@@ -675,7 +675,7 @@ class TestMapAnalysis(unittest.TestCase):
         fig_map_snr.show()
 
     def test_plot_duration(self):
-        # Make sure analysis map looks correct
+        # Make sure map looks correct
         # Plot a frame from the stack, the map of that stack, and a signal
         # fig_map_snr, ax_frame, ax_map_snr = plot_map()
         fig_map_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
@@ -700,7 +700,7 @@ class TestMapAnalysis(unittest.TestCase):
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
 
-        # Calculate the activation map, returns timestamps
+        # Calculate the duration map, returns timestamps
         analysis_map = map_tran_analysis(self.stack, calc_tran_duration, self.time)
         # Exclusion criteria
         for iy, ix in np.ndindex(analysis_map.shape):

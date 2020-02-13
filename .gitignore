@@ -1,5 +1,6 @@
 
 *.pyc
+*.tif
 .idea/
 /data/
 /src/tests/data/
