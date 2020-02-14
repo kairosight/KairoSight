@@ -202,12 +202,12 @@ class TestModelTransients(unittest.TestCase):
 
     def test_plot_duration(self):
         # Test model Ca single transient data, at different CADs
-        time_vm_1, data_vm_1 = model_transients()
+        time_vm_1, data_vm_1 = model_transients(apd={'20': MIN_APD_20})
         time_vm_2, data_vm_2 = model_transients(apd={'20': 15})
         time_vm_3, data_vm_3 = model_transients(apd={'20': 25})
-        time_ca_1, data_ca_1 = model_transients(model_type='Ca')
-        time_ca_2, data_ca_2 = model_transients(model_type='Ca', cad={'40': 25})
-        time_ca_3, data_ca_3 = model_transients(model_type='Ca', cad={'40': 35})
+        time_ca_1, data_ca_1 = model_transients(model_type='Ca', cad={'80': MIN_CAD_80})
+        time_ca_2, data_ca_2 = model_transients(model_type='Ca', cad={'80': 60})
+        time_ca_3, data_ca_3 = model_transients(model_type='Ca', cad={'80': 80})
 
         # Build a figure to plot model data
         fig_duration, ax_duration = plot_test()
@@ -216,14 +216,14 @@ class TestModelTransients(unittest.TestCase):
 
         # Plot aligned model data
         # ax.set_ylim([1500, 2500])
-        plot_ca_1, = ax_duration.plot(time_vm_1, -(data_vm_1 - 100), color_vm, marker='1', label='Vm, APD20: 5')
-        plot_ca_2, = ax_duration.plot(time_vm_2, -(data_vm_2 - 100), color_vm, marker='+', label='Vm, APD20: 15')
-        plot_ca_3, = ax_duration.plot(time_vm_3, -(data_vm_3 - 100), color_vm, marker='2', label='Vm, APD20: 25')
-        plot_ca_1, = ax_duration.plot(time_ca_1, data_ca_1 - 100, color_ca, marker='1', label='Ca, CAD40: 15')
-        plot_ca_2, = ax_duration.plot(time_ca_2, data_ca_2 - 100, color_ca, marker='+', label='Ca, CAD40: 25')
-        plot_ca_3, = ax_duration.plot(time_ca_3, data_ca_3 - 100, color_ca, marker='2', label='Ca, CAD40: 35')
+        # plot_vm_1, = ax_duration.plot(time_vm_1, -(data_vm_1 - 100), color_vm, marker='1', label='Vm, APD20: 5')
+        # plot_vm_2, = ax_duration.plot(time_vm_2, -(data_vm_2 - 100), color_vm, marker='+', label='Vm, APD20: 15')
+        # plot_vm_3, = ax_duration.plot(time_vm_3, -(data_vm_3 - 100), color_vm, marker='2', label='Vm, APD20: 25')
+        plot_ca_1, = ax_duration.plot(time_ca_1, data_ca_1 - 100, color_ca, marker='1', label='Ca, CAD80: 50}')
+        plot_ca_2, = ax_duration.plot(time_ca_2, data_ca_2 - 100, color_ca, marker='+', label='Ca, CAD80: 60')
+        plot_ca_3, = ax_duration.plot(time_ca_3, data_ca_3 - 100, color_ca, marker='2', label='Ca, CAD80: 80')
         plot_baseline = ax_duration.axhline(color='gray', linestyle='--', label='baseline')
-        ax_duration.legend(title='APD20 and CAD40 Variations',
+        ax_duration.legend(title='APD20 and CAD80 Variations',
                            loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
         fig_duration.show()
 

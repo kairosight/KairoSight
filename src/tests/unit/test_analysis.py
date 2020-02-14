@@ -830,7 +830,7 @@ class TestEnsemble(unittest.TestCase):
         ax_ensemble.text(0.72, 0.45, '# Peaks detected : {}'.format(len(signal_peaks)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
 
-        # Text
+        # Text: SNRs
         ax_ensemble.text(0.72, 0.35, 'SNR detected: {}'.format(snr_old),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         ax_ensemble.text(0.72, 0.3, 'SNR ensembled: {}'.format(snr_new),
@@ -1236,7 +1236,7 @@ class TestMapAnalysis(unittest.TestCase):
         cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
         cb1_map.ax.tick_params(labelsize=fontsize3)
 
-        fig_map_snr.savefig(dir_unit + '/results/processing_MapDuration.png')
+        fig_map_snr.savefig(dir_unit + '/results/analysis_MapDuration.png')
         fig_map_snr.show()
 
     def test_map_signal(self):

@@ -105,8 +105,8 @@ def find_tran_act(signal_in):
     # use a spline
     df_spline, spline_fidelity = spline_signal(xx_search, signal_search)
 
-    # find the 1st derivative max within the search area
-    i_act_search_df = np.argmax(df_spline)
+    # find the 1st derivative max within the search area (first likely to be extreme)
+    i_act_search_df = np.argmax(df_spline[1:]) + 1
     i_act_search = int(np.floor(i_act_search_df / spline_fidelity))
 
     # # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
@@ -401,7 +401,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
 
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
+        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]), end='',
               flush=True)
         pixel_data = stack_in[:, iy, ix]
         # Check if pixel has been masked (0 at every frame)

@@ -8,6 +8,8 @@ from scipy.interpolate import UnivariateSpline
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MIN_TRAN_TOTAL_T = 100  # Minimum transient length (ms)
+MIN_APD_20 = 5
+MIN_CAD_80 = 50
 # Spatial resolution (cm/px)
 # resolution = 0.005    # 1 cm / 200 px
 # resolution = 0.0149   # pig video resolution
@@ -17,7 +19,7 @@ seed(1)
 np.random.seed(seed=1)
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, noise=0,
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=100, famp=100, noise=0,
                      num=1, cl=100, apd=None, cad=None):
     """Create a 2-D array of model 16-bit optical data of either
     murine action potentials (OAP) or murine calcium transients (OCT).
@@ -46,7 +48,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
        apd : dict
             OAP duration times, e.g. APD20, default is {'20': 5}
        cad : dict
-            OCT duration times, e.g. CAD40, default is {'40': 15}
+            OCT duration times, e.g. CAD40, default is {'80': 15}
 
        Returns
        -------
@@ -103,7 +105,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
     if not apd:
         apd = {'20': 5}
     if not cad:
-        cad = {'40': 15}
+        cad = {'80': MIN_CAD_80}
 
     # Calculate important constants
     FPMS = fps / 1000
@@ -170,10 +172,10 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
         # Under-sample the high-fidelity data
         model_dep = model_dep_full[::floor(model_dep_period / model_dep_frames)][:model_dep_frames]
 
-        # Early repolarization phase (from peak to CAD 40, aka 60% of peak)
-        model_rep1_period = cad['40']  # XX ms long
+        # Early repolarization phase (from peak to CAD 80, aka 20% of peak)
+        model_rep1_period = floor(cad['80'])  # XX ms long
         model_rep1_frames = floor(model_rep1_period / FRAME_T)
-        cad_ratio = 0.6
+        cad_ratio = 0.2
         m_rep1 = -(famp - (famp * cad_ratio)) / model_rep1_period  # slope of this phase
         model_rep1_full = np.full(model_rep1_period, f0, dtype=np.uint16)
         # Generate high-fidelity data
@@ -233,10 +235,11 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
 
     # create truncated white noise series
     noise_trunc = 2.5
-    model_noise = truncnorm((-noise_trunc * noise - 0.0) / noise,
-                            (noise_trunc * noise - 0.0) / noise,
-                            loc=0.0, scale=noise)
-    model_data = model_data + np.round(model_noise.rvs(len(model_data)))
+    if noise > 0:
+        model_noise = truncnorm((-noise_trunc * noise - 0.0) / noise,
+                                (noise_trunc * noise - 0.0) / noise,
+                                    loc=0.0, scale=noise)
+        model_data = model_data + np.round(model_noise.rvs(len(model_data)))
 
     for num, v in enumerate(model_data):
         if abs(v - f0) > (famp * noise_trunc):
@@ -514,7 +517,8 @@ def model_stack(size=(100, 50), **kwargs):
 
 # TODO test SNR map with d_amp
 # TODO add variation along propagation (noise, amplitude, duration, Tau) to validate mapping
-def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **kwargs):
+def model_stack_propagation(size=(100, 50), velocity=20,
+                            d_noise=0, d_amp=0, d_dur=0, **kwargs):
     """Create a stack (3-D array, TYX) of model 16-bit optical data of a propagating
     murine action potential (OAP) or a propagating murine calcium transient (OCT).
 
@@ -528,6 +532,8 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
             Units of Noise SD to increase along propagation, default is 0
        d_amp : int
             Units of Amplitude to decrease along propagation, default is 0
+       d_dur : int
+            Units (ms) of Duration to increase along propagation, default is 0
 
        Other Parameters
        ----------------
@@ -545,7 +551,7 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     # MIN_TOTAL_T = 500   # Minimum stack length (ms)
     MIN_SIZE = (10, 10)  # Minimum stack size (Height, Width)
     MIN_VELOCITY = 10  # Minimum velocity (cm/s)
-    MAX_VELOCITY = 50  # Minimum velocity (cm/s)
+    MAX_VELOCITY = 50  # Maximum velocity (cm/s)
     DIV_NOISE = 4  # Divisions of noise variation radiating outward from the center
     # Check parameters
     if type(size) not in [tuple]:
@@ -568,8 +574,9 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
     # Calculate region borders (as distance from the center) for varying a transient parameter
     div_borders = np.linspace(start=int(HEIGHT / 2), stop=HEIGHT / 2 / DIV_NOISE, num=DIV_NOISE)
 
-    # Calculate the absolute minimum time needed for a single propagation, assuming the max velocity
-    MIN_t = MIN_TRAN_TOTAL_T + floor(HEIGHT_cm / MAX_VELOCITY * 1000)  # ms
+    # Calculate the absolute minimum time needed for any single propagation, assuming the max velocity
+    max_dimension = np.max((HEIGHT_cm, WIDTH_cm))
+    MIN_t = MIN_TRAN_TOTAL_T + floor((max_dimension / MAX_VELOCITY) * 1000)  # ms
 
     if 't' in kwargs:
         if kwargs.get('t') < MIN_t:
@@ -603,12 +610,24 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
         # Convert time from s to ms
         act_time = act_time * 1000
         prop_delta = floor(act_time)
+
+        # Get provided kwargs
+        # t0
         if 't0' in kwargs:
             prop_delta = prop_delta + kwargs.get('t0')
+        #  noise
         if 'noise' in kwargs:
             noise_offset = kwargs.get('noise')
         else:
             noise_offset = 0
+        if ('cad' in kwargs) or ('apd' in kwargs):
+            dur_offset = kwargs.get('cad')
+        else:
+            if ('model_type' in kwargs) and (kwargs['model_type'] is 'Ca'):
+                dur_offset = MIN_CAD_80
+            else:
+                dur_offset = MIN_APD_20
+
         kwargs_new = kwargs.copy()
         # if d_noise:
         #     if d_px % (HEIGHT / DIV_NOISE) == 0:  # at the border of a new division
@@ -622,6 +641,13 @@ def model_stack_propagation(size=(100, 50), velocity=20, d_noise=0, d_amp=0, **k
                 if d_noise:
                     noise_offset = noise_offset + (d_noise / (idx + 1))
                     kwargs_new['noise'] = noise_offset
+                    break
+                if d_dur:
+                    dur_offset = dur_offset + (d_dur / (idx + 1))
+                    if ('model_type' in kwargs) and (kwargs['model_type'] is 'Ca'):
+                        kwargs_new['cad'] = {'80': dur_offset}
+                    else:
+                        kwargs_new['apd'] = {'20': dur_offset}
                     break
 
         kwargs_new['t0'] = prop_delta

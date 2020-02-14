@@ -36,13 +36,14 @@ cmap_snr.set_bad(color=gray_light, alpha=0)
 SNR_MAX = 200
 cmap_norm_snr = colors.Normalize(vmin=0, vmax=int(round(SNR_MAX, -1)))
 
-TRAN_MAX = 200
+TRAN_MAX = 100
 # Colormap and normalization range for Activation maps
 ACT_MAX = 150
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
 # Colormap and normalization range for Duration maps
-DUR_MIN = 40 # ms
+DUR_MIN = 40  # ms
+DUR_MAX = 100  # ms
 cmap_duration = SCMaps.oslo.reversed()
 cmap_duration.set_bad(color=gray_light, alpha=0)
 
@@ -290,130 +291,137 @@ class TestMapSNR(unittest.TestCase):
 class TestMapAnalysis(unittest.TestCase):
     def setUp(self):
         # Create data to test with, a propagating stack of varying SNR
+        self.size = (100, 100)
+        self.signal_t = 200
+        self.signal_t0 = 50
         self.signal_f0 = 1000
         self.signal_famp = 200
-        self.noise = 1
-        self.d_noise = 10  # as a % of the signal amplitude
+        self.noise = 3
+        # self.d_noise = 10  # as a % of the signal amplitude
+        self.d_dur = 20  # as a % of the signal amplitude
         self.velocity = 15
         # self.noise_count = 100
         self.time_ca, self.stack_ca = model_stack_propagation(
-            model_type='Ca', f0=self.signal_f0, famp=self.signal_famp, noise=self.noise,
-            velocity=self.velocity)
+            size=self.size, model_type='Ca', t=self.signal_t, t0=self.signal_t0,
+            f0=self.signal_f0, famp=self.signal_famp, noise=self.noise,
+            velocity=self.velocity, d_dur=self.d_dur)
+        self.kernel = 1
 
-        # Load data to test with
-        # file_name_rat = '201-/--/-- rat-04, PCL 240ms'
-        # file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
-        # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
-        # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        # fps = 404
-        file_name_rat = '2020/01/09 rata-05, Ca, PCL 200ms'
-        file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
-        file_name_rat = '2020/01/09 rata-11, Ca, PCL 200ms'
-        file_stack_rat = dir_tests + '/data/20200109-rata/11-200_Ca_501-650.tif'
-        # file_name_rat = '2020/01/09 rata-17, Ca, PCL 200ms'
-        # file_stack_rat = dir_tests + '/data/20200109-rata/17-200_Ca_451-600.tif'
-        fps = 500.0
-        self.file_name, self.file_stack = file_name_rat, file_stack_rat
-        self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
-        self.stack_real_frame = self.stack_real_full[0, :, :]  # frame from stack
-
-        stack_out = self.stack_real_full.copy()
-
-        # # Prep
-        # Reduce
-        self.reduction = 5
-        print('Reducing stack ...')
-        reduction_factor = 1 / self.reduction
-        test_frame = rescale(stack_out[0], reduction_factor)
-        stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
-        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)  # data array, default value is f_0
-        for idx, frame in enumerate(stack_out):
-            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
-            #     f_filtered = filter_spatial(frame, kernel=self.kernel)
-            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True))
-            stack_reduced[idx, :, :] = frame_reduced
-        stack_out = stack_reduced
-        print('\nDONE Reducing stack')
-
-        # find brightest frame
-        self.frame_bright = np.zeros_like(stack_out[0])
-        frame_bright_idx = 0
-        for idx, frame in enumerate(stack_out):
-            frame_brightness = np.nanmean(frame)
-            if frame_brightness > np.nanmean(self.frame_bright):
-                frame_bright_idx = idx
-                self.frame_bright = frame
-        print('Brightest frame: {}'.format(frame_bright_idx))
-        # Mask
-        mask_type = 'Random_walk'
-        _, self.mask_out = mask_generate(self.frame_bright, mask_type)
-        stack_out = mask_apply(stack_out, self.mask_out)
-
-        # # Crop (to size of _ X _)
-        # new_width, new_height = int(300 / self.reduction), int(300 / self.reduction)
-        # d_x, d_y = int(-127 / self.reduction), int(-154 / self.reduction)  # coordinates of top left corner
-        # # must crop un-prepped frame, prepped stack, and mask
-        # self.stack_real_frame = crop_frame(self.stack_real_frame, d_x=d_x, d_y=d_y)
-        # stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
-        # self.mask_out = crop_frame(self.mask_out, d_x=d_x, d_y=d_y)
-        # d_x, d_y = stack_out.shape[2] - new_width, stack_out.shape[1] - new_height
-        # self.stack_real_frame = crop_frame(self.stack_real_frame, d_x=d_x, d_y=d_y)
-        # stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
-        # self.mask_out = crop_frame(self.mask_out, d_x=d_x, d_y=d_y)
-
-        # stack_out = np.empty_like(self.stack_real)
-        # # Invert
-        # # self.stack_real = invert_stack(self.stack_real)
-        # # Assign a value to each pixel
+        # # Load data to test with
+        # # file_name_rat = '201-/--/-- rat-04, PCL 240ms'
+        # # file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
+        # # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
+        # # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
+        # # fps = 404
+        # file_name_rat = '2020/01/09 rata-05, Ca, PCL 200ms'
+        # file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
+        # file_name_rat = '2020/01/09 rata-11, Ca, PCL 200ms'
+        # file_stack_rat = dir_tests + '/data/20200109-rata/11-200_Ca_501-650.tif'
+        # # file_name_rat = '2020/01/09 rata-17, Ca, PCL 200ms'
+        # # file_stack_rat = dir_tests + '/data/20200109-rata/17-200_Ca_451-600.tif'
+        # fps = 500.0
+        # self.file_name, self.file_stack = file_name_rat, file_stack_rat
+        # self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
+        # self.stack_real_frame = self.stack_real_full[0, :, :]  # frame from stack
+        #
+        # stack_out = self.stack_real_full.copy()
+        #
+        # # # Prep
+        # # Reduce
+        # self.reduction = 5
+        # print('Reducing stack ...')
+        # reduction_factor = 1 / self.reduction
+        # test_frame = rescale(stack_out[0], reduction_factor)
+        # stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
+        # stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)  # data array, default value is f_0
+        # for idx, frame in enumerate(stack_out):
+        #     print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
+        #     #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+        #     frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True))
+        #     stack_reduced[idx, :, :] = frame_reduced
+        # stack_out = stack_reduced
+        # print('\nDONE Reducing stack')
+        #
+        # # find brightest frame
+        # self.frame_bright = np.zeros_like(stack_out[0])
+        # frame_bright_idx = 0
+        # for idx, frame in enumerate(stack_out):
+        #     frame_brightness = np.nanmean(frame)
+        #     if frame_brightness > np.nanmean(self.frame_bright):
+        #         frame_bright_idx = idx
+        #         self.frame_bright = frame
+        # print('Brightest frame: {}'.format(frame_bright_idx))
+        # # Mask
+        # mask_type = 'Random_walk'
+        # _, self.mask_out = mask_generate(self.frame_bright, mask_type)
+        # stack_out = mask_apply(stack_out, self.mask_out)
+        #
+        # # # Crop (to size of _ X _)
+        # # new_width, new_height = int(300 / self.reduction), int(300 / self.reduction)
+        # # d_x, d_y = int(-127 / self.reduction), int(-154 / self.reduction)  # coordinates of top left corner
+        # # # must crop un-prepped frame, prepped stack, and mask
+        # # self.stack_real_frame = crop_frame(self.stack_real_frame, d_x=d_x, d_y=d_y)
+        # # stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        # # self.mask_out = crop_frame(self.mask_out, d_x=d_x, d_y=d_y)
+        # # d_x, d_y = stack_out.shape[2] - new_width, stack_out.shape[1] - new_height
+        # # self.stack_real_frame = crop_frame(self.stack_real_frame, d_x=d_x, d_y=d_y)
+        # # stack_out = crop_stack(stack_out, d_x=d_x, d_y=d_y)
+        # # self.mask_out = crop_frame(self.mask_out, d_x=d_x, d_y=d_y)
+        #
+        # # stack_out = np.empty_like(self.stack_real)
+        # # # Invert
+        # # # self.stack_real = invert_stack(self.stack_real)
+        # # # Assign a value to each pixel
+        # # for iy, ix in np.ndindex(map_shape):
+        # #     print('Inve of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
+        # #     pixel_data = self.stack_real[:, iy, ix]
+        # #     # pixel_ensemble = calc_ensemble(time_in, pixel_data)
+        # #     # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        # #     # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
+        # #     # Set every pixel's values to the analysis value of the signal at that pixel
+        # #     # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
+        # #     pixel_data_inv = invert_signal(pixel_data)
+        # #     stack_out[:, iy, ix] = pixel_data_inv
+        # self.prep = 'Reduced x{}, Mask'.format(self.reduction)
+        # # #
+        #
+        # # # Process
+        # # Filter
+        # # spatial
+        # self.kernel = 3
+        # print('Filtering (spatial) stack ...')
+        # for idx, frame in enumerate(stack_out):
+        #     print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
+        #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+        #     stack_out[idx, :, :] = f_filtered
+        # print('\nDONE Filtering (spatial) stack')
+        # # Re-apply mask to avoid smudged edges
+        # stack_out = mask_apply(stack_out, self.mask_out)
+        # # temporal
+        # map_shape = stack_out.shape[1:]
+        # print('Filtering (temporal) stack ...')
         # for iy, ix in np.ndindex(map_shape):
-        #     print('Inve of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy, map_shape[0], ix, map_shape[1]))
-        #     pixel_data = self.stack_real[:, iy, ix]
-        #     # pixel_ensemble = calc_ensemble(time_in, pixel_data)
-        #     # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-        #     # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-        #     # Set every pixel's values to the analysis value of the signal at that pixel
-        #     # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
-        #     pixel_data_inv = invert_signal(pixel_data)
-        #     stack_out[:, iy, ix] = pixel_data_inv
-        self.prep = 'Reduced x{}, Mask'.format(self.reduction)
-        # #
+        #     print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
+        #           flush=True)
+        #     freq_cutoff = 100.0
+        #     filter_order = 'auto'
+        #     signal_filtered = filter_temporal(stack_out[:, iy, ix], fps, freq_cutoff=freq_cutoff,
+        #                                       filter_order=filter_order)
+        #     stack_out[:, iy, ix] = signal_filtered
+        # print('\nDONE Filtering (temporal) stack')
+        # # self.process = 'Gaussian: {} px'.format(self.kernel)
+        # self.process = 'LP {} Hz, Gaussian: {} px'.format(freq_cutoff, self.kernel)
+        # ##
+        #
+        # FRAMES = stack_out.shape[0]
+        # # Generate array of timestamps
+        # FPMS = fps / 1000
+        # FINAL_T = floor(FRAMES / FPMS)
+        #
+        # self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
 
-        # # Process
-        # Filter
-        # spatial
-        self.kernel = 3
-        print('Filtering (spatial) stack ...')
-        for idx, frame in enumerate(stack_out):
-            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
-            f_filtered = filter_spatial(frame, kernel=self.kernel)
-            stack_out[idx, :, :] = f_filtered
-        print('\nDONE Filtering (spatial) stack')
-        # Re-apply mask to avoid smudged edges
-        stack_out = mask_apply(stack_out, self.mask_out)
-        # temporal
-        map_shape = stack_out.shape[1:]
-        print('Filtering (temporal) stack ...')
-        for iy, ix in np.ndindex(map_shape):
-            print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
-                  flush=True)
-            freq_cutoff = 100.0
-            filter_order = 'auto'
-            signal_filtered = filter_temporal(stack_out[:, iy, ix], fps, freq_cutoff=freq_cutoff,
-                                              filter_order=filter_order)
-            stack_out[:, iy, ix] = signal_filtered
-        print('\nDONE Filtering (temporal) stack')
-        # self.process = 'Gaussian: {} px'.format(self.kernel)
-        self.process = 'LP {} Hz, Gaussian: {} px'.format(freq_cutoff, self.kernel)
-        ##
-
-        FRAMES = stack_out.shape[0]
-        # Generate array of timestamps
-        FPMS = fps / 1000
-        FINAL_T = floor(FRAMES / FPMS)
-
-        self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
-
-        self.time, self.stack = self.time_real, stack_out
+        # self.time, self.stack = self.time_real, stack_out
+        self.time, self.stack = self.time_ca, self.stack_ca
 
     def test_plot_snr(self):
         # Make sure analysis map looks correct
@@ -533,12 +541,12 @@ class TestMapAnalysis(unittest.TestCase):
                                  borderpad=0)
         [s.set_visible(False) for s in ax_map_hist.spines.values()]
         # TODO try combos of histogram, swarm, and violin
-        ax_map_hist.hist(snr_map_flat, bins=snr_max_display * 5, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
+        # ax_map_hist.hist(snr_map_flat, bins=snr_max_display * 5, histtype='stepfilled',
+        #                  orientation='horizontal', color='gray')
         # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display)
         print('Generating swarmplot ... ')
-        # sns.swarmplot(ax=ax_map_hist, data=snr_map_flat,
-        #               size=1, color='k')
+        sns.swarmplot(ax=ax_map_hist, data=snr_map_flat,
+                      size=1, color='k')
 
         ax_map_hist.set_ylim([0, snr_max_display])
         ax_map_hist.set_yticks([])
@@ -680,78 +688,123 @@ class TestMapAnalysis(unittest.TestCase):
         # fig_map_snr, ax_frame, ax_map_snr = plot_map()
         fig_map_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
         gs0 = fig_map_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
-        ax_signal = fig_map_snr.add_subplot(gs0[1])
-        ax_signal.set_ylabel('Fluorescence (arb. u.)')
-        ax_signal.set_xlabel('Time (ms)')
-        ax_signal.spines['right'].set_visible(False)
-        ax_signal.spines['top'].set_visible(False)
-        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
-        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='major', length=8)
-        ax_signal.tick_params(axis='y', labelsize=fontsize3)
-        ax_signal.xaxis.set_major_locator(plticker.MultipleLocator(25))
-        ax_signal.xaxis.set_minor_locator(plticker.MultipleLocator(5))
-
         gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
+
         ax_frame = fig_map_snr.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('{}\n({}. {})'
-                           .format(self.file_name, self.prep, self.process))
+        ax_frame.set_title('Model Data\n(noise SD: {},  CAD-80: {} ms?)'
+                           .format(self.noise, MIN_CAD_80))
+        # ax_frame.set_title('File: {}\n({}, {})'
+        #                    .format(self.file_name, self.prep, self.process))
         ax_map = fig_map_snr.add_subplot(gs_frame_map[1])
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
+
+        # ax_signal = fig_map_snr.add_subplot(gs0[1])
+        gs_signals = gs0[1].subgridspec(1, 3, width_ratios=[0.3, 0.3, 0.3], wspace=0.1)  # 1 row, 3 columns
+
+        ax_signal_min = fig_map_snr.add_subplot(gs_signals[0])
+        ax_signal_xy = fig_map_snr.add_subplot(gs_signals[1])
+        ax_signal_max = fig_map_snr.add_subplot(gs_signals[2])
+        for ax in [ax_signal_min, ax_signal_xy, ax_signal_max]:
+            ax.tick_params(axis='x', labelsize=fontsize4)
+            ax.tick_params(axis='y', labelsize=fontsize4)
+            # ax.set_ylabel('Fluorescence (arb. u.)')
+            ax.set_xlabel('Time (ms)')
+            # ax.set_xlim(right=150)
+            [s.set_visible(False) for s in ax.spines.values()]
+            ax.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
+            ax.tick_params(axis='x', labelsize=fontsize3, which='major', length=8)
+            ax.xaxis.set_major_locator(plticker.MultipleLocator(50))
+            # ax.xaxis.set_minor_locator(plticker.MultipleLocator(5))
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+
+        ax_signal_min.set_ylabel('Fluorescence (arb. u.)')
+        # ax_signal_min.spines['left'].set_visible(True)
+        ax_signal_min.yaxis.set_major_locator(plticker.LinearLocator(3))
+        ax_signal_min.yaxis.set_minor_locator(plticker.LinearLocator(5))
+        ax_signal_min.tick_params(axis='y', labelsize=fontsize3)
 
         # Calculate the duration map, returns timestamps
         analysis_map = map_tran_analysis(self.stack, calc_tran_duration, self.time)
         # Exclusion criteria
         for iy, ix in np.ndindex(analysis_map.shape):
             if analysis_map[iy, ix] < DUR_MIN:
+                print('* Excluded pixel (x: {}, y: {} with value: {})'.format(ix, iy, analysis_map[iy, ix]))
                 analysis_map[iy, ix] = np.nan
 
-        map_flat = analysis_map.flatten()
         map_min = np.nanmin(analysis_map)
         map_max = np.nanmax(analysis_map)
         map_min_display = 0
-        map_max_tran = map_min_display + TRAN_MAX
-        map_max_display = int(round(map_max_tran + 5.1, -1))
+        # map_max_tran = map_min_display + TRAN_MAX
+        # map_max_display = int(round(map_max_tran + 5.1, -1))
+        map_max_display = DUR_MAX
         print('Map min value: ', map_min)
         print('Map max value: ', map_max)
-        ax_map.set_title('CAD80 Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
+        ax_map.set_title('CAD-80 Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
 
-        # Frame from prepped stack
+        # Frame from the stack
+        frame_bright = np.zeros_like(self.stack[0])
+        frame_bright_idx = 0
+        for idx, frame in enumerate(self.stack):
+            frame_brightness = np.nanmean(frame)
+            if frame_brightness > np.nanmean(frame_bright):
+                frame_bright_idx = idx
+                frame_bright = frame
+        print('Brightest frame: {}'.format(frame_bright_idx))
+        stack_frame = frame_bright
+
         cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=self.stack_real_frame.min(), vmax=self.stack_real_frame.max())
-        img_frame = ax_frame.imshow(self.stack_real_frame, norm=cmap_norm_frame, cmap=cmap_frame)
+        cmap_norm_frame = colors.Normalize(vmin=stack_frame.min(), vmax=stack_frame.max())
+        img_frame = ax_frame.imshow(stack_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_frame = ax_frame.imshow(self.stack_real_full[frame_num, :, :], cmap=cmap_frame)
         # Cropped
         # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
-        # signal trace and location on frame
-        signal_x_real, signal_y_real = \
-            (int(self.stack_real_frame.shape[1] / 2),
-             int(self.stack_real_frame.shape[0] / 2))  # center of real stack
-        signal_x, signal_y = (int(self.stack.shape[2] / 2), int(self.stack.shape[1] / 2))
-        points_lw = 3
-        # signal_r = self.kernel / 2
-        signal = self.stack[:, signal_y, signal_x]
-        ax_signal.plot(self.time, signal, color=gray_heavy, linestyle='None', marker='+')
 
-        frame_signal = Rectangle((signal_x_real - int(self.kernel), signal_y_real - int(self.kernel)),
-                                 self.kernel, self.kernel,
-                                 fc=colors_times['Downstroke'], ec=colors_times['Downstroke'],
-                                 lw=points_lw)
+        # Signal traces and location on frame
+        # signal_x_real, signal_y_real = \
+        #     (int(stack_frame.shape[1] / 2),
+        #      int(stack_frame.shape[0] / 2))  # center of real stack
+        signal_x, signal_y = (int(self.stack.shape[2] / 3), int(self.stack.shape[1] / 3))
+        signal_xy = self.stack[:, signal_y, signal_x]
+        points_lw = 3
+        ax_signal_xy.plot(self.time, signal_xy, color=gray_heavy, linestyle='None', marker='+')
+
+        # plot trace with a min map value
+        min_y, min_x = np.where(analysis_map == map_min)
+        signal_min = self.stack[:, min_y[0], min_x[0]]
+        ax_signal_min.plot(self.time, signal_min, color=gray_heavy, linestyle='None', marker='+')
+        # plot trace with a max map value
+        max_y, max_x = np.where(analysis_map == map_max)
+        signal_max = self.stack[:, max_y[0], max_x[0]]
+        ax_signal_max.plot(self.time, signal_max, color=gray_heavy, linestyle='None', marker='+')
+
+        for ax, signal in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
+            # signal duration
+            i_activation = find_tran_act(signal)  # 1st df max, Activation
+            duration = calc_tran_duration(signal)
+            # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
+            #                color=colors_times['Downstroke'], label='Downstroke')
+            ax.axhline(y=signal[i_activation + duration],
+                       xmin=self.time[i_activation] / max(self.time),
+                       xmax=self.time[i_activation + duration] / max(self.time),
+                       color=colors_times['Downstroke'], linewidth=1,
+                       label='Downstroke')
+            # Text: Conditions
+            ax.text(0.72, 0.65, '{} ms'.format(duration),
+                    color=gray_heavy, fontsize=fontsize1, transform=ax.transAxes)
+
+        # frame_signal = Rectangle((signal_x - int(self.kernel), signal_y - int(self.kernel)),
+        #                          self.kernel, self.kernel,
+        #                          fc=colors_times['Downstroke'], ec=colors_times['Downstroke'],
+        #                          lw=points_lw)
         # frame_signal_spot = Circle((signal_x, signal_y), 3,
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
-        ax_frame.add_artist(frame_signal)
-        # signal duration
-        i_activation = find_tran_act(signal)  # 1st df max, Activation
-        duration = calc_tran_duration(signal)
-        # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
-        #                color=colors_times['Downstroke'], label='Downstroke')
-        ax_signal.axhline(y=signal[i_activation + duration],
-                          xmin=self.time[i_activation]/max(self.time),
-                          xmax=self.time[i_activation + duration]/max(self.time),
-                          color=colors_times['Downstroke'], linewidth=1,
-                          label='Downstroke')
+        # ax_frame.add_artist(frame_signal)
+        ax_frame.plot(signal_x, signal_y, marker='x', markersize=10)
+
         # add colorbar (lower right of frame)
         ax_ins_img = inset_axes(ax_frame, width="5%", height="100%", loc=5,
                                 bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=ax_frame.transAxes,
@@ -763,7 +816,7 @@ class TestMapAnalysis(unittest.TestCase):
         cb_img.ax.tick_params(labelsize=fontsize3)
 
         # Duration Map
-        img_map_frame = ax_map.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        img_map_frame = ax_map.imshow(stack_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
         #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
         cmap_norm_duration = colors.Normalize(vmin=map_min_display,
@@ -787,6 +840,7 @@ class TestMapAnalysis(unittest.TestCase):
                                  borderpad=0)
         [s.set_visible(False) for s in ax_map_hist.spines.values()]
         # TODO try combos of histogram, swarm, and violin
+        map_flat = analysis_map.flatten()
         ax_map_hist.hist(map_flat, bins=map_max_display, histtype='stepfilled',
                          orientation='horizontal', color='gray')
         # ax_act_hist.violinplot(map_flat)
@@ -801,7 +855,7 @@ class TestMapAnalysis(unittest.TestCase):
         ax_map_hist.set_xticks([])
         ax_map_hist.set_xticklabels([])
 
-        fig_map_snr.savefig(dir_integration + '/results/integration_MapDuration_NEW.png')
+        fig_map_snr.savefig(dir_integration + '/results/integration_MapDuration.png')
         fig_map_snr.show()
 
 
