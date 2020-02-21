@@ -23,7 +23,7 @@ def spline_signal(xx, signal_in, smoothing=200):
     #                           (len(xx))*spline_fidelity)
     # xx_spline = np.linspace(0, 1, (len(xx)) * spline_fidelity)
     xx_spline = np.arange(0, len(xx_signal) - d_xx, d_xx / spline_fidelity)
-    spl_array = spl(xx_spline)
+    # spl_array = spl(xx_spline)
     # spl.set_smoothing_factor(smoothing)    # TODO optimize here
     df_spline = spl.derivative()(xx_spline)
     # df_spline = spl(xx_spline, nu=1, ext='extrapolate')

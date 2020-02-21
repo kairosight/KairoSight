@@ -5,6 +5,13 @@ from scipy.signal import savgol_filter
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
+TRAN_MAX = 100
+# Colormap and normalization range for Activation maps
+ACT_MAX = 150
+# Colormap and normalization range for Duration maps
+DUR_MIN = 20  # ms
+DUR_MAX = 200  # ms
+
 
 def find_tran_start(signal_in):
     """Find the time of the start of a transient,
@@ -86,7 +93,8 @@ def find_tran_act(signal_in):
     if i_peak is np.nan:
         return np.nan
     i_baselines = find_tran_baselines(signal_in, peak_side='left')
-    i_baseline = int(np.median(i_baselines))
+    # i_baseline = int(np.median(i_baselines))
+    i_baseline = i_baselines[-2]
 
     if i_baseline < i_peak:
         search_min = i_baseline
@@ -94,7 +102,7 @@ def find_tran_act(signal_in):
         search_min = 0  # not enough baselines before the peak, use everything before the peak
         # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
 
-    search_max_calc = i_peak + (i_peak - search_min)
+    search_max_calc = i_peak + ((i_peak - search_min) * 2)
     search_max = np.min((search_max_calc, len(signal_in)-1))
     # search_max = len(signal_in) - 1
 
@@ -283,6 +291,9 @@ def calc_tran_duration(signal_in, percent=80):
         return np.nan
 
     # Exclusions
+    if (i_relative_duration < DUR_MIN) or (i_relative_duration > DUR_MAX):
+        return np.nan
+
     return i_relative_duration
 
 

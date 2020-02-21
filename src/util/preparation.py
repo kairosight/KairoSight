@@ -286,8 +286,8 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         largest_mask = np.empty_like(labeled_mask, dtype=np.bool_)
         largest_region_area = 0
         for idx, region_prop in enumerate(regionprops(labeled_mask)):
-            print('#{} : Found a region, area: {}'
-                  .format(idx, region_prop.area))
+            # print('#{} : Found a region, area: {}'
+            #       .format(idx, region_prop.area))
             # use the second-largest region
             if region_prop.area > largest_region_area and region_prop.label > 1:
                 largest_region_area = region_prop.area
