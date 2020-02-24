@@ -13,7 +13,7 @@ DUR_MIN = 20  # ms
 DUR_MAX = 200  # ms
 
 
-def find_tran_start(signal_in):
+def find_tran_start(signal_in):    # TODO
     """Find the time of the start of a transient,
     defined as the 1st maximum of the 2nd derivative
 
@@ -100,6 +100,8 @@ def find_tran_act(signal_in):
         search_min = i_baseline
     else:
         search_min = 0  # not enough baselines before the peak, use everything before the peak
+        # not enough baselines before the peak, use the min value before the peak
+        search_min = np.argmin(signal_in[:i_peak])
         # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
 
     search_max_calc = i_peak + ((i_peak - search_min) * 2)
@@ -265,6 +267,20 @@ def calc_tran_duration(signal_in, percent=80):
     if type(percent) is not int:
         raise TypeError('Percent data type must be an "int"')
 
+    # # snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
+    # # if snr is np.nan:
+    # #     return np.nan
+    # i_peak = find_tran_peak(signal_in)
+    # if type(i_peak) not in [np.int64, float]:
+    #     i_peak = i_peak[0]  # use the first detected peak
+    # i_baselines = find_tran_baselines(signal_in, peak_side='right')
+    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
+    # peak_peak = signal_in[i_peak] - baselines_rms
+    #
+    # i_activation = find_tran_act(signal_in)
+    #
+    # cutoff = baselines_rms + (float(peak_peak) * float(((100 - percent) / 100)))
+
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
     # if any(x < 0 or x >= 100 for x in signal_in):
@@ -276,25 +292,29 @@ def calc_tran_duration(signal_in, percent=80):
     if type(i_peak) not in [np.int64, float]:
         i_peak = i_peak[0]  # use the first detected peak
 
+    # i_baselines = find_tran_baselines(signal_in, peak_side='right')
+    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
     noise_rms = rms_bounds[0]
-    i_activation = find_tran_act(signal_in)
 
     cutoff = noise_rms + (float(peak_peak) * float(((100 - percent) / 100)))
 
     i_search = np.where(signal_in[i_peak:] <= cutoff)
     if len(i_search) == 0:
         return np.nan
-    try:
-        i_duration = i_peak + i_search[0][0]
-        i_relative_duration = i_duration - i_activation
-    except Exception:
+    # try:
+    i_duration = i_peak + i_search[0][0]
+    i_activation = find_tran_act(signal_in)
+    if i_activation > i_peak:
         return np.nan
+    duration = i_duration - i_activation
+    # except Exception:
+    #     return np.nan
 
     # Exclusions
-    if (i_relative_duration < DUR_MIN) or (i_relative_duration > DUR_MAX):
-        return np.nan
+    # if (i_relative_duration < DUR_MIN) or (i_relative_duration > DUR_MAX):
+    #     return np.nan
 
-    return i_relative_duration
+    return duration
 
 
 def calc_tran_tau(signal_in):
@@ -371,7 +391,7 @@ def calc_tran_di(signal_in):
 #
 #     map_out[iy, ix] = pixel_analysis_value
 
-def map_tran_analysis(stack_in, analysis_type, time_in=None):
+def map_tran_analysis(stack_in, analysis_type, time_in=None, **kwargs):
     """Map an analysis point's values for a stack of transient fluorescent data
         i.e.
 
@@ -426,7 +446,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
             pixel_analysis_value = np.NaN
             map_out[iy, ix] = pixel_analysis_value
         else:
-            analysis_result = analysis_type(pixel_data)
+            analysis_result = analysis_type(pixel_data, **kwargs)
             if analysis_result is np.nan:
                 map_out[iy, ix] = np.nan
             else:
@@ -439,6 +459,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None):
     # If mapping activation, align times with the "first" aka lowest activation time
     if analysis_type is find_tran_act:
         map_out = map_out - np.nanmin(map_out)
+
     print('\nDONE Generating map')
 
     return map_out

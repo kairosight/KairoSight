@@ -546,8 +546,13 @@ def normalize_signal(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "uint16" or "float"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    # if any(v < 0 for v in signal_in):
+    #     raise ValueError('All signal values must be >= 0')
+
+    unique, counts = np.unique(signal_in, return_counts=True)
+
+    if len(unique) < 10:  # signal is too flat to have a valid peak
+        return np.zeros_like(signal_in)
 
     xp = [signal_in.min(), signal_in.max()]
     fp = [0, 1]
