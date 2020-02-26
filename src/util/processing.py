@@ -643,30 +643,31 @@ def calculate_snr(signal_in, noise_count=10):
     if noise_count >= len(signal_in):
         raise ValueError('Number of noise values to use must be < length of signal array')
 
-    # Characterize the signal
-    signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
-    noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
-
-    # Find peak values, at least (noise_height + signal_range/2) tall and (len(signal_in)/2) samples apart
+    # Find peak values
     i_peaks, properties = find_tran_peak(signal_in, props=True)
     if (i_peaks is np.nan) or (len(i_peaks) == 0):
         # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
-    if len(i_peaks) > 1:
-        # Use the peak with the max prominence
-        i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
-        ir_peak = i_peaks
-    else:
-        # Use the peak with the max prominence
-        i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
-        ir_peak = i_peak_calc
+
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    # signal_range = signal_bounds[1] - signal_bounds[0]
+    # noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
+
+    # if len(i_peaks) > 1:
+    #     # Use the peak with the max prominence
+    #     i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
+    #     ir_peak = i_peaks
+    # else:
+    # Use the peak with the max prominence
+    i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
+    ir_peak = i_peak_calc
 
     # Use the peak value and peak_extent*2 number of neighboring values
-    peak_extent = 1
-    data_peak = signal_in[i_peak_calc - peak_extent: i_peak_calc + peak_extent]
-    peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
-    peak_sd = statistics.pstdev(data_peak.astype(float))
+    # peak_extent = 1
+    # data_peak = signal_in[i_peak_calc - peak_extent: i_peak_calc + peak_extent]
+    # peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
+    # peak_sd = statistics.pstdev(data_peak.astype(float))
     # Use the rms of the peak's extent + their  SD/2, to be weighted towards the peak
     peak_value = signal_in[i_peak_calc]
 
@@ -684,7 +685,7 @@ def calculate_snr(signal_in, noise_count=10):
     noise_sd = statistics.stdev(data_noise.astype(float)) # standard deviation
 
     # Calculate Peak-Peak value
-    peak_peak = abs(peak_value - noise_rms).astype(signal_in.dtype)
+    peak_peak = abs(peak_value - noise_rms)
 
     # Exclusions
     if noise_sd == 0:
