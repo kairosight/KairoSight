@@ -49,8 +49,8 @@ def find_tran_peak(signal_in, props=False):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
+    # if signal_in.dtype not in [np.uint16, float]:
+    #     raise TypeError('Signal values must either be "int" or "float"')
 
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
@@ -62,6 +62,9 @@ def find_tran_peak(signal_in, props=False):
             return np.nan, np.nan
         else:
             return np.nan
+
+    # Replace NaNs with 0
+    signal_in = np.nan_to_num(signal_in, copy=False, nan=0)
 
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_mean = np.nanmean(signal_in)
@@ -543,8 +546,8 @@ def normalize_signal(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
-        raise TypeError('Signal values must either be "uint16" or "float"')
+    # if signal_in.dtype not in [np.uint16, float]:
+    #     raise TypeError('Signal values must either be "uint16" or "float"')
 
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
@@ -631,8 +634,8 @@ def calculate_snr(signal_in, noise_count=10):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
-        raise TypeError('Signal values must either be "uint16" or "float"')
+    # if signal_in.dtype not in [np.uint16, float]:
+    #     raise TypeError('Signal values must either be "uint16" or "float"')
     if type(noise_count) is not int:
         raise TypeError('Number of noise values to use must be an "int"')
 

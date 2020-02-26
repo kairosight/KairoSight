@@ -1,3 +1,4 @@
+from util.preparation import align_signals
 from util.processing import *
 import time
 import numpy as np
@@ -81,8 +82,8 @@ def find_tran_act(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
-        raise TypeError('Signal values must either be "int" or "float"')
+    # if signal_in.dtype not in [np.uint16, float]:
+    #     raise TypeError('Signal values must either be "int" or "float"')
 
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
@@ -105,7 +106,7 @@ def find_tran_act(signal_in):
         # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
 
     search_max_calc = i_peak + ((i_peak - search_min) * 2)
-    search_max = np.min((search_max_calc, len(signal_in)-1))
+    search_max = np.nanmin((search_max_calc, len(signal_in)-1))
     # search_max = len(signal_in) - 1
 
     xx_search = np.linspace(search_min, search_max - 1,
@@ -526,7 +527,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
         signal_in : ndarray
             The array of fluorescent data to be converted
-        crop : str or tuple
+        crop : str or tuple of ints
             The type of cropping applied, default is center
             If a tuple, begin aligned crop at crop[0] time index and end at crop[1]
 
@@ -659,13 +660,18 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             # Use the earliest end of SNR in the frame
 
             # stacked to capture the second full transient
-            # at the edge of a propogating wave and avoid sliced transients
+            # at the edge of a propagating wave and avoid sliced transients
             # align starting with provided crop times,
             i_align = i_act_full - (i_acts_full[0] - crop[0])
             signal_align = signal_in[i_align:i_align + (crop[1] - crop[0])]
 
         signal_align = normalize_signal(signal_align)
+        # Use correlation to tighten alignment
+        if act_num > 0:
+            signal_align = align_signals(signals_trans_act[0], signal_align)
+
         signals_trans_act.append(signal_align)
+
 
     # use the lowest activation time
     # cycle_shift = min(min(i_acts), cycle_shift)

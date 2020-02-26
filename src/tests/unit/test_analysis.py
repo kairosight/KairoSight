@@ -748,12 +748,12 @@ class TestEnsemble(unittest.TestCase):
         # Ensembled and original signals
         signal_snrs = []
 
-        for num, signal in enumerate(signals):
-            ax_ensemble.plot(signal, color=gray_light, linestyle='-')
+        for num, sig in enumerate(signals):
+            ax_ensemble.plot(sig, color=gray_light, linestyle='-')
         ax_ensemble.plot(signal_ensemble, color=gray_heavy,
                          linestyle='-', marker='+', label='Ensemble signal')
 
-        for num, signal in enumerate(signals):
+        for num, sig in enumerate(signals):
             # ax_ensemble.plot(signal, color=gray_light, linestyle='-')
             # # Start
             # i_start = find_tran_start(signal)  # 1st df2 max, Start
@@ -776,7 +776,7 @@ class TestEnsemble(unittest.TestCase):
             # ax_ensemble.plot(time_ensemble[i_end], signal[i_end],
             #                  "x", color=colors_times['End'], markersize=10)
 
-            snr_results = calculate_snr(signal)
+            snr_results = calculate_snr(sig)
             snr = snr_results[0]
             ir_noise = snr_results[-2]
             signal_snrs.append(snr)
@@ -844,7 +844,7 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
+        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
         # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Pig.png')
         fig_ensemble.show()
 
@@ -981,7 +981,7 @@ class TestEnsemble(unittest.TestCase):
 
     def test_export(self):
         # Save ensemble stack
-        directory_ens = dir_unit + '/results/EnsembleModelStack.tif'
+        directory_ens = dir_unit + '/results/EnsembleModelStack_NEW.tif'
 
         stack_ens, ensemble_crop, ensemble_yx = calc_ensemble_stack(self.time_stack, self.stack)
         print('Saving ensemble stack ...')
