@@ -9,9 +9,10 @@ from scipy.interpolate import UnivariateSpline
 TRAN_MAX = 100
 # Colormap and normalization range for Activation maps
 ACT_MAX = 150
+ACT_MAX_PIG = 400
 # Colormap and normalization range for Duration maps
 DUR_MIN = 20  # ms
-DUR_MAX = 200  # ms
+DUR_MAX = 300  # ms
 
 
 def find_tran_start(signal_in):    # TODO

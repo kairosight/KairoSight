@@ -78,6 +78,7 @@ def find_tran_peak(signal_in, props=False):
     i_peaks, properties = find_peaks(signal_in,
                                      height=signal_mean, prominence=prominence,
                                      distance=10)
+    # TODO detect dual peaks, alternans, etc.
 
     if len(i_peaks) is 0:   # no peak detected
         if props:
@@ -510,7 +511,6 @@ def invert_stack(stack_in):
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
 
-    print('Inverting a stack ...')
     stack_out = np.empty_like(stack_in)
     map_shape = stack_in.shape[1:]
     # Assign a value to each pixel
@@ -526,7 +526,6 @@ def invert_stack(stack_in):
         pixel_data_inv = invert_signal(pixel_data)
         stack_out[:, iy, ix] = pixel_data_inv
 
-    print('\nDONE Inverting stack')
     return stack_out
 
 

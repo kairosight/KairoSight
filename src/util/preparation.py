@@ -273,12 +273,12 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         markers = np.zeros(frame_in_rescale.shape)
         # Darkish half and lightish half
         # TODO calculate these bounds
-        global_otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
-        dark_mid = np.mean([-1, global_otsu])
+        otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
+        dark_mid = np.mean([-1, otsu])
         adjusted_otsu = dark_mid
         # adjusted_otsu = global_otsu - (abs((-1 - global_otsu)/2))
-        print('* Masking with Otsu value: {}'.format(global_otsu))
-        markers_bounds = (global_otsu, global_otsu)
+        print('* Masking with Otsu value: {}'.format(adjusted_otsu))
+        markers_bounds = (abs(adjusted_otsu), adjusted_otsu)
         markers[frame_in_rescale < markers_bounds[0]] = 1
         markers[frame_in_rescale > markers_bounds[1]] = 2
 
@@ -289,17 +289,17 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         largest_mask = np.empty_like(labeled_mask, dtype=np.bool_)
         largest_region_area = 0
         for idx, region_prop in enumerate(regionprops(labeled_mask)):
-            # print('#{} : Found a region, area: {}'
-            #       .format(idx, region_prop.area))
+            print('* Region #{}\t:\tint: _\tarea: {}'
+                  .format(idx+1, region_prop.area))
+            # for prop in region_prop:
+            #     print(prop, region_prop[prop])
             # use the second-largest region
             if region_prop.area > largest_region_area and region_prop.label > 1:
                 largest_region_area = region_prop.area
                 largest_mask[labeled_mask == region_prop.label] = False
                 largest_mask[labeled_mask != region_prop.label] = True
                 print('* Using #{} area: {}'
-                      .format(idx, region_prop.area))
-            # else:
-            #     if region_prop.mean_intensity > global_otsu:
+                      .format(idx+1, region_prop.area))
 
         frame_out[largest_mask] = 0
         # mask = markers

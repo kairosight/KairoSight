@@ -1353,7 +1353,6 @@ class TestSnrMap(unittest.TestCase):
                                  bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
                                  borderpad=0)
         [s.set_visible(False) for s in ax_act_hist.spines.values()]
-        # TODO try combos of histogram, swarm, and violin
         # ax_act_hist.hist(snr_map_ca_flat, bins=snr_max_display*5, histtype='stepfilled',
         #                  orientation='horizontal', color='gray')
         # ax_act_hist.violinplot(snr_map_ca_flat, points=snr_max_display)
