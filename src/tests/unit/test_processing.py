@@ -1032,7 +1032,7 @@ class TestSnrSignal(unittest.TestCase):
         # General layout
         # fig_snr = plt.figure(figsize=(6, 6))  # _ x _ inch page
         fig_snr = plt.figure(figsize=(8, 5))  # _ x _ inch page
-        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 3 row, 1 columns
+        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
 
         # Data plot
         ax_data = fig_snr.add_subplot(gs0[0])

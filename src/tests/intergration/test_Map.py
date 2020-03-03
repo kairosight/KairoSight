@@ -1416,25 +1416,29 @@ class TestMapAnalysisRat(unittest.TestCase):
 # noinspection PyTypeChecker
 class TestMapAnalysisPig(unittest.TestCase):
     def setUp(self):
-        # Load data to test with
-        # file_name_rat = '201-/--/-- rat-04, PCL 240ms'
-        # file_stack_rat = dir_tests + '/data/20190320-04-240_tagged.tif'
-        # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
-        # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        # fps = 404
+        # Load data to test with    # TODO try an ensemble
+        fps = 500.0
+        self.scale_px_cm = 101.4362
+        # scale_cm_px = 0.015925
+
         exp_name = 'MEHP: Baseline'
+        file_XY = (770, 1048)
+        file_X0Y0 = (1140, 200)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
+        # file_frames = (941, 1190)
         file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
         file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
         file_frames = (1031, 1280)
-        file_XY = (0, 0)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
+        # file_frames = (941, 1190)
+
         # exp_name = 'MEHP: 60 uM'
+        # file_X0Y0 = (1060, 160)
         # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
         # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
         # file_frames = (871, 1120)
-        # file_XY = (1060, 160)
-        fps = 500.0
-        # scale_cm_px = 0.015925
-        self.scale_px_cm = 101.4362
 
         self.scale_cm_px = 1 / self.scale_px_cm
         self.file_name, self.file_stack = file_name_pig, file_stack_pig
@@ -1553,9 +1557,9 @@ class TestMapAnalysisPig(unittest.TestCase):
         FPMS = fps / 1000
         FINAL_T = floor(FRAMES / FPMS)
 
-        self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+        time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
 
-        self.time_pig, self.stack_pig = self.time_real, stack_out
+        self.time_pig, self.stack_pig = time_real, stack_out
 
     def test_plot_snr_pig(self):
         # Make sure map looks correct with pig data
@@ -1579,10 +1583,19 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # ax_signal = fig_map_snr.add_subplot(gs0[1])
         gs_signals = gs0[1].subgridspec(1, 3, width_ratios=[0.3, 0.3, 0.3], wspace=0.1)  # 1 row, 3 columns
+        gs_min = gs_signals[0].subgridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
+        gs_xy = gs_signals[1].subgridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
+        gs_max = gs_signals[2].subgridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
 
-        ax_signal_min = fig_map.add_subplot(gs_signals[0])
-        ax_signal_xy = fig_map.add_subplot(gs_signals[1])
-        ax_signal_max = fig_map.add_subplot(gs_signals[2])
+        ax_signal_min = fig_map.add_subplot(gs_min[0])
+        ax_signal_xy = fig_map.add_subplot(gs_xy[0])
+        ax_signal_max = fig_map.add_subplot(gs_max[0])
+        # TODO add derivatives to signal plots
+        # Derivatives
+        ax_df_min = fig_map.add_subplot(gs_min[1], sharex=ax_signal_min)
+        ax_df_xy = fig_map.add_subplot(gs_xy[1], sharex=ax_signal_xy)
+        ax_df_max = fig_map.add_subplot(gs_max[1], sharex=ax_signal_max)
+
         for ax in [ax_signal_min, ax_signal_xy, ax_signal_max]:
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
@@ -1594,6 +1607,14 @@ class TestMapAnalysisPig(unittest.TestCase):
             ax.xaxis.set_major_locator(plticker.MultipleLocator(50))
             # ax.xaxis.set_minor_locator(plticker.MultipleLocator(5))
             ax.set_yticks([])
+            ax.set_yticklabels([])
+
+        # Common between all derivative axes
+        for ax in [ax_df_min, ax_df_xy, ax_df_max]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
             ax.set_yticklabels([])
 
         ax_signal_min.set_ylabel('Fluorescence (arb. u.)')
@@ -1611,7 +1632,8 @@ class TestMapAnalysisPig(unittest.TestCase):
         map_n = np.count_nonzero(~np.isnan(analysis_map))
         map_min_display = 0
         # map_max_tran = map_min_display + TRAN_MAX
-        # map_max_display = int(round(map_max_tran + 5.1, -1))
+        # map_max_display = int(round(map_max + 5.1, -1))
+        # map_max_display = ceil(round(map_max, 2))
         map_max_display = SNR_MAX
         print('Map min value: ', map_min)
         print('Map max value: ', map_max)
@@ -1674,8 +1696,11 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_frame.plot(max_x[0], max_y[0], marker='x', color=color_snr, markersize=marker1)
         ax_signal_max.plot(stack_time, signal_max, color=gray_heavy, linestyle='None', marker='+')
 
-        for ax, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
-            # signal duration (and underlying calculations)
+        for ax, ax_df, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max],
+                                  [ax_df_min, ax_df_xy, ax_df_max],
+                                  [signal_min, signal_xy, signal_max]):
+            # Signal of interest (and underlying calculations)
+            # ax_data.set_xticklabels([])
             snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(sig)
             snr_display = round(snr, 2)
             peak_peak_display = round(peak_peak, 2)
@@ -1686,6 +1711,18 @@ class TestMapAnalysisPig(unittest.TestCase):
                     "x", color=colors_times['Peak'], markersize=marker3)
             ax.plot(stack_time[ir_noise], sig[ir_noise],
                     "x", color=color_snr, markersize=marker3)
+
+            # df/dt
+            x_signal = np.linspace(0, len(sig) - 1, len(sig))
+            d_t = stack_time[2] - stack_time[1]
+            # x_signal = np.arange(0, len(self.signal), (self.signal_fps/1000))
+            df_spline, spline_fidelity = spline_signal(x_signal, sig)
+            # x_spline = np.arange(0, len(x_signal), (self.signal_fps/1000) / spline_fidelity)
+            # x_spline = np.linspace(0, len(sig) - 1, len(df_spline))
+            df_time = np.linspace(stack_time[0], stack_time[-1],
+                                  (len(stack_time) - 1) * spline_fidelity)
+            ax_df.plot(df_time, df_spline, color=gray_med,
+                       linestyle='-', label='dF/dt')
 
             # noise_rms = rms_bounds[0]
             # cutoff = noise_rms + (float(peak_peak) * float(((100 - dur_percent) / 100)))
@@ -1751,24 +1788,32 @@ class TestMapAnalysisPig(unittest.TestCase):
         cbar.ax.tick_params(labelsize=fontsize3)
 
         # Histogram/Violin plot of analysis values (along left side of colorbar)
-        ax_map_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
-                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                 borderpad=0)
-        [s.set_visible(False) for s in ax_map_hist.spines.values()]
+        # use 2 histograms to (quickly) create a "violin" plot
         map_flat = analysis_map.flatten()
-        ax_map_hist.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
-        # ax_act_hist.violinplot(map_flat)
+        ax_map_hist_l = inset_axes(ax_map, width="100%", height="100%", loc='center left',
+                                   bbox_to_anchor=(-2.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                   borderpad=0)
+        ax_map_hist_r = inset_axes(ax_map, width="100%", height="100%", loc='center left',
+                                   bbox_to_anchor=(-1.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                   borderpad=0)
+        [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
+        [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
+        ax_map_hist_l.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                           orientation='horizontal', color='gray')
+        ax_map_hist_r.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                           orientation='horizontal', color='gray')
+        # ax_map_hist.violinplot(map_flat, showmeans=False, showmedians=True)
         # print('Generating swarmplot ... ')
         # sns.swarmplot(ax=ax_map_hist, data=map_flat,
         #               size=1, color='k', alpha=0.7)  # and slightly transparent
-
-        ax_map_hist.set_ylim([map_min_display, map_max_display])
-        ax_map_hist.set_yticks([])
-        ax_map_hist.set_yticklabels([])
-        ax_map_hist.invert_xaxis()
-        ax_map_hist.set_xticks([])
-        ax_map_hist.set_xticklabels([])
+        # sns.violinplot(ax=ax_map_hist, data=map_flat, inner="stick")
+        ax_map_hist_l.invert_xaxis()
+        for ax in [ax_map_hist_l, ax_map_hist_r]:
+            ax.set_ylim([map_min_display, map_max_display])
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
 
         fig_map.savefig(dir_integration + '/results/MapPig_SNR_Ca.png')
         fig_map.show()
@@ -1896,7 +1941,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_signal_max.plot(stack_time, signal_max, color=gray_heavy, linestyle='None', marker='+')
 
         for ax, signal in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
-            # signal duration (and underlying calculations)
+            # Signal of interest (and underlying calculations)
             # snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal)
             i_peak = find_tran_peak(signal)  # max of signal, Peak
             i_activation = find_tran_act(signal)  # 1st df max, Activation
@@ -1968,24 +2013,27 @@ class TestMapAnalysisPig(unittest.TestCase):
         cbar.ax.tick_params(labelsize=fontsize3)
 
         # Histogram/Violin plot of analysis values (along left side of colorbar)
-        ax_map_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
-                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                 borderpad=0)
-        [s.set_visible(False) for s in ax_map_hist.spines.values()]
+        # use 2 histograms to (quickly) create a "violin" plot
         map_flat = analysis_map.flatten()
-        ax_map_hist.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
-        # ax_act_hist.violinplot(map_flat)
-        # print('Generating swarmplot ... ')
-        # sns.swarmplot(ax=ax_map_hist, data=map_flat,
-        #               size=1, color='k', alpha=0.7)  # and slightly transparent
-
-        ax_map_hist.set_ylim([map_min_display, map_max_display])
-        ax_map_hist.set_yticks([])
-        ax_map_hist.set_yticklabels([])
-        ax_map_hist.invert_xaxis()
-        ax_map_hist.set_xticks([])
-        ax_map_hist.set_xticklabels([])
+        ax_map_hist_l = inset_axes(ax_map, width="100%", height="100%", loc='center left',
+                                   bbox_to_anchor=(-2.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                   borderpad=0)
+        ax_map_hist_r = inset_axes(ax_map, width="100%", height="100%", loc='center left',
+                                   bbox_to_anchor=(-1.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                   borderpad=0)
+        [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
+        [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
+        ax_map_hist_l.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                           orientation='horizontal', color='gray')
+        ax_map_hist_r.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                           orientation='horizontal', color='gray')
+        ax_map_hist_l.invert_xaxis()
+        for ax in [ax_map_hist_l, ax_map_hist_r]:
+            ax.set_ylim([map_min_display, map_max_display])
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
 
         fig_map.savefig(dir_integration + '/results/MapPig_Activation_Ca.png')
         fig_map.show()
@@ -2113,7 +2161,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_signal_max.plot(stack_time, signal_max, color=gray_heavy, linestyle='None', marker='+')
 
         for ax, signal in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
-            # signal duration (and underlying calculations)
+            # Signal of interest (and underlying calculations)
             snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal)
             i_peak = find_tran_peak(signal)  # max of signal, Peak
             i_activation = find_tran_act(signal)  # 1st df max, Activation
@@ -2185,24 +2233,27 @@ class TestMapAnalysisPig(unittest.TestCase):
         cbar.ax.tick_params(labelsize=fontsize3)
 
         # Histogram/Violin plot of analysis values (along left side of colorbar)
-        ax_map_hist = inset_axes(ax_map, width="200%", height="100%", loc=6,
-                                 bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                 borderpad=0)
-        [s.set_visible(False) for s in ax_map_hist.spines.values()]
+        # use 2 histograms to (quickly) create a "violin" plot
         map_flat = analysis_map.flatten()
-        ax_map_hist.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
-        # ax_act_hist.violinplot(map_flat)
-        # print('Generating swarmplot ... ')
-        # sns.swarmplot(ax=ax_map_hist, data=map_flat,
-        #               size=1, color='k', alpha=0.7)  # and slightly transparent
-
-        ax_map_hist.set_ylim([map_min_display, map_max_display])
-        ax_map_hist.set_yticks([])
-        ax_map_hist.set_yticklabels([])
-        ax_map_hist.invert_xaxis()
-        ax_map_hist.set_xticks([])
-        ax_map_hist.set_xticklabels([])
+        ax_map_hist_l = inset_axes(ax_map, width="100%", height="100%", loc='center left',
+                                   bbox_to_anchor=(-2.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                   borderpad=0)
+        ax_map_hist_r = inset_axes(ax_map, width="100%", height="100%", loc='center left',
+                                   bbox_to_anchor=(-1.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+                                   borderpad=0)
+        [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
+        [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
+        ax_map_hist_l.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                           orientation='horizontal', color='gray')
+        ax_map_hist_r.hist(map_flat, bins=map_max_display, histtype='stepfilled',
+                           orientation='horizontal', color='gray')
+        ax_map_hist_l.invert_xaxis()
+        for ax in [ax_map_hist_l, ax_map_hist_r]:
+            ax.set_ylim([map_min_display, map_max_display])
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
 
         fig_map.savefig(dir_integration + '/results/MapPig_Duration_Ca.png')
         fig_map.show()
