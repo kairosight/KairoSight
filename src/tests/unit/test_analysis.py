@@ -629,7 +629,6 @@ class TestEnsemble(unittest.TestCase):
         self.stack_import, self.stack_meta = open_stack(source=file_stack_model)
         print('DONE Opening stack\n')
 
-
         # # Import real data
         # # trace
         # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'

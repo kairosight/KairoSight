@@ -50,6 +50,52 @@ cmap_duration.set_bad(color=gray_light, alpha=0)
 # colors_times = ['#003EDC', '#FB2595', '#FF6172', '#FFD067', '#FFF92', '#000000']  # redish -> purple -> blue?
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue?
 
+def add_map_colorbar_stats(axis, img, map_data, data_range, unit='unit', bins=100, stat_color=gray_heavy):
+    ax_ins_cbar = inset_axes(axis, width="5%", height="100%", loc='center left',
+                             bbox_to_anchor=(1.3, 0, 1, 1), bbox_transform=axis.transAxes,
+                             borderpad=0)
+    cbar = plt.colorbar(img, cax=ax_ins_cbar, orientation="vertical")
+    cbar.ax.set_xlabel(unit, fontsize=fontsize3)
+    # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
+    if data_range[1] < 50:
+        maj_tics = data_range[1]
+    else:
+        maj_tics = 50
+    min_tics = int(maj_tics / 5)
+    cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(maj_tics))
+    cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(min_tics))
+    cbar.ax.tick_params(labelsize=fontsize3)
+
+    # Histogram/Violin plot of analysis values (along left side of colorbar)
+    # use 2 histograms to (quickly) create a "violin" plot
+    map_flat_set = map_data.flat
+    ax_map_hist_l = inset_axes(axis, width="25%", height="100%", loc='center left',
+                               bbox_to_anchor=(1.01, 0, 1, 1), bbox_transform=axis.transAxes,
+                               borderpad=0)
+    # ax_map_hist_r = inset_axes(ax_map, width="200%", height="100%", loc='center left',
+    #                            bbox_to_anchor=(-2.1, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
+    #                            borderpad=0)
+    [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
+    # [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
+    # ax_map_hist_l.hist(map_flat, bins=bins,
+    #                    histtype='stepfilled', orientation='horizontal', color='gray')
+    # ax_map_hist_r.hist(map_flat, bins=bins,
+    #                    histtype='stepfilled', orientation='horizontal', color='gray')
+    # ax_map_hist_l.invert_xaxis()
+
+    # ax_map_hist.violinplot(map_flat, showmeans=False, showmedians=True)
+    # print('Generating swarmplot ... ')
+    # sns.swarmplot(ax=ax_map_hist_r, data=map_flat,
+    #               size=1, color='k', alpha=0.7)  # and slightly transparent
+    sns.violinplot(ax=ax_map_hist_l, data=map_flat_set, cut=0,
+                   color=stat_color, inner="stick")
+    for ax in [ax_map_hist_l]:
+        ax.set_ylim([data_range[0], data_range[1]])
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+
 
 class TestMapSNR(unittest.TestCase):
     def setUp(self):
@@ -1416,29 +1462,39 @@ class TestMapAnalysisRat(unittest.TestCase):
 # noinspection PyTypeChecker
 class TestMapAnalysisPig(unittest.TestCase):
     def setUp(self):
-        # Load data to test with    # TODO try an ensemble
+        # #Load data to test with    # TODO try an ensemble
         fps = 500.0
-        self.scale_px_cm = 101.4362
+
+        exp_name = 'Developmental: 6 wk'
+        self.scale_px_cm = 143.3298
         # scale_cm_px = 0.015925
+        file_XY = (900, 1440)
+        file_X0Y0 = (0, 40)
+        file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
+        file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
+        file_frames = (480, 660)
 
-        exp_name = 'MEHP: Baseline'
-        file_XY = (770, 1048)
-        file_X0Y0 = (1140, 200)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
-        # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
-        # file_frames = (941, 1190)
-        file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
-        file_frames = (1031, 1280)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
-        # file_frames = (941, 1190)
-
-        # exp_name = 'MEHP: 60 uM'
-        # file_X0Y0 = (1060, 160)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
-        # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
-        # file_frames = (871, 1120)
+        # exp_name = 'MEHP: Baseline'
+        # self.scale_px_cm = 101.4362
+        # # scale_cm_px = 0.015925
+        # file_XY = (770, 1048)
+        # file_X0Y0 = (1140, 200)
+        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
+        # # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
+        # # file_frames = (941, 1190)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
+        # file_frames = (1031, 1280)
+        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
+        # # file_frames = (941, 1190)
+        #
+        # # exp_name = 'MEHP: 60 uM'
+        # # file_X0Y0 = (1060, 160)
+        # # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
+        # # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
+        # # file_frames = (871, 1120)
+        # #
 
         self.scale_cm_px = 1 / self.scale_px_cm
         self.file_name, self.file_stack = file_name_pig, file_stack_pig
@@ -1469,7 +1525,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 3
+        self.reduction = 5
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
@@ -1523,7 +1579,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         # spatial
         # self.kernel = 5
         # set to X.XX cm (0.1 - 0.3)
-        kernel_cm = 0.1
+        kernel_cm = 0.2
         self.kernel = floor(kernel_cm / self.scale_cm_px)
         if self.kernel < 3 or (self.kernel % 2) == 0:
             self.kernel = self.kernel - 1
@@ -1777,45 +1833,12 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_map.add_artist(heart_scale_bar)
 
         # Add colorbar (right of map)
-        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
-                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                 borderpad=0)
-        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
-        cbar.ax.set_xlabel('SNR', fontsize=fontsize3)
-        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
-        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(10))
-        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(2))
-        cbar.ax.tick_params(labelsize=fontsize3)
+        hist_bins = map_max_display
+        map_range = (map_min_display, map_max_display)
+        add_map_colorbar_stats(ax_map, img_map, analysis_map, map_range,
+                               unit='SNR', bins=hist_bins, stat_color=color_snr)
 
-        # Histogram/Violin plot of analysis values (along left side of colorbar)
-        # use 2 histograms to (quickly) create a "violin" plot
-        map_flat = analysis_map.flatten()
-        ax_map_hist_l = inset_axes(ax_map, width="100%", height="100%", loc='center left',
-                                   bbox_to_anchor=(-2.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                   borderpad=0)
-        ax_map_hist_r = inset_axes(ax_map, width="100%", height="100%", loc='center left',
-                                   bbox_to_anchor=(-1.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                   borderpad=0)
-        [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
-        [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
-        ax_map_hist_l.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                           orientation='horizontal', color='gray')
-        ax_map_hist_r.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                           orientation='horizontal', color='gray')
-        # ax_map_hist.violinplot(map_flat, showmeans=False, showmedians=True)
-        # print('Generating swarmplot ... ')
-        # sns.swarmplot(ax=ax_map_hist, data=map_flat,
-        #               size=1, color='k', alpha=0.7)  # and slightly transparent
-        # sns.violinplot(ax=ax_map_hist, data=map_flat, inner="stick")
-        ax_map_hist_l.invert_xaxis()
-        for ax in [ax_map_hist_l, ax_map_hist_r]:
-            ax.set_ylim([map_min_display, map_max_display])
-            ax.set_yticks([])
-            ax.set_yticklabels([])
-            ax.set_xticks([])
-            ax.set_xticklabels([])
-
-        fig_map.savefig(dir_integration + '/results/MapPig_SNR_Ca.png')
+        # fig_map.savefig(dir_integration + '/results/MapPig_SNR_Ca.png')
         fig_map.show()
 
     def test_plot_activation_pig(self):
@@ -2002,40 +2025,12 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_map.add_artist(heart_scale_bar)
 
         # Add colorbar (right of map)
-        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
-                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                 borderpad=0)
-        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
-        cbar.ax.set_xlabel('ms', fontsize=fontsize3)
-        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
-        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(50))
-        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
-        cbar.ax.tick_params(labelsize=fontsize3)
+        hist_bins = map_max_display
+        map_range = (map_min_display, map_max_display)
+        add_map_colorbar_stats(ax_map, img_map, analysis_map, map_range,
+                               unit='ms', bins=hist_bins, stat_color=colors_times['Activation'])
 
-        # Histogram/Violin plot of analysis values (along left side of colorbar)
-        # use 2 histograms to (quickly) create a "violin" plot
-        map_flat = analysis_map.flatten()
-        ax_map_hist_l = inset_axes(ax_map, width="100%", height="100%", loc='center left',
-                                   bbox_to_anchor=(-2.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                   borderpad=0)
-        ax_map_hist_r = inset_axes(ax_map, width="100%", height="100%", loc='center left',
-                                   bbox_to_anchor=(-1.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                   borderpad=0)
-        [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
-        [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
-        ax_map_hist_l.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                           orientation='horizontal', color='gray')
-        ax_map_hist_r.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                           orientation='horizontal', color='gray')
-        ax_map_hist_l.invert_xaxis()
-        for ax in [ax_map_hist_l, ax_map_hist_r]:
-            ax.set_ylim([map_min_display, map_max_display])
-            ax.set_yticks([])
-            ax.set_yticklabels([])
-            ax.set_xticks([])
-            ax.set_xticklabels([])
-
-        fig_map.savefig(dir_integration + '/results/MapPig_Activation_Ca.png')
+        # fig_map.savefig(dir_integration + '/results/MapPig_Activation_Ca.png')
         fig_map.show()
 
     def test_plot_duration_pig(self):
@@ -2222,40 +2217,12 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_map.add_artist(heart_scale_bar)
 
         # Add colorbar (right of map)
-        ax_ins_cbar = inset_axes(ax_map, width="5%", height="100%", loc=5,
-                                 bbox_to_anchor=(0.18, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                 borderpad=0)
-        cbar = plt.colorbar(img_map, cax=ax_ins_cbar, orientation="vertical")
-        cbar.ax.set_xlabel('ms', fontsize=fontsize3)
-        # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
-        cbar.ax.yaxis.set_major_locator(plticker.MultipleLocator(50))
-        cbar.ax.yaxis.set_minor_locator(plticker.MultipleLocator(10))
-        cbar.ax.tick_params(labelsize=fontsize3)
+        hist_bins = map_max_display
+        map_range = (map_min_display, map_max_display)
+        add_map_colorbar_stats(ax_map, img_map, analysis_map, map_range,
+                               unit='ms', bins=hist_bins, stat_color=colors_times['Downstroke'])
 
-        # Histogram/Violin plot of analysis values (along left side of colorbar)
-        # use 2 histograms to (quickly) create a "violin" plot
-        map_flat = analysis_map.flatten()
-        ax_map_hist_l = inset_axes(ax_map, width="100%", height="100%", loc='center left',
-                                   bbox_to_anchor=(-2.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                   borderpad=0)
-        ax_map_hist_r = inset_axes(ax_map, width="100%", height="100%", loc='center left',
-                                   bbox_to_anchor=(-1.2, 0, 1, 1), bbox_transform=ax_ins_cbar.transAxes,
-                                   borderpad=0)
-        [s.set_visible(False) for s in ax_map_hist_l.spines.values()]
-        [s.set_visible(False) for s in ax_map_hist_r.spines.values()]
-        ax_map_hist_l.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                           orientation='horizontal', color='gray')
-        ax_map_hist_r.hist(map_flat, bins=map_max_display, histtype='stepfilled',
-                           orientation='horizontal', color='gray')
-        ax_map_hist_l.invert_xaxis()
-        for ax in [ax_map_hist_l, ax_map_hist_r]:
-            ax.set_ylim([map_min_display, map_max_display])
-            ax.set_yticks([])
-            ax.set_yticklabels([])
-            ax.set_xticks([])
-            ax.set_xticklabels([])
-
-        fig_map.savefig(dir_integration + '/results/MapPig_Duration_Ca.png')
+        # fig_map.savefig(dir_integration + '/results/MapPig_Duration_Ca.png')
         fig_map.show()
 
 
