@@ -274,27 +274,38 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         # Darkish half and lightish half
         # TODO calculate these bounds
         otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
-        dark_mid = np.mean([-1, otsu])
-        adjusted_otsu = dark_mid
-        # adjusted_otsu = global_otsu - (abs((-1 - global_otsu)/2))
+        # adjusted_otsu = otsu
+
+        darker_otsu = np.mean([-1, otsu])
+        dark_otsu = np.mean([darker_otsu, otsu])
+        lightest_otsu = np.mean([dark_otsu, otsu])
+        light_otsu = np.mean([dark_otsu, lightest_otsu])
+        lighter_otsu = np.mean([light_otsu, lightest_otsu])
+
+        adjusted_otsu = lighter_otsu
+        # # adjusted_otsu = global_otsu - (abs((-1 - global_otsu)/2))
+
         print('* Masking with Otsu value: {}'.format(adjusted_otsu))
-        markers_bounds = (abs(adjusted_otsu), adjusted_otsu)
-        markers[frame_in_rescale < markers_bounds[0]] = 1
-        markers[frame_in_rescale > markers_bounds[1]] = 2
+        markers[frame_in_rescale < adjusted_otsu] = 1
+        markers[frame_in_rescale >= adjusted_otsu] = 2
 
         # Run random walker algorithm
-        binary_random_walk = random_walker(frame_in_rescale, markers, beta=3, mode='bf')
+        binary_random_walk = random_walker(frame_in_rescale, markers, beta=2, mode='bf')
         # Keep the largest region, as a np.uint16
         labeled_mask = label(binary_random_walk)
         largest_mask = np.empty_like(labeled_mask, dtype=np.bool_)
         largest_region_area = 0
         for idx, region_prop in enumerate(regionprops(labeled_mask)):
-            print('* Region #{}\t:\tint: _\tarea: {}'
-                  .format(idx+1, region_prop.area))
+            # Use the biggest bright region
+
             # for prop in region_prop:
             #     print(prop, region_prop[prop])
             # use the second-largest region
+            if region_prop.area < 2:
+                pass
             if region_prop.area > largest_region_area and region_prop.label > 1:
+                print('* Region #{}\t:\tint: _\tarea: {}'
+                      .format(idx + 1, region_prop.area))
                 largest_region_area = region_prop.area
                 largest_mask[labeled_mask == region_prop.label] = False
                 largest_mask[labeled_mask != region_prop.label] = True

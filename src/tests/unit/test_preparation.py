@@ -341,32 +341,37 @@ class TestCropDual(unittest.TestCase):
 class TestMaskGenerate(unittest.TestCase):
     def setUp(self):
         # Create data to test with, a propagating stack of varying SNR (highest in the center)
-        self.size = (100, 100)
-        self.d_noise = 45  # as a % of the signal amplitude
-        self.signal_t0 = 10
-        self.signal_f0 = 1000
-        self.signal_famp = 500
-        self.signal_noise = 5  # as a % of the signal amplitude
-
-        self.time_ca, self.stack_ca = \
-            model_stack_propagation(model_type='Ca', size=self.size, d_noise=self.d_noise,
-                                    t0=self.signal_t0,
-                                    f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
-        frame_model = self.stack_ca[10, :, :]
-        # frame_border1 = np.zeros_like(self.stack_ca[1, :, :])
-        # frame_1 = np.concatenate((frame_model, frame_border1), axis=1)
-        self.frame_model = frame_model
+        # self.size = (100, 100)
+        # self.d_noise = 45  # as a % of the signal amplitude
+        # self.signal_t0 = 10
+        # self.signal_f0 = 1000
+        # self.signal_famp = 500
+        # self.signal_noise = 5  # as a % of the signal amplitude
+        #
+        # self.time_ca, self.stack_ca = \
+        #     model_stack_propagation(model_type='Ca', size=self.size, d_noise=self.d_noise,
+        #                             t0=self.signal_t0,
+        #                             f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise)
+        # frame_model = self.stack_ca[10, :, :]
+        # # frame_border1 = np.zeros_like(self.stack_ca[1, :, :])
+        # # frame_1 = np.concatenate((frame_model, frame_border1), axis=1)
+        # self.frame_model = frame_model
 
         # File paths and files needed for tests
         # Load data to test with
+        exp_name = 'Developmental: 6 wk'
+        file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
+        file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
         # file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
         # file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
         # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
         # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        file_name_rat = '2020/01/09 rata-05, PCL 200ms'
-        file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
-        self.file_name, self.file_stack = file_name_rat, file_stack_rat
-        self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
+        self.file_name, self.file_stack = file_name_pig, file_stack_pig
+        # file_name_rat = '2020/01/09 rata-05, PCL 200ms'
+        # file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
+        # self.file_name, self.file_stack = file_name_rat, file_stack_rat
+
+        # self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
 
         # self.file_stack = dir_tests + '/data/02-250_Vm.tif'
         # self.file_meta = dir_tests + '/data/02-250_Vm.pcoraw.rec'
@@ -453,16 +458,16 @@ class TestMaskGenerate(unittest.TestCase):
             ax.set_xticks([])
             ax.set_xticklabels([])
         fig_mask.suptitle('Masking, {}\n({})'.format(mask_type, self.file_name))
-        axis_in.set_title('Input frame')
-        axis_mask.set_title('Mask')
-        axis_masked.set_title('Masked frame')
+        # axis_in.set_title('Input frame')
+        # axis_mask.set_title('Mask')
+        # axis_masked.set_title('Masked frame')
 
         cmap_frame = SCMaps.grayC.reversed()
         img_in = axis_in.imshow(self.frame1, cmap=cmap_frame)
         img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
-        fig_mask.savefig(dir_unit + '/results/prep_Mask_RatNEW.png')
+        fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig6wk.png')
         fig_mask.show()
 
 
