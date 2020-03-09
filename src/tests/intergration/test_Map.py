@@ -1465,35 +1465,40 @@ class TestMapAnalysisPig(unittest.TestCase):
         # #Load data to test with    # TODO try an ensemble
         fps = 500.0
 
-        exp_name = 'Developmental: 6 wk'
-        self.scale_px_cm = 143.3298
-        # scale_cm_px = 0.015925
-        file_XY = (900, 1440)
-        file_X0Y0 = (0, 40)
-        file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
-        file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
-        file_frames = (480, 660)
-
-        # exp_name = 'MEHP: Baseline'
-        # self.scale_px_cm = 101.4362
-        # # scale_cm_px = 0.015925
+        # exp_name = '2-week old'
+        # # exp_name = 'MEHP: Baseline'
         # file_XY = (770, 1048)
-        # file_X0Y0 = (1140, 200)
+        # self.scale_px_cm = 101.4362
         # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
         # # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
         # # file_frames = (941, 1190)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
-        # file_frames = (1031, 1280)
+        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
+        # # file_frames = (1031, 1280)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
         # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
         # # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
-        # # file_frames = (941, 1190)
-        #
+        # file_X0Y0_Vm = (190, 200)
+        # file_X0Y0_Ca = (1140, 200)
+        # file_frames = (941, 1190)
         # # exp_name = 'MEHP: 60 uM'
         # # file_X0Y0 = (1060, 160)
         # # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
         # # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
         # # file_frames = (871, 1120)
+
+        exp_name = '6-week old'
+        file_XY = (900, 1440)
+        self.scale_px_cm = 143.3298
+        file_stack_pig = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
+        file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Vm, PCL 350ms'
+        file_X0Y0_Vm = (1010, 250)
+        file_frames = (880, 1060)
+        # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
+        # file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
+        # file_X0Y0_Ca = (0, 40)
+        # file_frames = (480, 660)
         # #
 
         self.scale_cm_px = 1 / self.scale_px_cm
@@ -1525,7 +1530,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 5
+        self.reduction = 7
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
@@ -1540,8 +1545,8 @@ class TestMapAnalysisPig(unittest.TestCase):
             stack_reduced[idx, :, :] = frame_reduced
         stack_out = stack_reduced
         print('\nDONE Reducing stack')
-        # find brightest frame
-        self.frame_bright = np.zeros_like(stack_out[0])
+        # Mask
+        self.frame_bright = np.zeros_like(stack_out[0])     # use brightest frame to generate mask
         frame_bright_idx = 0
         for idx, frame in enumerate(stack_out):
             frame_brightness = np.nanmean(frame)
@@ -1549,8 +1554,6 @@ class TestMapAnalysisPig(unittest.TestCase):
                 frame_bright_idx = idx
                 self.frame_bright = frame
         print('Brightest frame: {}'.format(frame_bright_idx))
-
-        # Mask
         mask_type = 'Random_walk'
         _, self.mask_out = mask_generate(self.frame_bright, mask_type)
         stack_out = mask_apply(stack_out, self.mask_out)
@@ -1559,11 +1562,11 @@ class TestMapAnalysisPig(unittest.TestCase):
         # #
 
         # # Process
-        # # Invert
-        # print('Inverting stack with {} frames, size W {} X H {} ...'
-        #       .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
-        # stack_out = invert_stack(stack_out)
-        # print('\nDONE Inverting stack')
+        # Invert
+        print('Inverting stack with {} frames, size W {} X H {} ...'
+              .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
+        stack_out = invert_stack(stack_out)
+        print('\nDONE Inverting stack')
 
         # # Normalize
         # map_shape = stack_out.shape[1:]
@@ -1577,9 +1580,7 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Filter
         # spatial
-        # self.kernel = 5
-        # set to X.XX cm (0.1 - 0.3)
-        kernel_cm = 0.2
+        kernel_cm = 0.5     # set to X.XX cm (0.1 - 0.3)
         self.kernel = floor(kernel_cm / self.scale_cm_px)
         if self.kernel < 3 or (self.kernel % 2) == 0:
             self.kernel = self.kernel - 1
@@ -1587,6 +1588,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             f_filtered = filter_spatial(frame, kernel=self.kernel)
+            # f_filtered = np.ma.masked_where(f_filtered == 0, f_filtered)
             stack_out[idx, :, :] = f_filtered
         print('\nDONE Filtering (spatial) stack')
         # Re-apply mask to avoid smudged edges
@@ -1604,7 +1606,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #     stack_out[:, iy, ix] = signal_filtered
         # print('\nDONE Filtering (temporal) stack')
 
-        self.process = 'Gaussian: {} cm, {} px'.format(kernel_cm, self.kernel)
+        self.process = 'Gaussian: {} cm ({} px)'.format(kernel_cm, self.kernel)
         # self.process = 'Gaussian: {} px, LP {} Hz'.format(freq_cutoff, self.kernel)
         # #
 
@@ -2047,7 +2049,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_frame = fig_map.add_subplot(gs_frame_map[0])
         # ax_frame.set_title('Model Data\n(noise SD: {},  CAD-80: {} ms?)'
         #                    .format(self.noise, MIN_CAD_80))
-        ax_frame.set_title('{}\n({}, {})'
+        ax_frame.set_title('{}\n{}, {}'
                            .format(self.file_name, self.prep, self.process))
         ax_map = fig_map.add_subplot(gs_frame_map[1])
         for ax in [ax_frame, ax_map]:
@@ -2158,6 +2160,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         for ax, signal in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
             # Signal of interest (and underlying calculations)
             snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal)
+            snr_display = round(snr, 2)
             i_peak = find_tran_peak(signal)  # max of signal, Peak
             i_activation = find_tran_act(signal)  # 1st df max, Activation
             ax.plot(stack_time[i_peak], signal[i_peak],
@@ -2201,7 +2204,9 @@ class TestMapAnalysisPig(unittest.TestCase):
                       label='Downstroke')
             # Text: Conditions
             duration_ms = duration * (stack_time[-1] / len(stack_time))
-            ax.text(0.7, 0.9, '{} ms'.format(duration_ms),
+            ax.text(0.73, 0.9, '{} ms'.format(duration_ms),
+                    color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
+            ax.text(0.73, 0.8, '{} snr'.format(snr_display),
                     color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
 
         # Duration Map

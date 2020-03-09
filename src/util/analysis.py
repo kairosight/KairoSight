@@ -289,8 +289,9 @@ def calc_tran_duration(signal_in, percent=80):
     #     raise ValueError('All signal values must be between 0-99%')
 
     snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
-    if snr is np.nan:
-        return np.nan
+    # exclusion criteria
+    if snr is np.nan or snr < 5:   # TODO decrease SNR exclusion
+        return np.nan   # exclusion criteria : signal strength too low to analyze
     if type(i_peak) not in [np.int64, float]:
         i_peak = i_peak[0]  # use the first detected peak
 
@@ -302,19 +303,18 @@ def calc_tran_duration(signal_in, percent=80):
 
     i_search = np.where(signal_in[i_peak:] <= cutoff)
     if len(i_search) == 0:
-        return np.nan
+        return np.nan   # exclusion criteria: transient does not return to cutoff value
     # try:
     i_duration = i_peak + i_search[0][0]
     i_activation = find_tran_act(signal_in)
     if i_activation > i_peak:
-        return np.nan
+        return np.nan   # exclusion criteria: peak seems to before activation
     duration = i_duration - i_activation
     # except Exception:
     #     return np.nan
 
-    # Exclusions
-    # if (i_relative_duration < DUR_MIN) or (i_relative_duration > DUR_MAX):
-    #     return np.nan
+    if duration < DUR_MIN:
+        return np.nan   # exclusion criteria: transient does not return to cutoff value
 
     return duration
 

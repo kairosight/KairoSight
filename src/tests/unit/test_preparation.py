@@ -359,9 +359,12 @@ class TestMaskGenerate(unittest.TestCase):
 
         # File paths and files needed for tests
         # Load data to test with
-        exp_name = 'Developmental: 6 wk'
-        file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
-        file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
+        exp_name = 'Developmental: 2 wk'
+        file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
+        # exp_name = 'Developmental: 6 wk'
+        # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
+        # file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
         # file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
         # file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
         # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
@@ -467,7 +470,7 @@ class TestMaskGenerate(unittest.TestCase):
         img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
-        fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig6wk.png')
+        fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig2wk.png')
         fig_mask.show()
 
 

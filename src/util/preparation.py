@@ -274,15 +274,15 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         # Darkish half and lightish half
         # TODO calculate these bounds
         otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
-        # adjusted_otsu = otsu
+        # calculate thresholds between -1 and otsu: darkest to lightest
+        dark_otsu = np.mean([-1, otsu])
+        darker_otsu = np.mean([-1, dark_otsu])
+        darkest_otsu = np.mean([-1, darker_otsu])
+        lighter_otsu = np.mean([dark_otsu, otsu])
+        lightest_otsu = np.mean([lighter_otsu, otsu])
+        light_otsu = np.mean([dark_otsu, lighter_otsu])
 
-        darker_otsu = np.mean([-1, otsu])
-        dark_otsu = np.mean([darker_otsu, otsu])
-        lightest_otsu = np.mean([dark_otsu, otsu])
-        light_otsu = np.mean([dark_otsu, lightest_otsu])
-        lighter_otsu = np.mean([light_otsu, lightest_otsu])
-
-        adjusted_otsu = lighter_otsu
+        adjusted_otsu = dark_otsu
         # # adjusted_otsu = global_otsu - (abs((-1 - global_otsu)/2))
 
         print('* Masking with Otsu value: {}'.format(adjusted_otsu))
