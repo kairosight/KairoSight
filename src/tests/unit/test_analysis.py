@@ -589,70 +589,72 @@ class TestAnalysisPoints(unittest.TestCase):
 
 class TestEnsemble(unittest.TestCase):
     def setUp(self):
-        # Create data to test with
-        self.signal_t = 2000
-        self.signal_t0 = 50
-        self.signal_f0 = 1000
-        self.signal_famp = 200
-        self.signal_fps = 500
-        self.signal_num = 'full'
-        self.signal_cl = 150
-        self.signal_noise = 5  # as a % of the signal amplitude
-        # trace
-        self.time_vm, self.signal_vm = \
-            model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-                             f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
-                             num=self.signal_num, cl=self.signal_cl)
-        self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
-        # stack
-        self.stack_size = (20, 20)
-        self.signal_t = 1000
-        self.d_noise = 20  # as a % of the signal amplitude
-        self.snr_range = (int((self.signal_famp / (self.signal_noise + self.d_noise))),
-                          int(self.signal_famp / self.signal_noise))
-        self.time_stack, self.stack = \
-            model_stack_heart(model_type='Ca', size=self.stack_size, d_noise=self.d_noise,
-                              t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
-                              famp=self.signal_famp, noise=self.signal_noise,
-                              num=self.signal_num, cl=self.signal_cl)
-        # # Crop the model stack (remove bottom half)
-        # d_x = int(self.stack_size[0] / 2)
-        # d_y = int(self.stack_size[0] / 3)
-        # self.stack = crop_stack(self.stack, d_x=d_x, d_y=d_y)
-        # import model data
-        self.file = 'ModelStackHeart_ca'
-        extension = '.tif'
-        fps = 500
-        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
-        file_stack_model = dir_unit + '/results/' + self.file + extension
-        print('Opening stack ...')
-        self.stack_import, self.stack_meta = open_stack(source=file_stack_model)
-        print('DONE Opening stack\n')
+        # # Create data to test with
+        # self.signal_t = 2000
+        # self.signal_t0 = 50
+        # self.signal_f0 = 1000
+        # self.signal_famp = 200
+        # self.signal_fps = 500
+        # self.signal_num = 'full'
+        # self.signal_cl = 150
+        # self.signal_noise = 5  # as a % of the signal amplitude
+        # # trace
+        # self.time_vm, self.signal_vm = \
+        #     model_transients(t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+        #                      f0=self.signal_f0, famp=self.signal_famp, noise=self.signal_noise,
+        #                      num=self.signal_num, cl=self.signal_cl)
+        # self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
+        # # stack
+        # self.stack_size = (20, 20)
+        # self.signal_t = 1000
+        # self.d_noise = 20  # as a % of the signal amplitude
+        # self.snr_range = (int((self.signal_famp / (self.signal_noise + self.d_noise))),
+        #                   int(self.signal_famp / self.signal_noise))
+        # self.time_stack, self.stack = \
+        #     model_stack_heart(model_type='Ca', size=self.stack_size, d_noise=self.d_noise,
+        #                       t=self.signal_t, t0=self.signal_t0, fps=self.signal_fps,
+        #                       famp=self.signal_famp, noise=self.signal_noise,
+        #                       num=self.signal_num, cl=self.signal_cl)
+        # # # Crop the model stack (remove bottom half)
+        # # d_x = int(self.stack_size[0] / 2)
+        # # d_y = int(self.stack_size[0] / 3)
+        # # self.stack = crop_stack(self.stack, d_x=d_x, d_y=d_y)
+
+        # # import model data
+        # self.file = 'ModelStackHeart_ca'
+        # extension = '.tif'
+        # fps = 500
+        # # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+        # file_stack_model = dir_unit + '/results/' + self.file + extension
+        # print('Opening stack ...')
+        # self.stack_import, self.stack_meta = open_stack(source=file_stack_model)
+        # print('DONE Opening stack\n')
 
         # # Import real data
-        # # trace
+        # # real trace
         # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
         # file_name_pig = '2019/03/22 pigb-01-Ca'
         # self.file_name, file_signal = file_name_pig, file_signal_pig
         # self.signal_cl = '350'
         # self.time, self.signal = open_signal(source=file_signal, fps=404)
-        #
         # # real stack
+        extension = '.tif'
+        fps = 500
         # self.file = '02-350_ca'
-        # extension = '.tif'
-        # fps = 500
         # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
-        # self.file_path = file_stack_rat
-        # print('Opening stack ...')
-        # self.stack_real, self.stack_meta = open_stack(source=self.file_path)
-        # print('DONE Opening stack\n')
+        self.file = '02-300_Ca'
+        file_stack_pig = dir_tests + '/data/20191004-piga/' + self.file + extension
+        self.file_path = file_stack_pig
+        print('Opening stack ...')
+        self.stack_real, self.stack_meta = open_stack(source=self.file_path)
+        print('DONE Opening stack\n')
         # self.stack_frame = self.stack_real[0, :, :]  # frame from stack
         #
-        # # Generate array of timestamps
-        # FRAMES = self.stack_real.shape[0]
-        # FPMS = fps / 1000
-        # FINAL_T = floor(FRAMES / FPMS)
-        # self.stack_time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+        # Generate array of timestamps
+        FRAMES = self.stack_real.shape[0]
+        FPMS = fps / 1000
+        FINAL_T = floor(FRAMES / FPMS)
+        self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
         #
         # # real stack trace
         # self.stack_real_trace_X, self.stack_real_trace_Y = 400, 300
@@ -990,6 +992,13 @@ class TestEnsemble(unittest.TestCase):
         # Save ensemble stack
         directory_ens = dir_unit + '/results/' + self.file + '_Ensemble.tif'
         stack_ens, ensemble_crop, ensemble_yx = calc_ensemble_stack(self.time_stack, self.stack_import)
+        print('Saving ensemble stack ...')
+        volwrite(directory_ens, stack_ens)
+
+    def test_import_export_real(self):
+        # Save ensemble stack
+        directory_ens = dir_unit + '/results/' + self.file + '_Ensemble.tif'
+        stack_ens, ensemble_crop, ensemble_yx = calc_ensemble_stack(self.time_real, self.stack_real)
         print('Saving ensemble stack ...')
         volwrite(directory_ens, stack_ens)
 
