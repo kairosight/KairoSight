@@ -1,3 +1,4 @@
+import sys
 import unittest
 
 from util.datamodel import *
@@ -34,7 +35,7 @@ colors_times = {'Start': '#C07B60',
                 'End': '#94B0C3',
                 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
 # Colormap for SNR maps
-SNR_MAX = 50
+SNR_MAX = 100
 cmap_snr = SCMaps.tokyo
 cmap_snr.set_bad(color=gray_light, alpha=0)
 
@@ -43,6 +44,8 @@ cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
 cmap_duration = SCMaps.oslo.reversed()
 cmap_duration.set_bad(color=gray_light, alpha=0)
+DUR_MIN_PIG = 80
+
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 # colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
@@ -68,7 +71,7 @@ def add_map_colorbar_stats(axis, img, map_data, data_range, unit='unit', bins=10
 
     # Histogram/Violin plot of analysis values (along left side of colorbar)
     # use 2 histograms to (quickly) create a "violin" plot
-    map_flat_set = map_data.flat
+    map_flat = map_data.flat
     ax_map_hist_l = inset_axes(axis, width="25%", height="100%", loc='center left',
                                bbox_to_anchor=(1.01, 0, 1, 1), bbox_transform=axis.transAxes,
                                borderpad=0)
@@ -83,11 +86,9 @@ def add_map_colorbar_stats(axis, img, map_data, data_range, unit='unit', bins=10
     #                    histtype='stepfilled', orientation='horizontal', color='gray')
     # ax_map_hist_l.invert_xaxis()
 
-    # ax_map_hist.violinplot(map_flat, showmeans=False, showmedians=True)
-    # print('Generating swarmplot ... ')
-    # sns.swarmplot(ax=ax_map_hist_r, data=map_flat,
-    #               size=1, color='k', alpha=0.7)  # and slightly transparent
-    sns.violinplot(ax=ax_map_hist_l, data=map_flat_set, cut=0,
+    # print('Generating histogram ... ')
+    print('Generating swarmplot ... ')
+    sns.violinplot(ax=ax_map_hist_l, data=map_flat, cut=0,
                    color=stat_color, inner="stick")
     for ax in [ax_map_hist_l]:
         ax.set_ylim([data_range[0], data_range[1]])
@@ -1236,40 +1237,51 @@ class TestMapAnalysisPig(unittest.TestCase):
         # #Load data to test with    # TODO try an ensemble
         fps = 500.0
 
-        # exp_name = '2-week old'
-        # # exp_name = 'MEHP: Baseline'
-        # file_XY = (770, 1048)
-        # self.scale_px_cm = 101.4362
-        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
-        # # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
-        # # file_frames = (941, 1190)
-        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
-        # # file_frames = (1031, 1280)
+        exp_name = '2-week old'
+        # exp_name = 'MEHP: Baseline'
+        file_XY = (770, 1048)
+        self.scale_px_cm = 101.4362
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
+        # file_frames = (941, 1190)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        # file_name_pig = '2020/02/28 piga-05 Vm, ' + exp_name + ', PCL: 400ms'
+        file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
+        file_frames = (1031, 1280)
         # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
         # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        # # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
-        # file_X0Y0_Vm = (190, 200)
-        # file_X0Y0_Ca = (1140, 200)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
         # file_frames = (941, 1190)
-        # # exp_name = 'MEHP: 60 uM'
-        # # file_X0Y0 = (1060, 160)
-        # # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
-        # # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
-        # # file_frames = (871, 1120)
+        file_X0Y0_Vm = (190, 200)
+        file_X0Y0_Ca = (1140, 200)
+        # exp_name = 'MEHP: 60 uM'
+        # file_X0Y0 = (1060, 160)
+        # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
+        # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
+        # file_frames = (871, 1120)
 
-        exp_name = '6-week old'
-        file_XY = (900, 1440)
-        self.scale_px_cm = 143.3298
-        file_stack_pig = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
-        file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Vm, PCL 350ms'
-        file_X0Y0_Vm = (1010, 250)
-        file_frames = (880, 1060)
-        # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
-        # file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
-        # file_X0Y0_Ca = (0, 40)
-        # file_frames = (480, 660)
+        # exp_name = '6-week old'
+        # file_XY = (900, 1200)
+        # self.scale_px_cm = 158.7823
+        # file_stack_pig = dir_tests + '/data/20190517-piga/02-400_Vm(501-700).tif'
+        # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Vm, PCL 400ms'
+        # # file_stack_pig = dir_tests + '/data/20190517-piga/02-400_Ca(501-700).tif'
+        # # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Ca, PCL 400ms'
+        # file_frames = (501, 700)
+        # file_X0Y0_Vm = (950, 150)
+        # file_X0Y0_Ca = ('20?', 150)
+        # # file_XY = (900, 1440)
+        # # self.scale_px_cm = 143.3298
+        # # file_stack_pig = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
+        # # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Vm, PCL 350ms'
+        # # file_X0Y0_Vm = (1010, 250)
+        # # file_frames = (880, 1060)
+        # # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
+        # # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Ca, PCL 300ms'
+        # # file_X0Y0_Ca = (0, 40)
+        # # file_frames = (480, 660)
         # #
 
         self.scale_cm_px = 1 / self.scale_px_cm
@@ -1317,7 +1329,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         stack_out = stack_reduced
         print('\nDONE Reducing stack')
         # Mask
-        self.frame_bright = np.zeros_like(stack_out[0])     # use brightest frame to generate mask
+        self.frame_bright = np.zeros_like(stack_out[0])  # use brightest frame to generate mask
         frame_bright_idx = 0
         for idx, frame in enumerate(stack_out):
             frame_brightness = np.nanmean(frame)
@@ -1333,11 +1345,11 @@ class TestMapAnalysisPig(unittest.TestCase):
         # #
 
         # # Process
-        # Invert
-        print('Inverting stack with {} frames, size W {} X H {} ...'
-              .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
-        stack_out = invert_stack(stack_out)
-        print('\nDONE Inverting stack')
+        # # Invert
+        # print('Inverting stack with {} frames, size W {} X H {} ...'
+        #       .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
+        # stack_out = invert_stack(stack_out)
+        # print('\nDONE Inverting stack')
 
         # # Normalize
         # map_shape = stack_out.shape[1:]
@@ -1351,9 +1363,9 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Filter
         # spatial
-        kernel_cm = 0.5     # set to X.XX cm (0.1 - 0.3)
+        kernel_cm = 0.3  # set to X.X cm (~0.3)
         self.kernel = floor(kernel_cm / self.scale_cm_px)
-        if self.kernel < 3 or (self.kernel % 2) == 0:
+        if self.kernel > 3 and self.kernel % 2 == 0:
             self.kernel = self.kernel - 1
         print('Filtering (spatial) with kernel: {} px ...'.format(self.kernel))
         for idx, frame in enumerate(stack_out):
@@ -1446,11 +1458,12 @@ class TestMapAnalysisPig(unittest.TestCase):
             ax.set_yticklabels([])
 
         ax_signal_min.set_ylabel('Fluorescence (arb. u.)')
+        ax_df_min.set_ylabel('dF/dt')
         # ax_signal_min.spines['left'].set_visible(True)
         ax_signal_min.yaxis.set_major_locator(plticker.LinearLocator(3))
         ax_signal_min.yaxis.set_minor_locator(plticker.LinearLocator(5))
         ax_signal_min.tick_params(axis='y', labelsize=fontsize3)
-        ax_signal_xy.set_xlabel('Time (ms)')
+        ax_df_xy.set_xlabel('Time (ms)')
 
         # Calculate the SNR map, returns timestamps
         analysis_map = map_snr(stack)
@@ -1542,14 +1555,12 @@ class TestMapAnalysisPig(unittest.TestCase):
 
             # df/dt
             x_signal = np.linspace(0, len(sig) - 1, len(sig))
-            d_t = stack_time[2] - stack_time[1]
-            # x_signal = np.arange(0, len(self.signal), (self.signal_fps/1000))
-            df_spline, spline_fidelity = spline_signal(x_signal, sig)
-            # x_spline = np.arange(0, len(x_signal), (self.signal_fps/1000) / spline_fidelity)
-            # x_spline = np.linspace(0, len(sig) - 1, len(df_spline))
-            df_time = np.linspace(stack_time[0], stack_time[-1],
-                                  (len(stack_time) - 1) * spline_fidelity)
-            ax_df.plot(df_time, df_spline, color=gray_med,
+            time_df = np.linspace(stack_time[0], stack_time[-2], len(sig - 1) * SPLINE_FIDELITY)
+            x_df, df_signal = spline_deriv(x_signal, sig)
+
+            # df_time = np.linspace(stack_time[0], stack_time[-1],
+            #                       (len(stack_time) - 1) * SPLINE_FIDELITY)
+            ax_df.plot(time_df, df_signal, color=gray_med,
                        linestyle='-', label='dF/dt')
 
             # noise_rms = rms_bounds[0]
@@ -1599,10 +1610,10 @@ class TestMapAnalysisPig(unittest.TestCase):
         cmap_norm_snr = colors.Normalize(vmin=map_min_display,
                                          vmax=map_max_display)
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_snr, cmap=cmap_snr)
-        heart_scale_bar = AnchoredSizeBar(ax_map.transData, heart_scale[0], size_vertical=0.2,
-                                          label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
-                                          fontproperties=fm.FontProperties(size=7, weight='semibold'))
-        ax_map.add_artist(heart_scale_bar)
+        map_scale_bar = AnchoredSizeBar(ax_map.transData, heart_scale[0], size_vertical=0.2,
+                                        label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
+                                        fontproperties=fm.FontProperties(size=7, weight='semibold'))
+        ax_map.add_artist(map_scale_bar)
 
         # Add colorbar (right of map)
         hist_bins = map_max_display
@@ -1855,6 +1866,8 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Calculate the duration map
         analysis_map = map_tran_analysis(stack, calc_tran_duration, stack_time, percent=dur_percent)
+        # Exclusion criteria for pigs
+        analysis_map[analysis_map < DUR_MIN_PIG] = np.nan
 
         map_min = np.nanmin(analysis_map)
         map_max = np.nanmax(analysis_map)
@@ -1908,7 +1921,8 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Signal traces and location on frame
         # plot trace with a chosen location
-        signal_x, signal_y = (int(stack.shape[2] / 2), int(stack.shape[1] / 2))
+        # signal_x, signal_y = (int(stack.shape[2] * (1/2)), int(stack.shape[1] * (2/3)))     # LV Apex
+        signal_x, signal_y = (int(stack.shape[2] * (2/3)), int(stack.shape[1] * (1/2)))     # LV Base
         signal_xy = stack[:, signal_y, signal_x]
         # ax_frame.plot(signal_x, signal_y, marker='s', markeredgecolor=colors_times['Downstroke'],
         #               markersize=1)
@@ -1928,57 +1942,62 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_frame.plot(max_x[0], max_y[0], marker='x', color=colors_times['Downstroke'], markersize=marker1)
         ax_signal_max.plot(stack_time, signal_max, color=gray_heavy, linestyle='None', marker='+')
 
-        for ax, signal in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
+        for ax, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
             # Signal of interest (and underlying calculations)
-            snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal)
+            snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(sig)
             snr_display = round(snr, 2)
-            i_peak = find_tran_peak(signal)  # max of signal, Peak
-            i_activation = find_tran_act(signal)  # 1st df max, Activation
-            ax.plot(stack_time[i_peak], signal[i_peak],
-                    "x", color=colors_times['Peak'], markersize=marker3)
-            ax.plot(stack_time[i_activation], signal[i_activation],
-                    "x", color=colors_times['Activation'], markersize=marker3)
+            i_peak = find_tran_peak(sig)  # max of signal, Peak
+            i_activation = find_tran_act(sig)  # 1st df max, Activation
+            try:
+                ax.plot(stack_time[i_peak], sig[i_peak],
+                        "x", color=colors_times['Peak'], markersize=marker3)
+                ax.plot(stack_time[i_activation], sig[i_activation],
+                        "x", color=colors_times['Activation'], markersize=marker3)
 
-            noise_rms = rms_bounds[0]
-            cutoff = noise_rms + (float(peak_peak) * float(((100 - dur_percent) / 100)))
-            duration = calc_tran_duration(signal, percent=dur_percent)
-            ax.plot(stack_time[i_activation + duration], signal[i_activation + duration],
-                    "x", color=colors_times['Downstroke'], markersize=marker3)
+                noise_rms = rms_bounds[0]
+                cutoff = noise_rms + (float(peak_peak) * float(((100 - dur_percent) / 100)))
+                duration = calc_tran_duration(sig, percent=dur_percent)
+                ax.plot(stack_time[i_activation + duration], sig[i_activation + duration],
+                        "x", color=colors_times['Downstroke'], markersize=marker3)
 
-            ax.axhline(y=noise_rms,
-                       # xmin=stack_time[i_activation],
-                       # xmax=stack_time[i_activation + duration],
-                       color=gray_light, linestyle='-.',
-                       label='Baseline')
-            # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
-            #                color=colors_times['Downstroke'], label='Downstroke')
-            ax.vlines(x=stack_time[i_activation],
-                      ymin=signal[i_activation + duration],
-                      ymax=signal[i_activation],
-                      color=colors_times['Activation'], linestyle=':',
-                      label='Activation')
-            ax.vlines(x=stack_time[i_peak],
-                      ymin=signal[i_activation + duration],
-                      ymax=signal[i_peak],
-                      color=colors_times['Peak'], linestyle=':',
-                      label='{}% of Peak-Peak'.format(dur_percent))
-            ax.vlines(x=stack_time[i_peak],
-                      ymin=noise_rms,
-                      ymax=signal[i_activation + duration],
-                      color=gray_light, linestyle=':',
-                      label='{}% of Peak-Peak'.format(dur_percent))
+                ax.axhline(y=noise_rms,
+                           # xmin=stack_time[i_activation],
+                           # xmax=stack_time[i_activation + duration],
+                           color=gray_light, linestyle='-.',
+                           label='Baseline')
+                # ax_signal.plot(self.time[i_activation], signal[i_activation], "|",
+                #                color=colors_times['Downstroke'], label='Downstroke')
+                ax.vlines(x=stack_time[i_activation],
+                          ymin=sig[i_activation + duration],
+                          ymax=sig[i_activation],
+                          color=colors_times['Activation'], linestyle=':',
+                          label='Activation')
+                ax.vlines(x=stack_time[i_peak],
+                          ymin=sig[i_activation + duration],
+                          ymax=sig[i_peak],
+                          color=colors_times['Peak'], linestyle=':',
+                          label='{}% of Peak-Peak'.format(dur_percent))
+                ax.vlines(x=stack_time[i_peak],
+                          ymin=noise_rms,
+                          ymax=sig[i_activation + duration],
+                          color=gray_light, linestyle=':',
+                          label='{}% of Peak-Peak'.format(dur_percent))
 
-            ax.hlines(y=signal[i_activation + duration],
-                      xmin=stack_time[i_activation],
-                      xmax=stack_time[i_activation + duration],
-                      color=colors_times['Downstroke'], linewidth=2,
-                      label='Downstroke')
-            # Text: Conditions
-            duration_ms = duration * (stack_time[-1] / len(stack_time))
-            ax.text(0.73, 0.9, '{} ms'.format(duration_ms),
-                    color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
-            ax.text(0.73, 0.8, '{} snr'.format(snr_display),
-                    color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
+                ax.hlines(y=sig[i_activation + duration],
+                          xmin=stack_time[i_activation],
+                          xmax=stack_time[i_activation + duration],
+                          color=colors_times['Downstroke'], linewidth=2,
+                          label='Downstroke')
+                # Text: Conditions
+                duration_ms = duration * (stack_time[-1] / len(stack_time))
+                ax.text(0.73, 0.9, '{} ms'.format(duration_ms),
+                        color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
+                ax.text(0.73, 0.8, '{} snr'.format(snr_display),
+                        color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
+            except Exception:
+                exctype, exvalue, traceback = sys.exc_info()
+                print("* Failed to calculate/plot a signal:\n\t" + str(exctype) + ' : ' + str(exvalue) +
+                      '\n\t\t' + str(traceback))
 
         # Duration Map
         img_map_frame = ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
@@ -1987,11 +2006,10 @@ class TestMapAnalysisPig(unittest.TestCase):
         cmap_norm_duration = colors.Normalize(vmin=map_min_display,
                                               vmax=map_max_display)
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_duration, cmap=cmap_duration)
-        heart_scale_bar = AnchoredSizeBar(ax_map.transData, heart_scale[0], size_vertical=0.2,
-                                          label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
-                                          fontproperties=fm.FontProperties(size=7, weight='semibold'))
-        ax_map.add_artist(heart_scale_bar)
-
+        map_scale_bar = AnchoredSizeBar(ax_map.transData, heart_scale[0], size_vertical=0.2,
+                                        label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
+                                        fontproperties=fm.FontProperties(size=7, weight='semibold'))
+        ax_map.add_artist(map_scale_bar)
         # Add colorbar (right of map)
         hist_bins = map_max_display
         map_range = (map_min_display, map_max_display)

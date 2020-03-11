@@ -1,7 +1,7 @@
 import statistics
 import numpy as np
 from numpy import linalg
-from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
+from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline, make_lsq_spline, LSQUnivariateSpline
 from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2, \
     lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
 from scipy.optimize import curve_fit
@@ -10,25 +10,57 @@ from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
 from skimage.filters.rank import median, mean, mean_bilateral
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
+SPLINE_FIDELITY = 3  # TODO optimize here
 # TODO add TV, a non-local, and a weird filter
 
 
-def spline_signal(xx, signal_in, smoothing=200):
-    d_xx = xx[2] - xx[1]
+def spline_signal(xx, signal_in):
     xx_signal = np.arange(0, (len(xx)))
-    spl = InterpolatedUnivariateSpline(xx_signal, signal_in, ext='const')
-    # df/dt (with X__ as many samples)
-    spline_fidelity = 3    # TODO optimize here
-    # time_spline = np.linspace(xx[0], xx[-1] - d_xx,
-    #                           (len(xx))*spline_fidelity)
-    # xx_spline = np.linspace(0, 1, (len(xx)) * spline_fidelity)
-    xx_spline = np.arange(0, len(xx_signal) - d_xx, d_xx / spline_fidelity)
-    # spl_array = spl(xx_spline)
-    # spl.set_smoothing_factor(smoothing)    # TODO optimize here
-    df_spline = spl.derivative()(xx_spline)
-    # df_spline = spl(xx_spline, nu=1, ext='extrapolate')
+    # # Lease Square approximation
+    # Computing the inner knots and using them:
+    xs = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
+    t_knots = np.linspace(xx_signal[0], xx_signal[-1], 25)  # equally spaced knots in the interval
+    t_knots = t_knots[1:-1]  # take only the three inner values
+    # t_knots = [0, 1, 2, 3]
+    bspline_degree = 3
+    # sql = make_lsq_spline(xx_signal, signal_in, t_knots)
+    sql = LSQUnivariateSpline(xx_signal, signal_in, t_knots, k=bspline_degree)
+    # df_spline = sql.derivative()(xs)
 
-    return df_spline, spline_fidelity
+    return xs, sql
+
+
+def spline_deriv(xx, signal_in):
+    # # df/dt (with X__ as many samples)
+    # # time_spline = np.linspace(xx[0], xx[-1] - d_xx,
+    # #                           (len(xx))*spline_fidelity)
+    # # xx_spline = np.linspace(0, 1, (len(xx)) * spline_fidelity)
+    # d_xx = xx[2] - xx[1]
+    # xx_signal = np.arange(0, (len(xx)))
+    # spline_fidelity = 1000    # TODO optimize here
+    # xx_spline = np.arange(0, len(xx_signal) - d_xx, d_xx / spline_fidelity)
+    # # spl_array = spl(xx_spline)
+    #
+    # # spl = InterpolatedUnivariateSpline(xx_signal, signal_in, ext='const')
+    # # spl.set_smoothing_factor(smoothing)    # TODO optimize here
+    # # df_spline = spl.derivative()(xx_spline)
+    # # # df_spline = spl(xx_spline, nu=1, ext='extrapolate')
+    #
+    # # # Lease Square approximation
+    # # Computing the inner knots and using them:
+    # xs = np.linspace(xx_signal[0], xx_signal[-1], spline_fidelity)
+    # t_knots = np.linspace(xx_signal[0], xx_signal[-1], 15)  # equally spaced knots in the interval
+    # t_knots = t_knots[1:-1]  # take only the three inner values
+    # # t_knots = [0, 1, 2, 3]
+    # bspline_degree = 5
+    # # sql = make_lsq_spline(xx_signal, signal_in, t_knots)
+    # sql = LSQUnivariateSpline(xx_signal, signal_in, t_knots, k=bspline_degree)
+    xs, sql = spline_signal(xx, signal_in)
+
+    x_df = xs
+    df_spline = sql.derivative()(xs)
+
+    return x_df, df_spline
 
 
 def find_tran_peak(signal_in, props=False):
@@ -108,7 +140,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
     # use the prominence of the peak to find a "rough" baseline
-    # assumes SNR > 2.85
+    # assumes SNR > 2.85?
     prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.65)
     i_baselines_far_l, i_baselines_far_r = 0, 0
 
@@ -136,23 +168,40 @@ def find_tran_baselines(signal_in, peak_side='left'):
     signal_baseline = signal_in[i_baselines_all]
     xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
 
-    # # use a spline of the rough baseline and find the "flattest" section
-    df_spline, spline_fidelity = spline_signal(xx_baseline, signal_baseline)
+    # use a spline of the rough baseline and find the "flattest" section
+    xs, df_spline = spline_deriv(xx_baseline, signal_baseline)
 
+    # starting from the center(ish) of the derivative spline TODO catch atrial-type signals and limit to the plataea
+    i_start = int(len(xs) * (2/3))
+    # include idexes within 1 standard deviation of 0
     d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
-    d1f_prominence_floor = d1f_sd * 1.5
-    # if d1f_sd < d1f_prominence_floor:
-    #     # where the derivative is less than (min * 2)
-    #     i_baselines_search = np.where(df_spline <= d1f_prominence_floor)[0]
-    # else:
-    #     # where the derivative is less than its standard deviation
-    i_baselines_search = np.where(abs(df_spline) <= d1f_prominence_floor)[0]
+    # d1f_mean = np.mean(df_spline)
+    d1f_prominence_cutoff = d1f_sd
+    # look left
+    i_left = i_start
+    i_right = i_start
+    for value in np.flip(df_spline[:i_start]):
+        if abs(value) < d1f_prominence_cutoff:
+            i_left = i_left - 1
+    # look right
+    for value in df_spline[i_start:]:
+        if abs(value) < d1f_prominence_cutoff:
+            i_right = i_right + 1
+    # combine
+    i_baselines_search = np.arange(i_left, i_right)
+
+    # # if d1f_sd < d1f_prominence_floor:
+    # #     # where the derivative is less than (min * 2)
+    # #     i_baselines_search = np.where(df_spline <= d1f_prominence_floor)[0]
+    # # else:
+    # #     # where the derivative is less than its standard deviation
+    # i_baselines_search = np.where(abs(df_spline) <= d1f_prominence_cutoff)[0]
 
     if len(i_baselines_search) < 10:
         return i_baselines_all
 
-    i_baselines_d1f_left = int(i_baselines_search[0] / spline_fidelity)
-    i_baselines_d1f_right = int(i_baselines_search[-1] / spline_fidelity)
+    i_baselines_d1f_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
+    i_baselines_d1f_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
 
     # use a subset of the flattest baselines
     # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
@@ -267,7 +316,7 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
     if filter_type not in FILTERS_SPATIAL:
         raise ValueError('Filter type must be one of the following: {}'.format(FILTERS_SPATIAL))
     if kernel < 3 or (kernel % 2) == 0:
-        raise ValueError('Kernel size must be >= 3 and odd')
+        raise ValueError('Kernel size {} px must be >= 3 and odd'.format(kernel))
 
     if filter_type is 'median':
         # Good for ___, but ___

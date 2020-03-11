@@ -237,7 +237,7 @@ class TestActivation(unittest.TestCase):
         # # d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
-        df_spline, spline_fidelity = spline_signal(self.time, self.signal)
+        df_spline, spline_fidelity = spline_deriv(self.time, self.signal)
         ax_dfs.plot(df_spline,
                     color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
@@ -631,12 +631,12 @@ class TestEnsemble(unittest.TestCase):
         # print('DONE Opening stack\n')
 
         # # Import real data
-        # # real trace
-        # file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
-        # file_name_pig = '2019/03/22 pigb-01-Ca'
-        # self.file_name, file_signal = file_name_pig, file_signal_pig
-        # self.signal_cl = '350'
-        # self.time, self.signal = open_signal(source=file_signal, fps=404)
+        # real trace
+        file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
+        file_name_pig = '2019/03/22 pigb-01-Ca'
+        self.file_name, file_signal = file_name_pig, file_signal_pig
+        self.signal_cl = '350'
+        self.signal_time, self.signal = open_signal(source=file_signal, fps=404)
         # # real stack
         extension = '.tif'
         fps = 500
@@ -1140,214 +1140,6 @@ class TestEnsemble(unittest.TestCase):
     # #     file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
     # #     file_name, file_signal = file_name_pig, file_signal_pig
     # #     time, signal = open_signal(source=file_signal)
-
-
-class TestMapAnalysis(unittest.TestCase):
-    def setUp(self):
-        # Create data to test with, a propagating stack
-        self.size = (100, 100)
-        self.t = 300
-        self.t0 = 50
-        self.fps = 500
-        self.f0 = 1000
-        self.famp = 200
-        self.noise = 10
-        self.velocity = 10
-
-        time_ca, stack_ca = model_stack_propagation(
-            size=self.size, model_type='Ca', t=self.t, t0=self.t0, fps=self.fps,
-            f0=self.f0, famp=self.famp,
-            noise=self.noise, velocity=self.velocity)
-        self.time, self.stack = time_ca, stack_ca
-
-        self.FRAMES = self.stack.shape[0]
-        self.HEIGHT, self.WIDTH = (self.stack.shape[1], self.stack.shape[2])
-        self.frame_shape = (self.HEIGHT, self.WIDTH)
-        self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
-        self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
-
-    def test_params(self):
-        # Make sure type errors are raised when necessary
-        # stack_in : ndarray, 3-D array
-        stack_bad_shape = np.full((100, 100), 100, dtype=np.uint16)
-        stack_bad_type = np.full(self.stack.shape, True)
-        self.assertRaises(TypeError, map_tran_analysis, time_in=self.time, stack_in=stack_bad_shape)
-        self.assertRaises(TypeError, map_tran_analysis, time_in=self.time, stack_in=stack_bad_type)
-        # analysis_type : method
-        # self.assertRaises(TypeError, map_tran_analysis, stack_in=self.stack_ca, analysis_type=True)
-        # time_in : ndarray
-        self.assertRaises(TypeError, map_tran_analysis, time_in=True, stack_in=self.stack)
-
-        # Make sure parameters are valid, and valid errors are raised when necessary
-        # analysis_type : an analysis method
-        # self.assertRaises(ValueError, map_tran_analysis, stack_in=self.stack_ca, analysis_type='activation')
-
-    def test_results(self):
-        # Make sure Analysis Map results are correct
-        analysis_map = map_tran_analysis(self.stack, find_tran_act)
-        self.assertIsInstance(analysis_map, np.ndarray)  # snr map type
-        self.assertEqual(analysis_map.shape, self.frame_shape)  # snr map shape
-
-    def test_map(self):
-        # Make sure analysis map looks correct
-        # Plot a frame from the stack and the SNR map of that frame
-        fig_map_snr, ax_frame, ax_map = plot_map()
-
-        # timestamps of analysis results
-        analysis_map = map_tran_analysis(self.stack, calc_tran_duration, self.time)
-        map_flat = analysis_map.flatten()
-        map_min = np.nanmin(analysis_map)
-        map_max = np.nanmax(analysis_map)
-        map_min_display = int(np.floor(map_min))
-        map_max_tran = map_min_display + TRAN_MAX
-        map_max_display = int(round(map_max_tran + 5.1, -1))
-        print('Map min value: ', map_min)
-        print('Map max value: ', map_max)
-        ax_map.set_title('Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
-
-        ax_frame.set_title('Model Data\n(noise SD: {}, velocity: {} cm/s)'
-                           .format(self.noise, self.velocity))
-        ax_map.set_title('CAD80 Map')
-        # Frame from stack
-        frame_num = int(self.stack.shape[0] / 4)  # interesting frame
-        cmap_frame = SCMaps.grayC.reversed()
-        img_frame = ax_frame.imshow(self.stack[frame_num, :, :], cmap=cmap_frame)
-        # Draw circles showing borders of SNR variance
-        for idx, div_border in enumerate(self.div_borders):
-            div_circle = Circle((self.origin_x, self.origin_y), radius=div_border,
-                                fc=None, fill=None, ec=gray_light, lw=1, linestyle='--')
-            ax_frame.add_artist(div_circle)
-        ax_frame.set_ylabel('1.0 cm', fontsize=fontsize3)
-        ax_frame.set_xlabel('0.5 cm', fontsize=fontsize3)
-        ax_map.set_ylabel('1.0 cm', fontsize=fontsize3)
-        ax_map.set_xlabel('0.5 cm', fontsize=fontsize3)
-        # Add colorbar (lower right of frame)
-        ax_ins_img = inset_axes(ax_frame, width="5%", height="80%", loc=5,
-                                bbox_to_anchor=(0.2, 0, 1, 1), bbox_transform=ax_frame.transAxes,
-                                borderpad=0)
-        cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
-        cb_img.ax.set_xlabel('Intensity\n(a.u).', fontsize=fontsize3)
-        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
-        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb_img.ax.tick_params(labelsize=fontsize3)
-        # Analysis Map
-        cmap_norm = colors.Normalize(vmin=map_min_display,
-                                     vmax=map_max_display)
-        img_snr = ax_map.imshow(analysis_map, norm=cmap_norm, cmap=cmap_activation)
-        # Add colorbar (lower right of map)
-        ax_ins_map = inset_axes(ax_map, width="5%", height="80%", loc=5,
-                                bbox_to_anchor=(0.2, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                borderpad=0)
-        cb1_map = plt.colorbar(img_snr, cax=ax_ins_map, orientation="vertical")
-        cb1_map.ax.set_xlabel('CAD80\ntime (ms)', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
-        cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb1_map.ax.tick_params(labelsize=fontsize3)
-
-        fig_map_snr.savefig(dir_unit + '/results/analysis_MapDuration.png')
-        fig_map_snr.show()
-
-    def test_map_signal(self):
-        # Make sure analysis map and analysis points look correct
-        # Plot a frame from the stack, the map of that stack, and a signals
-        # fig_map_snr, ax_frame, ax_map_snr = plot_map()
-        fig_map_signal = plt.figure(figsize=(8, 6))  # _ x _ inch page
-        gs0 = fig_map_signal.add_gridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 column
-        ax_signal = fig_map_signal.add_subplot(gs0[1])
-        ax_signal.set_xlabel('Time (ms)')
-        ax_signal.set_xlim(0, ACT_MAX)
-        ax_signal.set_ylim(self.f0 - 10, self.f0 + self.famp + 10)
-        ax_signal.spines['right'].set_visible(False)
-        ax_signal.spines['top'].set_visible(False)
-        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
-        ax_signal.tick_params(axis='x', labelsize=fontsize3, which='major', length=8)
-        ax_signal.tick_params(axis='y', labelsize=fontsize3)
-        ax_signal.xaxis.set_major_locator(plticker.MultipleLocator(25))
-        ax_signal.xaxis.set_minor_locator(plticker.MultipleLocator(5))
-
-        gs_frame_map = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)  # 1 row, 3 columns
-        ax_frame = fig_map_signal.add_subplot(gs_frame_map[0])
-        ax_frame.set_title('Model Data\n(noise SD: {}, velocity: {} cm/s)'
-                           .format(self.noise, self.velocity))
-        ax_map = fig_map_signal.add_subplot(gs_frame_map[1])
-        ax_map.set_title('CAD80 Map')
-        for ax in [ax_frame, ax_map]:
-            ax.tick_params(axis='x', labelsize=fontsize4)
-            ax.tick_params(axis='y', labelsize=fontsize4)
-
-        # Calculate the activation map, returns timestamps
-        analysis_map = map_tran_analysis(self.stack, calc_tran_duration, self.time)
-        map_flat = analysis_map.flatten()
-        map_min = np.nanmin(analysis_map)
-        map_max = np.nanmax(analysis_map)
-        map_min_display = int(np.floor(map_min))
-        map_max_tran = map_min_display + TRAN_MAX
-        map_max_display = int(round(map_max_tran + 5.1, -1))
-        print('Map min value: ', map_min)
-        print('Map max value: ', map_max)
-        ax_map.set_title('Map\nRange: {} - {} ms'.format(round(map_min, 2), round(map_max, 2)))
-
-        # Frame from stack
-        frame_num = int(self.stack.shape[0] / 4)  # interesting frame
-        cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=self.stack.min(), vmax=self.stack.max())
-        img_frame = ax_frame.imshow(self.stack[frame_num, :, :], norm=cmap_norm_frame, cmap=cmap_frame)
-
-        # Add colorbar (right of frame)
-        ax_ins_img = inset_axes(ax_frame, width="3%", height="80%", loc=5,
-                                bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=ax_frame.transAxes,
-                                borderpad=0)
-        cb_img = plt.colorbar(img_frame, cax=ax_ins_img, orientation="vertical")
-        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
-        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
-        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb_img.ax.tick_params(labelsize=fontsize3)
-
-        # Analysis Map
-        # Create normalization range for map (0 and max rounded up to the nearest 10)
-        # cmap_activation = SCMaps.tokyo
-        # cmap_norm_activation = colors.Normalize(vmin=0, vmax=round(analysis_max + 5.1, -1))
-        cmap_norm = colors.Normalize(vmin=map_min_display,
-                                     vmax=map_max_display)
-        img_map = ax_map.imshow(analysis_map, norm=cmap_norm, cmap=cmap_activation)
-        # Add colorbar (right of map)
-        ax_ins_map = inset_axes(ax_map, width="3%", height="80%", loc=5,
-                                bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=ax_map.transAxes,
-                                borderpad=0)
-        cb1_map = plt.colorbar(img_map, cax=ax_ins_map, orientation="vertical")
-        cb1_map.ax.set_xlabel('ms', fontsize=fontsize3)
-        cb1_map.ax.yaxis.set_major_locator(plticker.LinearLocator(5))
-        cb1_map.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb1_map.ax.tick_params(labelsize=fontsize3)
-        # Map histogram
-        ax_act_hist = fig_map_signal.add_subplot(gs_frame_map[2], xticklabels=[], sharey=ax_ins_map)
-        ax_act_hist.hist(analysis_map.flatten(), ACT_MAX, histtype='stepfilled',
-                         orientation='horizontal', color='gray')
-        ax_act_hist.tick_params(axis='y', labelsize=fontsize3)
-        ax_act_hist.yaxis.set_major_locator(plticker.LinearLocator(2))
-        ax_act_hist.yaxis.set_minor_locator(plticker.LinearLocator(10))
-
-        # # Plot signal and/or points of interest
-        # for iy, ix in np.ndindex(self.frame_shape):
-        #     # Signal
-        #     # signal = self.stack[:, iy, ix]
-        #     # ax_signal.plot(self.time, signal, color=gray_light, linestyle='-')
-        #     # Activation
-        #     time_act = analysis_map[iy, ix]  # 1st df max, Activation
-        #     # index of that activation time
-        #     i_act = np.where(self.time == time_act)
-        #     ax_signal.plot(time_act, self.stack[i_act, iy, ix], "|",
-        #                    color=colors_times['Downstroke'], markersize=3, label='Downstroke')
-        #     # ax_signal.axvline(i_act, color=colors_times['Activation'], linewidth=1,
-        #     #                   label='Activation')
-        #     # signal_act = find_tran_act(signal)
-        #     # signals_activations.append(signal_act)
-        #     # ax_signal.plot(self.time[signal_act], signal[signal_act],
-        #     #                  "x", color=colors_times['Activation'], markersize=10, label='Peaks')
-
-        fig_map_signal.savefig(dir_unit + '/results/analysis_MapSignal.png')
-        fig_map_signal.show()
-
 
 # class TestPhase(unittest.TestCase):
 #     # Setup data to test with

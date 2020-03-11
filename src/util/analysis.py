@@ -6,13 +6,16 @@ from scipy.signal import savgol_filter
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
-TRAN_MAX = 100
-# Colormap and normalization range for Activation maps
+# Constants
+# Transient feature limits (ms)
+TRAN_MAX = 500
+RISE_MAX = 150
+# Colormap and normalization limits for Activation maps (ms)
 ACT_MAX = 150
 ACT_MAX_PIG = 400
-# Colormap and normalization range for Duration maps
-DUR_MIN = 20  # ms
-DUR_MAX = 300  # ms
+# Colormap and normalization limits for Duration maps (ms)
+DUR_MIN = 20
+DUR_MAX = 300
 
 
 def find_tran_start(signal_in):    # TODO
@@ -95,8 +98,8 @@ def find_tran_act(signal_in):
     if i_peak is np.nan:
         return np.nan
     i_baselines = find_tran_baselines(signal_in, peak_side='left')
-    # i_baseline = int(np.median(i_baselines))
-    i_baseline = i_baselines[-2]
+    i_baseline = int(np.median(i_baselines))
+    # i_baseline = i_baselines[-2]
 
     if i_baseline < i_peak:
         search_min = i_baseline
@@ -115,11 +118,11 @@ def find_tran_act(signal_in):
     signal_search = signal_in[search_min:search_max]
 
     # use a spline
-    df_spline, spline_fidelity = spline_signal(xx_search, signal_search)
+    x_df, signal_search_df = spline_deriv(xx_search, signal_search)
 
     # find the 1st derivative max within the search area (first likely to be extreme)
-    i_act_search_df = np.argmax(df_spline[1:]) + 1
-    i_act_search = int(np.floor(i_act_search_df / spline_fidelity))
+    i_act_search_df = np.argmax(signal_search_df[1:]) + 1
+    i_act_search = int(np.floor(i_act_search_df / SPLINE_FIDELITY))
 
     # # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
     # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
@@ -453,7 +456,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, **kwargs):
                 map_out[iy, ix] = np.nan
             else:
                 if time_in is not None:
-                    pixel_analysis_value = time_in[analysis_result]
+                    pixel_analysis_value = time_in[analysis_result]     # TODO catch issue w/ duration when t[0] != 0
                 else:
                     pixel_analysis_value = analysis_result
                 map_out[iy, ix] = pixel_analysis_value

@@ -1059,59 +1059,27 @@ class TestSnrSignal(unittest.TestCase):
         # Plot signals and points
         ax_data.plot(self.signal, color=gray_med,
                      linestyle='-', marker='+', )
-        # ax_data.plot(self.time_ca, self.signal_ca, color=gray_heavy,
-        #              linestyle='-', marker='.', markersize=points_lw*3)
-        # ax_data.plot(ir_noise, self.signal[ir_noise], "x", color=color_raw, markersize=signal_markersize)
-
-        # Characterize the signal
-        signal_bounds = (self.signal.min(), self.signal.max())
-        signal_range = signal_bounds[1] - signal_bounds[0]
-        # find the peak (roughly)
-        i_peaks, properties = find_tran_peak(self.signal, props=True)
-        if i_peaks is np.nan:
-            return np.nan
-        # if type(i_peaks) is float:
-        #     raise ArithmeticError('float i_peaks is: \'{}\' for signal with range: '
-        #                           .format(i_peaks, signal_range))
-        i_peak = i_peaks[np.argmax(properties['prominences'])]
-
-        # use the prominence of the peak to find a "rough" baseline
-        prominence_floor = self.signal[i_peak] - (properties['prominences'][0] * 0.7)
-        i_baselines_far_l, i_baselines_far_r = 0, 0
-
-        # if peak_side is 'left':
-        #     # Find first index below the prominence floor
-        i_baselines_far_l = np.where(self.signal[:i_peak] <= prominence_floor)[0][0]
-        i_baselines_far_r = np.where(self.signal[:i_peak] <= prominence_floor)[0][-1]
-
-        # if peak_side is 'right':
-        #     # Find first index below the prominence floor
-        # i_baselines_far_l = np.where(self.signal[i_peak:] <= prominence_floor)[0][0] + i_peak
-        # i_baselines_far_r = np.where(self.signal[i_peak:] <= prominence_floor)[0][-1] + i_peak
-
-        i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r + 1)
 
         ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=signal_markersize * 2,
                      label='Peak')
-        ax_data.plot(i_baselines_all, self.signal[i_baselines_all],
-                     "x", color=gray_heavy, markersize=signal_markersize / 2)
         ax_data.plot(ir_noise, self.signal[ir_noise],
                      ".", color=color_raw, markersize=signal_markersize, label='Noise')
         ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
+        # spline
+        x_signal = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        x_sp, spline = spline_signal(x_signal, self.signal)
+        ax_data.plot(x_sp, spline(x_sp), color=color_filtered,
+                     linestyle='-', label='LSQ spline')
 
         # df/dt
-        x_signal = np.linspace(0, len(self.signal) - 1, len(self.signal))
         # x_signal = np.arange(0, len(self.signal), (self.signal_fps/1000))
-        df_spline, spline_fidelity = spline_signal(x_signal, self.signal)
+        x_df, df_signal = spline_deriv(x_signal, self.signal)
         # x_spline = np.arange(0, len(x_signal), (self.signal_fps/1000) / spline_fidelity)
-        x_spline = np.linspace(0, len(self.signal) - 1, len(df_spline))
-        ax_df1.plot(x_spline, df_spline, color=gray_med,
+        # x_spline = np.linspace(0, len(self.signal) - 1, len(df_spline))
+        ax_df1.plot(x_df, df_signal, color=gray_med,
                     linestyle='--', label='dF/dt')
-        ax_df1.plot(i_baselines_all[:-2],
-                    df_spline[i_baselines_all[:-2] * spline_fidelity],
-                    "x", color=gray_heavy, markersize=signal_markersize)
         ax_df1.plot(ir_noise,
-                    df_spline[ir_noise * spline_fidelity],
+                    df_signal[ir_noise * SPLINE_FIDELITY],
                     ".", color=color_raw, markersize=signal_markersize)
 
         # ax_data.axhline(y=self.signal_f0 + self.signal_famp,
@@ -1134,7 +1102,7 @@ class TestSnrSignal(unittest.TestCase):
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
-        fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
+        # fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
         fig_snr.show()
 
     def test_stats(self):
