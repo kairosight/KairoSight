@@ -12,7 +12,7 @@ from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
 from skimage.filters.rank import median, mean, mean_bilateral
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
-SPLINE_FIDELITY = 3  # TODO optimize here
+SPLINE_FIDELITY = 3
 # TODO add TV, a non-local, and a weird filter
 
 
@@ -21,7 +21,8 @@ def spline_signal(xx, signal_in):
     # # Lease Square approximation
     # Computing the inner knots and using them:
     xs = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
-    t_knots = np.linspace(xx_signal[0], xx_signal[-1], 25)  # equally spaced knots in the interval
+    n_knots = 25    # number of knots to us in LSQ spline
+    t_knots = np.linspace(xx_signal[0], xx_signal[-1], n_knots)  # equally spaced knots in the interval
     t_knots = t_knots[1:-1]  # take only the three inner values
     # t_knots = [0, 1, 2, 3]
     bspline_degree = 3
@@ -33,30 +34,6 @@ def spline_signal(xx, signal_in):
 
 
 def spline_deriv(xx, signal_in):
-    # # df/dt (with X__ as many samples)
-    # # time_spline = np.linspace(xx[0], xx[-1] - d_xx,
-    # #                           (len(xx))*spline_fidelity)
-    # # xx_spline = np.linspace(0, 1, (len(xx)) * spline_fidelity)
-    # d_xx = xx[2] - xx[1]
-    # xx_signal = np.arange(0, (len(xx)))
-    # spline_fidelity = 1000    # TODO optimize here
-    # xx_spline = np.arange(0, len(xx_signal) - d_xx, d_xx / spline_fidelity)
-    # # spl_array = spl(xx_spline)
-    #
-    # # spl = InterpolatedUnivariateSpline(xx_signal, signal_in, ext='const')
-    # # spl.set_smoothing_factor(smoothing)    # TODO optimize here
-    # # df_spline = spl.derivative()(xx_spline)
-    # # # df_spline = spl(xx_spline, nu=1, ext='extrapolate')
-    #
-    # # # Lease Square approximation
-    # # Computing the inner knots and using them:
-    # xs = np.linspace(xx_signal[0], xx_signal[-1], spline_fidelity)
-    # t_knots = np.linspace(xx_signal[0], xx_signal[-1], 15)  # equally spaced knots in the interval
-    # t_knots = t_knots[1:-1]  # take only the three inner values
-    # # t_knots = [0, 1, 2, 3]
-    # bspline_degree = 5
-    # # sql = make_lsq_spline(xx_signal, signal_in, t_knots)
-    # sql = LSQUnivariateSpline(xx_signal, signal_in, t_knots, k=bspline_degree)
     xs, sql = spline_signal(xx, signal_in)
 
     x_df = xs
@@ -173,10 +150,11 @@ def find_tran_baselines(signal_in, peak_side='left'):
     # use a spline of the rough baseline and find the "flattest" section
     xs, df_spline = spline_deriv(xx_baseline, signal_baseline)
 
-    # starting from the center(ish) of the derivative spline TODO catch atrial-type signals and limit to the plataea
+    # TODO catch atrial-type signals and limit to the plataea before the peak
+    # starting from the center(ish) of the derivative spline
     i_start = int(len(xs) * (2/3))
-    # include idexes within 1 standard deviation of 0
-    d1f_sd = statistics.stdev(df_spline)    # TODO optimize here
+    # include indexes within 1 standard deviation of 0
+    d1f_sd = statistics.stdev(df_spline)
     # d1f_mean = np.mean(df_spline)
     d1f_prominence_cutoff = d1f_sd
     # look left
@@ -446,7 +424,7 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
     return signal_out.astype(signal_in.dtype)
 
 
-def filter_drift(signal_in, drift_order=2):     # TODO must fit to baseline data
+def filter_drift(signal_in, drift_order=2):
     """Remove drift from an array of optical data using the subtraction of a polynomial fit.
 
         Parameters
@@ -482,6 +460,7 @@ def filter_drift(signal_in, drift_order=2):     # TODO must fit to baseline data
     def func_exp(x, a, b, c):
         return a * np.exp(-b * x) + c   # a decaying exponential curve to fit to
 
+    # TODO drift model must be fit to baseline data (pre & post transient)
     drift_range = signal_in.max() - signal_in.min()
     drift_out = np.zeros_like(signal_in)
 
@@ -526,7 +505,6 @@ def filter_drift(signal_in, drift_order=2):     # TODO must fit to baseline data
     return signal_out.astype(signal_in.dtype), drift_out
 
 
-# TODO rename functions (like calculate_snr to signal_snr and signal_error)
 def invert_signal(signal_in):
     """Invert the values of a signal array.
 
@@ -684,7 +662,7 @@ def calculate_snr(signal_in, noise_count=10):
 
         Notes
         -----
-            Must be applied to signals with upward deflections (Peak > noise).  TODO use on negative signals
+            Must be applied to signals with upward deflections (Peak > noise).  TODO expand to use on negative signals
             Assumes noise SD > 1, otherwise set to 0.5
             Assumes max noise value < (peak / 5)
             Auto-detects noise section as the last noise_count values before the final noisy peak.
@@ -733,7 +711,6 @@ def calculate_snr(signal_in, noise_count=10):
     peak_value = signal_in[i_peak_calc]
 
     # Find noise values
-    # TODO find_tran_baselines may be slow with interpolation
     i_noise_calc = find_tran_baselines(signal_in)
     # i_noise_calc = range(np.argmin(signal_in), np.argmin(signal_in) + 10)
 

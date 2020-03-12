@@ -18,7 +18,8 @@ DUR_MIN = 20
 DUR_MAX = 300
 
 
-def find_tran_start(signal_in):    # TODO
+# TODO finish remaining analysis point algorithms
+def find_tran_start(signal_in):
     """Find the time of the start of a transient,
     defined as the 1st maximum of the 2nd derivative
 
@@ -98,30 +99,30 @@ def find_tran_act(signal_in):
     if i_peak is np.nan:
         return np.nan
     i_baselines = find_tran_baselines(signal_in, peak_side='left')
-    i_baseline = int(np.median(i_baselines))
-    # i_baseline = i_baselines[-2]
+    # i_baseline = int(np.median(i_baselines))
+    i_baseline = i_baselines[0]  # TODO try the first baseline index
 
     if i_baseline < i_peak:
         search_min = i_baseline
-    else:
-        search_min = 0  # not enough baselines before the peak, use everything before the peak
-        # not enough baselines before the peak, use the min value before the peak
-        search_min = np.argmin(signal_in[:i_peak])
-        # search_min = np.argmin(signal_in[:i_peak])  # not enough baselines before the peak, use ____
+    else:   # not enough baselines before the peak
+        # search_min = 0  # not enough baselines before the peak, use everything before the peak
+        search_min = np.argmin(signal_in[:i_peak])      # use the min value before the peak
 
-    search_max_calc = i_peak + ((i_peak - search_min) * 2)
-    search_max = np.nanmin((search_max_calc, len(signal_in)-1))
-    # search_max = len(signal_in) - 1
+    # TODO limit to BEFORE the peak
+    search_max_calc = i_peak + int((len(signal_in[i_peak:]) * (2/3)))   # a bit after the peak, based on length of signal
+    search_max_backup = i_peak + 5                                      # a bit after the peak, arbitrary length
+    search_max = np.nanmin((search_max_calc, search_max_backup))
 
     xx_search = np.linspace(search_min, search_max - 1,
                             search_max - search_min)
     signal_search = signal_in[search_min:search_max]
 
-    # use a spline
+    # use a LSQ spline
     x_df, signal_search_df = spline_deriv(xx_search, signal_search)
 
-    # find the 1st derivative max within the search area (first likely to be extreme)
-    i_act_search_df = np.argmax(signal_search_df[1:]) + 1
+    # find the 1st derivative max within the search area (first few are likely to be extreme)
+    # search_df_min =
+    i_act_search_df = np.argmax(signal_search_df[3:]) + 3
     i_act_search = int(np.floor(i_act_search_df / SPLINE_FIDELITY))
 
     # # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html

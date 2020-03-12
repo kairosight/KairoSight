@@ -1319,7 +1319,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 5
+        self.reduction = 7
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
@@ -1580,11 +1580,11 @@ class TestMapAnalysisPig(unittest.TestCase):
             # Text: Conditions
             ax.text(0.7, 0.9, '{}/{}'.format(peak_peak_display, sd_noise_display),
                     color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
-            ax.text(0.7, 0.8, '{}'.format(snr_display),
+            ax.text(0.7, 0.8, '{} SNR'.format(snr_display),
                     color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
 
         # SNR Map
-        img_map_frame = ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
+        ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
         #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
         cmap_norm_snr = colors.Normalize(vmin=map_min_display,
@@ -1607,6 +1607,7 @@ class TestMapAnalysisPig(unittest.TestCase):
     def test_plot_activation_pig(self):
         # Make sure map looks correct with pig data
         stack, stack_time = self.stack_pig, self.time_pig
+        d_stack_time = stack_time[-1] - stack_time[-2]
 
         # Chosen pixel-of-interest location
         # signal_x, signal_y = (int(stack.shape[2] * (1/2)), int(stack.shape[1] * (2/3)))     # LV Apex
@@ -1698,7 +1699,7 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         cmap_frame = SCMaps.grayC.reversed()
         cmap_norm_frame = colors.Normalize(vmin=stack_frame.min(), vmax=stack_frame.max())
-        img_frame = ax_frame.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
+        ax_frame.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
         img_frame = ax_frame.imshow(stack_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # scale bar
         scale_px_cm = 1 / self.scale_cm_px
@@ -1720,9 +1721,9 @@ class TestMapAnalysisPig(unittest.TestCase):
         # Signal traces and location on frame
         # plot trace with the chosen ROI pixel
         signal_roi = stack[:, signal_y, signal_x]
-        roi_sym = ax_frame.plot(signal_x, signal_y, marker='s', markerfacecolor='None',
-                                markeredgecolor=colors_times['Activation'],
-                                markersize=self.kernel)
+        ax_frame.plot(signal_x, signal_y, marker='s', markerfacecolor='None',
+                      markeredgecolor=colors_times['Activation'],
+                      markersize=self.kernel)
         ax_signal_xy.plot(stack_time, signal_roi, color=gray_heavy, linestyle='None', marker='+')
 
         # plot trace with a min map value
@@ -1730,6 +1731,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         signal_min = stack[:, min_y[0], min_x[0]]
         ax_frame.plot(min_x[0], min_y[0], marker='x', color=colors_times['Activation'], markersize=marker3)
         ax_signal_min.plot(stack_time, signal_min, color=gray_heavy, linestyle='None', marker='+')
+        map_min_raw = find_tran_act(signal_min) * d_stack_time  # calculate unadjusted activation time (ms)
         # plot trace with a max map value
         max_y, max_x = np.where(analysis_map == map_max)
         signal_max = stack[:, max_y[0], max_x[0]]
@@ -1796,11 +1798,12 @@ class TestMapAnalysisPig(unittest.TestCase):
                 # ax.plot(min_sym, transform=ax.transAxes)
 
                 # Text: Activation and SNR
-                # duration_ms = duration * (stack_time[-1] / len(stack_time))
-                activation_ms = i_activation * (stack_time[-1] / len(stack_time))
-                ax.text(0.73, 0.9, '{} ms'.format(activation_ms),
+                # When mapping activation, align time with the "first" aka lowest activation time
+                activation_ms = (i_activation * d_stack_time) - map_min_raw
+                activation_ms_display = round(activation_ms, 2)
+                ax.text(0.73, 0.9, '{} ms'.format(activation_ms_display),
                         color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
-                ax.text(0.73, 0.8, '{} snr'.format(snr_display),
+                ax.text(0.73, 0.8, '{} SNR'.format(snr_display),
                         color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
             except Exception:
                 # exctype, exvalue, traceback = sys.exc_info()
@@ -1809,7 +1812,7 @@ class TestMapAnalysisPig(unittest.TestCase):
                 traceback.print_exc(file=sys.stdout)
 
         # Activation Map
-        img_map_frame = ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
+        ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
         #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
         cmap_norm_activation = colors.Normalize(vmin=map_min_display,
@@ -1832,6 +1835,7 @@ class TestMapAnalysisPig(unittest.TestCase):
     def test_plot_duration_pig(self):
         # Make sure map looks correct with pig data
         stack, stack_time = self.stack_pig, self.time_pig
+        d_stack_time = stack_time[-1] - stack_time[-2]
 
         # Chosen duration %
         dur_percent = 80
@@ -1929,7 +1933,7 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         cmap_frame = SCMaps.grayC.reversed()
         cmap_norm_frame = colors.Normalize(vmin=stack_frame.min(), vmax=stack_frame.max())
-        img_frame = ax_frame.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
+        ax_frame.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
         img_frame = ax_frame.imshow(stack_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # scale bar
         scale_px_cm = 1 / self.scale_cm_px
@@ -2033,10 +2037,11 @@ class TestMapAnalysisPig(unittest.TestCase):
                 # ax.plot(min_sym, transform=ax.transAxes)
 
                 # Text: Duration and SNR
-                duration_ms = duration * (stack_time[-1] / len(stack_time))
-                ax.text(0.73, 0.9, '{} ms'.format(duration_ms),
+                duration_ms = duration * d_stack_time
+                duration_ms_display = round(duration_ms, 2)
+                ax.text(0.73, 0.9, '{} ms'.format(duration_ms_display),
                         color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
-                ax.text(0.73, 0.8, '{} snr'.format(snr_display),
+                ax.text(0.73, 0.8, '{} SNR'.format(snr_display),
                         color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
             except Exception:
                 # exctype, exvalue, traceback = sys.exc_info()
@@ -2045,7 +2050,7 @@ class TestMapAnalysisPig(unittest.TestCase):
                 traceback.print_exc(file=sys.stdout)
 
         # Duration Map
-        img_map_frame = ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
+        ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
         # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
         #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
         cmap_norm_duration = colors.Normalize(vmin=map_min_display,
