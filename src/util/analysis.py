@@ -293,19 +293,21 @@ def calc_tran_duration(signal_in, percent=80):
 
     snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
     # exclusion criteria
-    if snr is np.nan or snr < 5:   # TODO decrease SNR exclusion
+    if snr is np.nan or snr < 5:
         return np.nan   # exclusion criteria : signal strength too low to analyze
     if type(i_peak) not in [np.int64, float]:
         i_peak = i_peak[0]  # use the first detected peak
 
     # i_baselines = find_tran_baselines(signal_in, peak_side='right')
     # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
-    noise_rms = rms_bounds[0]
+    noise_rms = rms_bounds[0]   # TODO use baseline LSQ spline to the RIGHT of the peak
 
     cutoff = noise_rms + (float(peak_peak) * float(((100 - percent) / 100)))
 
     i_search = np.where(signal_in[i_peak:] <= cutoff)
     if len(i_search) == 0:
+        return np.nan   # exclusion criteria: transient does not return to cutoff value
+    if len(i_search[0]) == 0:
         return np.nan   # exclusion criteria: transient does not return to cutoff value
     # try:
     i_duration = i_peak + i_search[0][0]

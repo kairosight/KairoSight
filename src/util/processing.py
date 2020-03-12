@@ -1,4 +1,6 @@
 import statistics
+import sys
+
 import numpy as np
 from numpy import linalg
 from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline, make_lsq_spline, LSQUnivariateSpline
@@ -444,7 +446,7 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
     return signal_out.astype(signal_in.dtype)
 
 
-def filter_drift(signal_in, drift_order=2):
+def filter_drift(signal_in, drift_order=2):     # TODO must fit to baseline data
     """Remove drift from an array of optical data using the subtraction of a polynomial fit.
 
         Parameters
@@ -478,9 +480,14 @@ def filter_drift(signal_in, drift_order=2):
             raise ValueError('Drift order "{}" not implemented'.format(drift_order))
 
     def func_exp(x, a, b, c):
-        return a * np.exp(-b * x) + c   # a decaying exponential fit to fit to
+        return a * np.exp(-b * x) + c   # a decaying exponential curve to fit to
 
     drift_range = signal_in.max() - signal_in.min()
+    drift_out = np.zeros_like(signal_in)
+
+    if drift_range < 5:  # signal is too flat to remove drift
+        return signal_in, drift_out
+
     drift_x = np.arange(start=0, stop=len(signal_in))
     exp_b_estimates = (0.01, 0.1)   # assumed bounds of the B constant for a decaying exponential fit
 
@@ -495,8 +502,11 @@ def filter_drift(signal_in, drift_order=2):
         try:
             # popt, pcov = curve_fit(func_exp, drift_x, signal_in)
             popt, pcov = curve_fit(func_exp, drift_x, signal_in, bounds=(exp_bounds_lower, exp_bounds_upper))
-        except RuntimeError as e:
-            raise ArithmeticError('Could not fit an exponential curve to the signal')
+        except Exception:
+            exctype, exvalue, traceback = sys.exc_info()
+            print("\t* Failed to calculate signal drift:\n\t" + str(exctype) + ' : ' + str(exvalue) +
+                  '\n\t\t' + str(traceback))
+            return signal_in, drift_out
 
         poly_y = func_exp(drift_x, *popt)
 
@@ -511,9 +521,9 @@ def filter_drift(signal_in, drift_order=2):
     # poly_y = spl(drift_x)
 
     signal_out = signal_in - poly_y + poly_y.min()
-    drift = poly_y
+    drift_out = poly_y
 
-    return signal_out.astype(signal_in.dtype), drift
+    return signal_out.astype(signal_in.dtype), drift_out
 
 
 # TODO rename functions (like calculate_snr to signal_snr and signal_error)

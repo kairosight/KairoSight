@@ -1234,59 +1234,63 @@ class TestMapAnalysisRat(unittest.TestCase):
 # noinspection PyTypeChecker
 class TestMapAnalysisPig(unittest.TestCase):
     def setUp(self):
-        # #Load data to test with    # TODO try an ensemble
+        # #Load data to test with
         fps = 500.0
+        # TODO try an ensemble
 
         exp_name = '2-week old'
         # exp_name = 'MEHP: Baseline'
         file_XY = (770, 1048)
         self.scale_px_cm = 101.4362
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
+        # file_path = dir_tests + '/data/20200228-piga/baseline/05-450_Ca(941-1190).tif'
         # file_name_pig = '2020/02/28 piga-04 Ca, ' + exp_name + ', PCL: 450ms'
         # file_frames = (941, 1190)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        # file_name_pig = '2020/02/28 piga-05 Vm, ' + exp_name + ', PCL: 400ms'
-        file_stack_pig = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
+        file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        file_path = dir_tests + '/data/' + file_path_local
+        # file_path = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
         file_frames = (1031, 1280)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
         # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
         # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
         # file_frames = (941, 1190)
         file_X0Y0_Vm = (190, 200)
         file_X0Y0_Ca = (1140, 200)
         # exp_name = 'MEHP: 60 uM'
         # file_X0Y0 = (1060, 160)
-        # file_stack_pig = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
+        # file_path = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
         # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
         # file_frames = (871, 1120)
 
         # exp_name = '6-week old'
         # file_XY = (900, 1200)
         # self.scale_px_cm = 158.7823
-        # file_stack_pig = dir_tests + '/data/20190517-piga/02-400_Vm(501-700).tif'
-        # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Vm, PCL 400ms'
-        # # file_stack_pig = dir_tests + '/data/20190517-piga/02-400_Ca(501-700).tif'
-        # # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Ca, PCL 400ms'
+        # file_path = dir_tests + '/data/20190517-piga/02-400_Vm(501-700).tif'
+        # file_name_pig = '2019/05/17-piga 02, ' + exp_name + '. Vm, PCL 400ms'
+        # # file_path = dir_tests + '/data/20190517-piga/02-400_Ca(501-700).tif'
+        # # file_name_pig = '2019/05/17-piga 02, ' + exp_name + '. Ca, PCL 400ms'
         # file_frames = (501, 700)
         # file_X0Y0_Vm = (950, 150)
         # file_X0Y0_Ca = ('20?', 150)
         # # file_XY = (900, 1440)
         # # self.scale_px_cm = 143.3298
-        # # file_stack_pig = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
+        # # file_path = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
         # # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Vm, PCL 350ms'
         # # file_X0Y0_Vm = (1010, 250)
         # # file_frames = (880, 1060)
-        # # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
+        # # file_path = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
         # # file_name_pig = '2019/10/04-piga 01, ' + exp_name + '. Ca, PCL 300ms'
         # # file_X0Y0_Ca = (0, 40)
         # # file_frames = (480, 660)
         # #
+        study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd
+        file_name = file_path_local.split(sep='/')[-1].split(sep='(')[0]  # e.g. 08-228_Vm
+        test_name = '{}, {}, {}'.format(exp_name, study_name, file_name)
 
         self.scale_cm_px = 1 / self.scale_px_cm
-        self.file_name, self.file_stack = file_name_pig, file_stack_pig
-        self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_stack)
+        self.test_name, self.file_path = test_name, file_path
+        self.stack_real_full, self.stack_real_meta = open_stack(source=self.file_path)
         self.stack_real_frame = self.stack_real_full[0, :, :]  # frame from stack
 
         stack_out = self.stack_real_full.copy()
@@ -1313,7 +1317,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 7
+        self.reduction = 5
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
@@ -1345,11 +1349,22 @@ class TestMapAnalysisPig(unittest.TestCase):
         # #
 
         # # Process
-        # # Invert
-        # print('Inverting stack with {} frames, size W {} X H {} ...'
-        #       .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
-        # stack_out = invert_stack(stack_out)
-        # print('\nDONE Inverting stack')
+        # # Drift
+        # map_shape = stack_out.shape[1:]
+        # poly_ideal_order = 3
+        # print('Removing drift from stack ...')
+        # for iy, ix in np.ndindex(map_shape):
+        #     print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]), end='',
+        #           flush=True)
+        #     signal_filtered, drift = filter_drift(stack_out[:, iy, ix], drift_order=poly_ideal_order)
+        #     stack_out[:, iy, ix] = signal_filtered
+        # print('\nDONE Removing drift from stack')
+
+        # Invert
+        print('Inverting stack with {} frames, size W {} X H {} ...'
+              .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
+        stack_out = invert_stack(stack_out)
+        print('\nDONE Inverting stack')
 
         # # Normalize
         # map_shape = stack_out.shape[1:]
@@ -1363,7 +1378,7 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Filter
         # spatial
-        kernel_cm = 0.3  # set to X.X cm (~0.3)
+        kernel_cm = 0.5  # set to X.X cm (~0.3)
         self.kernel = floor(kernel_cm / self.scale_cm_px)
         if self.kernel > 3 and self.kernel % 2 == 0:
             self.kernel = self.kernel - 1
@@ -1416,7 +1431,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         # ax_frame.set_title('Model Data\n(noise SD: {},  CAD-80: {} ms?)'
         #                    .format(self.noise, MIN_CAD_80))
         ax_frame.set_title('{}\n({}, {})'
-                           .format(self.file_name, self.prep, self.process))
+                           .format(self.test_name, self.prep, self.process))
         ax_map = fig_map.add_subplot(gs_frame_map[1])
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
@@ -1638,7 +1653,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         # ax_frame.set_title('Model Data\n(noise SD: {},  CAD-80: {} ms?)'
         #                    .format(self.noise, MIN_CAD_80))
         ax_frame.set_title('{}\n({}, {})'
-                           .format(self.file_name, self.prep, self.process))
+                           .format(self.test_name, self.prep, self.process))
         ax_map = fig_map.add_subplot(gs_frame_map[1])
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
@@ -1819,7 +1834,12 @@ class TestMapAnalysisPig(unittest.TestCase):
     def test_plot_duration_pig(self):
         # Make sure map looks correct with pig data
         stack, stack_time = self.stack_pig, self.time_pig
+
+        # Chosen duration %
         dur_percent = 80
+        # Chosen pixel-of-interest location
+        # signal_x, signal_y = (int(stack.shape[2] * (1/2)), int(stack.shape[1] * (2/3)))     # LV Apex
+        signal_x, signal_y = (int(stack.shape[2] * (2 / 3)), int(stack.shape[1] * (1 / 2)))  # LV Base
 
         # Plot a frame from the stack, the map of that stack, and a signal
         # fig_map_snr, ax_frame, ax_map_snr = plot_map()
@@ -1831,7 +1851,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         # ax_frame.set_title('Model Data\n(noise SD: {},  CAD-80: {} ms?)'
         #                    .format(self.noise, MIN_CAD_80))
         ax_frame.set_title('{}\n{}, {}'
-                           .format(self.file_name, self.prep, self.process))
+                           .format(self.test_name, self.prep, self.process))
         ax_map = fig_map.add_subplot(gs_frame_map[1])
         for ax in [ax_frame, ax_map]:
             ax.tick_params(axis='x', labelsize=fontsize4)
@@ -1843,7 +1863,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_signal_min = fig_map.add_subplot(gs_signals[0])
         ax_signal_xy = fig_map.add_subplot(gs_signals[1])
         ax_signal_max = fig_map.add_subplot(gs_signals[2])
-        # TODO add derivatives to signal plots
+        # TODO add derivatives to signal plots?
         for ax in [ax_signal_min, ax_signal_xy, ax_signal_max]:
             ax.tick_params(axis='x', labelsize=fontsize4)
             ax.tick_params(axis='y', labelsize=fontsize4)
@@ -1920,21 +1940,19 @@ class TestMapAnalysisPig(unittest.TestCase):
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
         # Signal traces and location on frame
-        # plot trace with a chosen location
-        # signal_x, signal_y = (int(stack.shape[2] * (1/2)), int(stack.shape[1] * (2/3)))     # LV Apex
-        signal_x, signal_y = (int(stack.shape[2] * (2/3)), int(stack.shape[1] * (1/2)))     # LV Base
-        signal_xy = stack[:, signal_y, signal_x]
+        # plot trace with the chosen ROI pixel
+        signal_roi = stack[:, signal_y, signal_x]
         # ax_frame.plot(signal_x, signal_y, marker='s', markeredgecolor=colors_times['Downstroke'],
         #               markersize=1)
-        ax_frame.plot(signal_x, signal_y, marker='s', markerfacecolor='None',
-                      markeredgecolor=colors_times['Downstroke'],
-                      markersize=self.kernel)
-        ax_signal_xy.plot(stack_time, signal_xy, color=gray_heavy, linestyle='None', marker='+')
+        roi_sym = ax_frame.plot(signal_x, signal_y, marker='s', markerfacecolor='None',
+                                markeredgecolor=colors_times['Downstroke'],
+                                markersize=self.kernel)
+        ax_signal_xy.plot(stack_time, signal_roi, color=gray_heavy, linestyle='None', marker='+')
 
         # plot trace with a min map value
         min_y, min_x = np.where(analysis_map == map_min)
         signal_min = stack[:, min_y[0], min_x[0]]
-        ax_frame.plot(min_x[0], min_y[0], marker='x', color=colors_times['Downstroke'], markersize=marker3)
+        min_sym = ax_frame.plot(min_x[0], min_y[0], marker='x', color=colors_times['Downstroke'], markersize=marker3)
         ax_signal_min.plot(stack_time, signal_min, color=gray_heavy, linestyle='None', marker='+')
         # plot trace with a max map value
         max_y, max_x = np.where(analysis_map == map_max)
@@ -1942,7 +1960,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_frame.plot(max_x[0], max_y[0], marker='x', color=colors_times['Downstroke'], markersize=marker1)
         ax_signal_max.plot(stack_time, signal_max, color=gray_heavy, linestyle='None', marker='+')
 
-        for ax, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_xy, signal_max]):
+        for ax, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_roi, signal_max]):
             # Signal of interest (and underlying calculations)
             snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(sig)
             snr_display = round(snr, 2)
@@ -1988,7 +2006,9 @@ class TestMapAnalysisPig(unittest.TestCase):
                           xmax=stack_time[i_activation + duration],
                           color=colors_times['Downstroke'], linewidth=2,
                           label='Downstroke')
-                # Text: Conditions
+                # Symbol on the masked frame showing this signal's source
+                ax.plot(min_sym, transform=ax.transAxes)
+                # Text: Duration and SNR
                 duration_ms = duration * (stack_time[-1] / len(stack_time))
                 ax.text(0.73, 0.9, '{} ms'.format(duration_ms),
                         color=gray_heavy, fontsize=fontsize2, transform=ax.transAxes)
