@@ -16,8 +16,8 @@ SPLINE_FIDELITY = 3
 # TODO add TV, a non-local, and a weird filter
 
 
-def spline_signal(xx, signal_in):
-    xx_signal = np.arange(0, (len(xx)))
+def spline_signal(signal_in):
+    xx_signal = np.arange(0, (len(signal_in)))
     # # Lease Square approximation
     # Computing the inner knots and using them:
     xs = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
@@ -33,8 +33,9 @@ def spline_signal(xx, signal_in):
     return xs, sql
 
 
-def spline_deriv(xx, signal_in):
-    xs, sql = spline_signal(xx, signal_in)
+def spline_deriv(signal_in):
+
+    xs, sql = spline_signal(signal_in)
 
     x_df = xs
     df_spline = sql.derivative()(xs)
@@ -83,12 +84,12 @@ def find_tran_peak(signal_in, props=False):
         signal_mean = int(np.floor(np.nanmean(signal_in)))
     signal_range = signal_bounds[1] - signal_mean
 
-    # Roughly find the peaks
-    # prominence = signal_range * 0.4
+    # Roughly find the "prominent" peaks a minimum distance from eachother
     prominence = signal_range * 0.9
+    distance = (len(signal_in) / 2)
     i_peaks, properties = find_peaks(signal_in,
                                      height=signal_mean, prominence=prominence,
-                                     distance=10)
+                                     distance=distance)
     # TODO detect dual peaks, alternans, etc.
 
     if len(i_peaks) is 0:   # no peak detected
@@ -108,102 +109,134 @@ def find_tran_peak(signal_in, props=False):
 def find_tran_baselines(signal_in, peak_side='left'):
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
+    # signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak (roughly)
     i_peaks, properties = find_tran_peak(signal_in, props=True)
     if i_peaks is np.nan:
         return np.nan
-    # if type(i_peaks) is float:
-    #     raise ArithmeticError('float i_peaks is: \'{}\' for signal with range: '
-    #                           .format(i_peaks, signal_range))
     i_peak = i_peaks[np.argmax(properties['prominences'])]
 
     # use the prominence of the peak to find a "rough" baseline
     # assumes SNR > 2.85?
-    prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.65)
-    i_baselines_far_l, i_baselines_far_r = 0, 0
+    # prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.65)
+    # i_baselines_far_l, i_baselines_far_r = 0, 0
 
-    if peak_side is 'left':
-        # Find first index below the prominence floor
-        i_baselines_far_l = np.where(signal_in[:i_peak] <= prominence_floor)[0][0]
-        i_baselines_far_r = np.where(signal_in[:i_peak] <= prominence_floor)[0][-1]
+    # # use a spline of the rough baseline and find the "flattest" section
+    # if peak_side is 'left':
+    #     # Find first index below the prominence floor
+    #     i_baselines_far_l = np.where(signal_in[:i_peak] <= prominence_floor)[0][0]
+    #     i_baselines_far_r = np.where(signal_in[:i_peak] <= prominence_floor)[0][-1]
+    #
+    #     i_baselines_all = np.arange(0, i_baselines_far_r + 1)
+    #
+    #     # derivative spline of entire signal
+    #     # xs, df_spline = spline_deriv(signal_baseline)
+    #
+    # if peak_side is 'right':
+    #     # Find first index below the prominence floor
+    #     i_baselines_far_l = np.where(signal_in[i_peak:] <= prominence_floor)[0][0] + i_peak
+    #     i_baselines_far_r = np.where(signal_in[i_peak:] <= prominence_floor)[0][-1] + i_peak
+    #
+    #     i_baselines_all = np.arange(i_baselines_far_l, len(signal_in) - 1)
+    #
+    # if len(i_baselines_all) < 20:
+    #     if peak_side is 'left':
+    #         # attempt on right side
+    #         i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
+    #         if len(i_baselines_all_r) < len(i_baselines_all):
+    #             i_baselines_all = i_baselines_all
+    #         else:
+    #             i_baselines_all = i_baselines_all_r
+    #
+    # signal_baseline = signal_in[i_baselines_all]
+    # xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
+    #
+    # # use a spline of the rough baseline and find the "flattest" section
+    # xs, df_spline = spline_deriv(signal_baseline)
 
-    if peak_side is 'right':
-        # Find first index below the prominence floor
-        i_baselines_far_l = np.where(signal_in[i_peak:] <= prominence_floor)[0][0] + i_peak
-        i_baselines_far_r = np.where(signal_in[i_peak:] <= prominence_floor)[0][-1] + i_peak
+    # TODO use more data to make derivative spline
+    xs, df_spline = spline_deriv(signal_in)
+    # find the df max before the signal's peak
+    i_peak_spline = i_peak * SPLINE_FIDELITY
 
-    i_baselines_all = np.arange(i_baselines_far_l, i_baselines_far_r+1)
-
-    if len(i_baselines_all) < 20:
-        if peak_side is 'left':
-            # attempt on right side
-            i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
-            if len(i_baselines_all_r) < len(i_baselines_all):
-                i_baselines_all = i_baselines_all
-            else:
-                i_baselines_all = i_baselines_all_r
-
-    signal_baseline = signal_in[i_baselines_all]
-    xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
-
-    # use a spline of the rough baseline and find the "flattest" section
-    xs, df_spline = spline_deriv(xx_baseline, signal_baseline)
+    # i_df_limit = 0
+    # if peak_side is 'left':
+    #     i_peak_df_search = np.arange(0, i_peak_spline)
+    #     i_peak_df = np.argmax(df_spline[i_peak_df_search])
+    #     # using the prominence of this first peak, find the farthest index before any subsequent "peaks"?
+    #     peak_df_prom = df_spline[i_peak_df] * 0.5
+    #     i_df_left = i_peak_df
+    #     for value in np.flip(df_spline[:i_peak_df]):
+    #         if abs(value) < peak_df_prom:
+    #             i_df_left = i_df_left - 1
+    #     i_start = int(len(xs[i_df_left:i_peak_df]) * (2/3))
+    #     # i_df_limit = i_df_left
 
     # TODO catch atrial-type signals and limit to the plataea before the peak
-    # starting from the center(ish) of the derivative spline
-    i_start = int(len(xs) * (2/3))
+    # starting from the center(ish) of the derivative spline before its peak
+    # i_peak_df_search = np.arange(0, i_peak_spline)
+    # i_peak_df = np.argmax(df_spline[i_peak_df_search])
+    # i_start = int(len(xs[0:i_peak_df]) * (3/5))
+
+    # i_start = int(len(xs[0:i_peak_spline]) * (2/3))
+    # start at the derivitave's min between the first 1/3 index and
+    i_start = np.argmin(df_spline[len(i_peak_spline[0:i_peak_spline]) * (1/3):i_peak_spline])
     # include indexes within 1 standard deviation of 0
-    d1f_sd = statistics.stdev(df_spline)
-    # d1f_mean = np.mean(df_spline)
-    d1f_prominence_cutoff = d1f_sd
-    # look left
+    df_sd = statistics.stdev(df_spline)
+    df_prominence_cutoff = df_sd
     i_left = i_start
     i_right = i_start
+    # look left
     for value in np.flip(df_spline[:i_start]):
-        if abs(value) < d1f_prominence_cutoff:
+        if abs(value) < df_prominence_cutoff:
             i_left = i_left - 1
+        else:
+            break
     # look right
     for value in df_spline[i_start:]:
-        if abs(value) < d1f_prominence_cutoff:
+        if abs(value) < df_prominence_cutoff:
             i_right = i_right + 1
+        else:
+            break
     # combine
     i_baselines_search = np.arange(i_left, i_right)
+    i_baselines_all = []
 
-    # # if d1f_sd < d1f_prominence_floor:
-    # #     # where the derivative is less than (min * 2)
-    # #     i_baselines_search = np.where(df_spline <= d1f_prominence_floor)[0]
-    # # else:
-    # #     # where the derivative is less than its standard deviation
-    # i_baselines_search = np.where(abs(df_spline) <= d1f_prominence_cutoff)[0]
-
-    if len(i_baselines_search) < 10:
-        return i_baselines_all
-
-    i_baselines_d1f_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
-    i_baselines_d1f_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
-
-    # use a subset of the flattest baselines
-    # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
-    # search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 4)
-    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
-    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
+    # if len(i_baselines_search) < 10:
+    #     if peak_side is 'left':
+    #         i_baselines_all_l = i_baselines_search
+    #         # attempt on right side
+    #         i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
+    #         if len(i_baselines_all_r) < len(i_baselines_search):
+    #             i_baselines_all = i_baselines_all_l
+    #         else:
+    #             i_baselines_all = i_baselines_all_r
+    # else:
+    #     i_baselines_all = i_baselines_search
 
     # use all detected indexes
-    i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
-    i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
+    i_baselines_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
+    i_baselines_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
+
+    # i_baselines_d1f_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
+    # i_baselines_d1f_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
+    #
+    # # use a subset of the flattest baselines
+    # # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
+    # # search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 4)
+    # # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
+    # # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
+    #
+    # # use all detected indexes
+    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
+    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right)
 
     if len(i_baselines) < 10:
-        # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
-        # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
-        # i_baselines = np.arange(i_baselines_left, i_baselines_right)
         return i_baselines_all
-    # if len(i_baselines) < 10:
-    #     return i_baselines_all
-
-    return i_baselines
+    else:
+        return i_baselines
 
 
 def isolate_spatial(stack_in, roi):

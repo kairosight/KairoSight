@@ -1073,7 +1073,7 @@ class TestSnrSignal(unittest.TestCase):
 
         # df/dt
         # x_signal = np.arange(0, len(self.signal), (self.signal_fps/1000))
-        x_df, df_signal = spline_deriv(x_signal, self.signal)
+        x_df, df_signal = spline_deriv(self.signal)
         # x_spline = np.arange(0, len(x_signal), (self.signal_fps/1000) / spline_fidelity)
         # x_spline = np.linspace(0, len(self.signal) - 1, len(df_spline))
         ax_df1.plot(x_df, df_signal, color=gray_med,

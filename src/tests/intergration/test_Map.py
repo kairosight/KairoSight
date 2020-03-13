@@ -1319,7 +1319,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 7
+        self.reduction = 9
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
         test_frame = rescale(stack_out[0], reduction_factor)
@@ -1572,7 +1572,7 @@ class TestMapAnalysisPig(unittest.TestCase):
             # df/dt
             x_signal = np.linspace(0, len(sig) - 1, len(sig))
             time_df = np.linspace(stack_time[0], stack_time[-2], len(sig - 1) * SPLINE_FIDELITY)
-            x_df, df_signal = spline_deriv(x_signal, sig)
+            x_df, df_signal = spline_deriv(sig)
 
             ax_df.plot(time_df, df_signal, color=gray_med,
                        linestyle='-', label='dF/dt')
@@ -1756,7 +1756,7 @@ class TestMapAnalysisPig(unittest.TestCase):
                 # df/dt
                 x_signal = np.linspace(0, len(sig) - 1, len(sig))
                 time_df = np.linspace(stack_time[0], stack_time[-2], len(sig - 1) * SPLINE_FIDELITY)
-                x_df, df_signal = spline_deriv(x_signal, sig)
+                x_df, df_signal = spline_deriv(sig)
                 ax_df.plot(time_df, df_signal, color=gray_med,
                            linestyle='-', label='dF/dt')
 
@@ -1995,7 +1995,7 @@ class TestMapAnalysisPig(unittest.TestCase):
                 # df/dt
                 x_signal = np.linspace(0, len(sig) - 1, len(sig))
                 time_df = np.linspace(stack_time[0], stack_time[-2], len(sig - 1) * SPLINE_FIDELITY)
-                x_df, df_signal = spline_deriv(x_signal, sig)
+                x_df, df_signal = spline_deriv(sig)
                 ax_df.plot(time_df, df_signal, color=gray_med,
                            linestyle='-', label='dF/dt')
 

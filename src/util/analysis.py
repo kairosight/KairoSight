@@ -118,7 +118,7 @@ def find_tran_act(signal_in):
     signal_search = signal_in[search_min:search_max]
 
     # use a LSQ spline
-    x_df, signal_search_df = spline_deriv(xx_search, signal_search)
+    x_df, signal_search_df = spline_deriv(signal_search)
 
     # find the 1st derivative max within the search area (first few are likely to be extreme)
     # search_df_min =
@@ -159,8 +159,9 @@ def find_tran_downstroke(signal_in):
     # Limit search to after the peak and before the end
     i_peak = find_tran_peak(signal_in)
     search_min = i_peak
-    i_baseline = find_tran_baselines(signal_in, peak_side='right')
-    search_max = max(i_baseline)
+    # i_baseline = find_tran_baselines(signal_in, peak_side='right')
+    # search_max = max(i_baseline)
+    search_max = len(signal_in) - 1
 
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
     spl = UnivariateSpline(time_x, signal_in)
@@ -200,8 +201,9 @@ def find_tran_end(signal_in):
     search_min = i_downstroke
     # first index after peak where the signal < before its start value,
     # e.g. at signal[((i_peak - i_act) * 3)] before the activation
-    i_baseline = find_tran_baselines(signal_in, peak_side='right')
-    search_max = max(i_baseline)
+    # i_baseline = find_tran_baselines(signal_in, peak_side='right')
+    # search_max = max(i_baseline)
+    search_max = len(signal_in) - 1
 
     # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
     # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
@@ -783,12 +785,13 @@ def calc_ensemble_stack(time_in, stack_in):
     peak_1_min_crop = (i_peak_1_min - est_cycle_i, i_peak_1_min + est_cycle_i)
     pixel_data_peak_1_min = pixel_data[peak_1_min_crop[0]: peak_1_min_crop[1]]
 
-    i_peak_1_min_baselines_l = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
-    i_peak_1_min_baselines_r = find_tran_baselines(pixel_data_peak_1_min, peak_side='right')
+    # i_peak_1_min_baselines_l = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
+    # i_peak_1_min_baselines_r = find_tran_baselines(pixel_data_peak_1_min, peak_side='right')
 
     # ensemble_crop = (i_peak_1_min_baselines_l[-1], i_peak_1_min_baselines_r[1])
-    ensemble_crop = (i_peak_1_min_baselines_l[1] + peak_1_min_crop[0],
-                     i_peak_1_min_baselines_r[-1] + peak_1_min_crop[0])
+    # ensemble_crop = (i_peak_1_min_baselines_l[1] + peak_1_min_crop[0],
+    #                  i_peak_1_min_baselines_r[-1] + peak_1_min_crop[0])
+    ensemble_crop = peak_1_min_crop
     ensemble_crop_len = ensemble_crop[1] - ensemble_crop[0]
 
     # 3) Use the cycle time and time of that peak to align all ensembled signals

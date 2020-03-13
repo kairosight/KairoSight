@@ -237,14 +237,14 @@ class TestActivation(unittest.TestCase):
         # # d2f_smooth = spl_df_smooth(time_x, nu=1)
 
         # df/dt
-        df_spline, spline_fidelity = spline_deriv(self.time, self.signal)
-        ax_dfs.plot(df_spline,
-                    color=gray_med, linestyle='--', label='dF/dt')
+        # df_spline, spline_fidelity = spline_deriv(self.signal)
+        # ax_dfs.plot(df_spline,
+        #             color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
         # ax_dfs.plot(self.time, d2f_smooth,
         #             color=gray_med, linestyle=':', label='d2F/dt2')
-        df_max = round(max(df_spline, key=abs) + 5.1, -1)
-        ax_dfs.set_ylim([-df_max, df_max])
+        # df_max = round(max(df_spline, key=abs) + 5.1, -1)
+        # ax_dfs.set_ylim([-df_max, df_max])
 
         # Activation
         i_act = find_tran_act(self.signal)  # 1st df max, Activation
