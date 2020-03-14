@@ -12,7 +12,6 @@ TRAN_MAX = 500
 RISE_MAX = 150
 # Colormap and normalization limits for Activation maps (ms)
 ACT_MAX = 150
-ACT_MAX_PIG = 400
 # Colormap and normalization limits for Duration maps (ms)
 DUR_MIN = 20
 DUR_MAX = 300
@@ -100,33 +99,31 @@ def find_tran_act(signal_in):
         return np.nan
     i_baselines = find_tran_baselines(signal_in, peak_side='left')
     # i_baseline = int(np.median(i_baselines))
-    i_baseline = i_baselines[0]  # TODO try the first baseline index
+    if i_baselines is np.nan or len(i_baselines) < 5:
+        return np.nan
+    # if i_baseline < i_peak:
+    search_min = i_baselines[-1]  # TODO try the last baseline index
 
-    if i_baseline < i_peak:
-        search_min = i_baseline
-    else:   # not enough baselines before the peak
-        # search_min = 0  # not enough baselines before the peak, use everything before the peak
-        search_min = np.argmin(signal_in[:i_peak])      # use the min value before the peak
+    # else:   # not enough baselines before the peak
+    #     # search_min = 0  # not enough baselines before the peak, use everything before the peak
+    #     search_min = np.argmin(signal_in[:i_peak])      # use the min value before the peak
 
-    # TODO limit to BEFORE the peak
-    search_max_calc = i_peak + int((len(signal_in[i_peak:]) * (2/3)))   # a bit after the peak, based on length of signal
-    search_max_backup = i_peak + 5                                      # a bit after the peak, arbitrary length
-    search_max = np.nanmin((search_max_calc, search_max_backup))
+    # limit to BEFORE the peak
+    # search_max_calc = i_peak + int((len(signal_in[i_peak:]) * (2/3)))   # a bit after the peak, some length of signal
+    # search_max_backup = i_peak + 5                                      # a bit after the peak, arbitrary length
+    # search_max = np.nanmin((search_max_calc, search_max_backup))
+    search_max = i_peak
 
-    xx_search = np.linspace(search_min, search_max - 1,
-                            search_max - search_min)
-    signal_search = signal_in[search_min:search_max]
+    # xx_search = np.linspace(search_min, search_max - 1,
+    #                         search_max - search_min)
+    # signal_search = signal_in[search_min:search_max]
 
-    # use a LSQ spline
-    x_df, signal_search_df = spline_deriv(signal_search)
+    # use a LSQ spline of entire signal
+    x_df, signal_df = spline_deriv(signal_in)
 
     # find the 1st derivative max within the search area (first few are likely to be extreme)
-    # search_df_min =
-    i_act_search_df = np.argmax(signal_search_df[3:]) + 3
+    i_act_search_df = np.argmax(signal_df[search_min * SPLINE_FIDELITY:search_max * SPLINE_FIDELITY])
     i_act_search = int(np.floor(i_act_search_df / SPLINE_FIDELITY))
-
-    # # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-    # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
 
     i_activation = search_min + i_act_search
 

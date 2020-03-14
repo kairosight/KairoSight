@@ -1,6 +1,6 @@
 import os
 import time
-from memory_profiler import profile
+# from memory_profiler import profile
 from math import floor
 import numpy as np
 from pathlib import Path, PurePath

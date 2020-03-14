@@ -28,7 +28,7 @@ marker1, marker2, marker3, marker4 = [25, 20, 10, 5]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
-color_snr = '#858490'
+color_snr = '#798490'
 colors_times = {'Start': '#C07B60',
                 'Activation': '#842926',
                 'Peak': '#4B133D',
@@ -36,16 +36,17 @@ colors_times = {'Start': '#C07B60',
                 'End': '#94B0C3',
                 'Baseline': '#C5C3C2'}  # SCMapsViko, circular colormap
 # Colormap for SNR maps
-SNR_MAX = 100
 cmap_snr = SCMaps.tokyo
 cmap_snr.set_bad(color=gray_light, alpha=0)
 
 # Colormaps for analysis maps
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
+ACT_MAX_PIG = 250
 cmap_duration = SCMaps.oslo.reversed()
 cmap_duration.set_bad(color=gray_light, alpha=0)
 DUR_MIN_PIG = 80
+DUR_MAX_PIG = DUR_MAX
 
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
@@ -1564,10 +1565,10 @@ class TestMapAnalysisPig(unittest.TestCase):
             peak_peak_display = round(peak_peak, 2)
             sd_noise_display = round(sd_noise, 2)
 
+            ax.plot(stack_time[ir_noise], sig[ir_noise],
+                    "x", color=color_snr, markersize=marker4)
             ax.plot(stack_time[i_peak], sig[i_peak],
                     "x", color=colors_times['Peak'], markersize=marker3)
-            ax.plot(stack_time[ir_noise], sig[ir_noise],
-                    "x", color=color_snr, markersize=marker3)
 
             # df/dt
             x_signal = np.linspace(0, len(sig) - 1, len(sig))
@@ -1957,6 +1958,25 @@ class TestMapAnalysisPig(unittest.TestCase):
         # frame_signal_spot = Rectangle((self.d_x, signal_y), self.stack.shape[1], self.stack.shape[0], 3,
         #                            fc=colors_times['Activation'], ec=gray_heavy, lw=1, linestyle='--')
 
+
+        # Duration Map
+        map_img = ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
+        # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
+        #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
+        cmap_norm_duration = colors.Normalize(vmin=map_min_display,
+                                              vmax=map_max_display)
+        img_map = ax_map.imshow(analysis_map, norm=cmap_norm_duration, cmap=cmap_duration)
+        map_scale_bar = AnchoredSizeBar(ax_map.transData, heart_scale[0], size_vertical=0.2,
+                                        label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
+                                        fontproperties=fm.FontProperties(size=7, weight='semibold'))
+        ax_map.add_artist(map_scale_bar)
+        # Add colorbar (right of map)
+        hist_bins = map_max_display
+        map_range = (map_min_display, map_max_display)
+        add_map_colorbar_stats(ax_map, img_map, analysis_map, map_range,
+                               unit='ms', bins=hist_bins, stat_color=colors_times['Downstroke'])
+
+
         # Signal traces and location on frame
         # plot trace with the chosen ROI pixel
         signal_roi = stack[:, signal_y, signal_x]
@@ -1979,7 +1999,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         for ax, ax_df, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max],
                                   [ax_df_min, ax_df_xy, ax_df_max],
                                   [signal_min, signal_roi, signal_max]):
-
+            print('* Plotting a signal *')
             # for ax, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max], [signal_min, signal_roi, signal_max]):
             # Signal of interest (and underlying calculations)
             snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(sig)
@@ -2028,10 +2048,11 @@ class TestMapAnalysisPig(unittest.TestCase):
                           color=gray_light, linestyle=':',
                           label='{}% of Peak-Peak'.format(dur_percent))
 
+                color_duration = map_img.cmap(duration)
                 ax.hlines(y=sig[i_activation + duration],
                           xmin=stack_time[i_activation],
                           xmax=stack_time[i_activation + duration],
-                          color=colors_times['Downstroke'], linewidth=2,
+                          color=color_duration, linewidth=2,
                           label='Downstroke')
                 # Symbol on the masked frame showing this signal's source
                 # ax.plot(min_sym, transform=ax.transAxes)
@@ -2048,23 +2069,6 @@ class TestMapAnalysisPig(unittest.TestCase):
                 # print("* Failed to calculate/plot a signal:\n\t" + str(exctype) + ' : ' + str(exvalue) +
                 #       '\n\t\t' + str(traceback))
                 traceback.print_exc(file=sys.stdout)
-
-        # Duration Map
-        ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
-        # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
-        #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
-        cmap_norm_duration = colors.Normalize(vmin=map_min_display,
-                                              vmax=map_max_display)
-        img_map = ax_map.imshow(analysis_map, norm=cmap_norm_duration, cmap=cmap_duration)
-        map_scale_bar = AnchoredSizeBar(ax_map.transData, heart_scale[0], size_vertical=0.2,
-                                        label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
-                                        fontproperties=fm.FontProperties(size=7, weight='semibold'))
-        ax_map.add_artist(map_scale_bar)
-        # Add colorbar (right of map)
-        hist_bins = map_max_display
-        map_range = (map_min_display, map_max_display)
-        add_map_colorbar_stats(ax_map, img_map, analysis_map, map_range,
-                               unit='ms', bins=hist_bins, stat_color=colors_times['Downstroke'])
 
         fig_map.savefig(dir_integration + '/results/MapPig_Duration_{}.png'.format(self.file_name))
         fig_map.show()

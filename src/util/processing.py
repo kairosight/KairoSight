@@ -2,17 +2,19 @@ import statistics
 import sys
 
 import numpy as np
-from numpy import linalg
-from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline, make_lsq_spline, LSQUnivariateSpline
-from scipy.signal import find_peaks, resample, filtfilt, kaiserord, firwin, firwin2, \
-    lfilter, butter, freqs, freqz, minimum_phase, savgol_filter
+from scipy.interpolate import LSQUnivariateSpline
+from scipy.signal import find_peaks, filtfilt, kaiserord, firwin, butter
 from scipy.optimize import curve_fit
 from skimage.morphology import square
-from skimage.restoration import denoise_tv_chambolle, estimate_sigma
+# from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
 from skimage.filters.rank import median, mean, mean_bilateral
+
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 SPLINE_FIDELITY = 3
+SNR_MAX = 100
+
+
 # TODO add TV, a non-local, and a weird filter
 
 
@@ -21,7 +23,7 @@ def spline_signal(signal_in):
     # # Lease Square approximation
     # Computing the inner knots and using them:
     xs = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
-    n_knots = 25    # number of knots to us in LSQ spline
+    n_knots = 25  # number of knots to us in LSQ spline
     t_knots = np.linspace(xx_signal[0], xx_signal[-1], n_knots)  # equally spaced knots in the interval
     t_knots = t_knots[1:-1]  # take only the three inner values
     # t_knots = [0, 1, 2, 3]
@@ -34,7 +36,6 @@ def spline_signal(signal_in):
 
 
 def spline_deriv(signal_in):
-
     xs, sql = spline_signal(signal_in)
 
     x_df = xs
@@ -69,14 +70,14 @@ def find_tran_peak(signal_in, props=False):
 
     # Characterize the signal
     unique, counts = np.unique(signal_in, return_counts=True)
-    if len(unique) < 10:    # signal is too flat to have a valid peak
+    if len(unique) < 10:  # signal is too flat to have a valid peak
         if props:
             return np.nan, np.nan
         else:
             return np.nan
 
     # Replace NaNs with 0
-    signal_in = np.nan_to_num(signal_in, copy=False, nan=0)
+    # signal_in = np.nan_to_num(signal_in, copy=False, nan=0)
 
     signal_bounds = (signal_in.min(), signal_in.max())
     signal_mean = np.nanmean(signal_in)
@@ -92,7 +93,7 @@ def find_tran_peak(signal_in, props=False):
                                      distance=distance)
     # TODO detect dual peaks, alternans, etc.
 
-    if len(i_peaks) is 0:   # no peak detected
+    if len(i_peaks) is 0:  # no peak detected
         if props:
             return np.nan, np.nan
         else:
@@ -155,13 +156,11 @@ def find_tran_baselines(signal_in, peak_side='left'):
     # xs, df_spline = spline_deriv(signal_baseline)
 
     # TODO use more data to make derivative spline
-    xs, df_spline = spline_deriv(signal_in)
-    # find the df max before the signal's peak
-    i_peak_spline = i_peak * SPLINE_FIDELITY
+    xdf, df_spline = spline_deriv(signal_in)
 
     # i_df_limit = 0
     # if peak_side is 'left':
-    #     i_peak_df_search = np.arange(0, i_peak_spline)
+    #     i_peak_df_search = np.arange(0, i_peak_df)
     #     i_peak_df = np.argmax(df_spline[i_peak_df_search])
     #     # using the prominence of this first peak, find the farthest index before any subsequent "peaks"?
     #     peak_df_prom = df_spline[i_peak_df] * 0.5
@@ -174,16 +173,31 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     # TODO catch atrial-type signals and limit to the plataea before the peak
     # starting from the center(ish) of the derivative spline before its peak
-    # i_peak_df_search = np.arange(0, i_peak_spline)
+    # i_peak_df_search = np.arange(0, i_peak_df)
     # i_peak_df = np.argmax(df_spline[i_peak_df_search])
     # i_start = int(len(xs[0:i_peak_df]) * (3/5))
 
-    # i_start = int(len(xs[0:i_peak_spline]) * (2/3))
-    # start at the derivitave's min between the first 1/3 index and
-    i_start = np.argmin(df_spline[len(i_peak_spline[0:i_peak_spline]) * (1/3):i_peak_spline])
-    # include indexes within 1 standard deviation of 0
+    # find the df max before the signal's peak (~ large rise time)
+    df_max_offset = int((i_peak * SPLINE_FIDELITY) * (2/3))
+    i_peak_df = df_max_offset + np.argmax(df_spline[df_max_offset:i_peak * SPLINE_FIDELITY])
+
+    # i_start = int(len(xs[0:i_peak_df]) * (2/3))
+    # start at the derivitave's min in a local rising area (before the peak and after an arbitrary point)
+    i_start_search_l = int(i_peak_df * (1 / 2))
+    # df_local = df_spline[i_start_search_l:i_peak_df]   # local df area
+
+    # # use the 2nd derivative to set the search
+    # xdf2, df_2_spline = spline_deriv(df_spline)
+
+    i_start = i_start_search_l
+    # i_start = int(i_peak_df * (2/3))
+    # include indexes within the standard deviation of the local area of the derivative
     df_sd = statistics.stdev(df_spline)
     df_prominence_cutoff = df_sd
+    # df_prominence_cutoff = np.mean(df_spline)
+    # if df_prominence_cutoff < 0.3:
+    #     df_prominence_cutoff = 0.3  # minimum SD cutoff
+
     i_left = i_start
     i_right = i_start
     # look left
@@ -200,7 +214,6 @@ def find_tran_baselines(signal_in, peak_side='left'):
             break
     # combine
     i_baselines_search = np.arange(i_left, i_right)
-    i_baselines_all = []
 
     # if len(i_baselines_search) < 10:
     #     if peak_side is 'left':
@@ -213,6 +226,15 @@ def find_tran_baselines(signal_in, peak_side='left'):
     #             i_baselines_all = i_baselines_all_r
     # else:
     #     i_baselines_all = i_baselines_search
+    if (i_right > i_peak_df) or (len(i_baselines_search) is 0):
+        print('\t*{} gives {}-{}\ti_start\t{}\tfrom peak\t{}'.format(df_prominence_cutoff, i_left, i_right,
+                                                                     i_start, i_peak_df))
+        # if i_right > i_peak_df:
+        if len(i_baselines_search) is 0:
+            return np.nan
+
+        return np.arange(i_left, i_start)
+        # return np.arange(i_start, int(i_peak_df / SPLINE_FIDELITY))
 
     # use all detected indexes
     i_baselines_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
@@ -233,10 +255,7 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right)
 
-    if len(i_baselines) < 10:
-        return i_baselines_all
-    else:
-        return i_baselines
+    return i_baselines
 
 
 def isolate_spatial(stack_in, roi):
@@ -346,7 +365,7 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
         frame_out = mean_bilateral(frame_in, square(kernel))
     elif filter_type is 'gaussian':
         # Good for ___, but ___
-        sigma = kernel # standard deviation of the gaussian kernel
+        sigma = kernel  # standard deviation of the gaussian kernel
         frame_out = gaussian(frame_in, sigma=sigma, mode='mirror', preserve_range=True)
     else:
         raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
@@ -431,13 +450,13 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
         # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html
         # Compute the order and Kaiser parameter for the FIR filter.
         ripple_db = 30.0
-        width = 20   # The desired width of the transition from pass to stop, Hz
+        width = 20  # The desired width of the transition from pass to stop, Hz
         window = 'kaiser'
         n_order, beta = kaiserord(ripple_db, width / nyq_rate)
         # Use firwin with a Kaiser window to create a lowpass FIR filter.
         taps = firwin(numtaps=n_order + 1, cutoff=freq_cutoff, window=(window, beta), fs=sample_rate)
         # signal_out = lfilter(taps, 1.0, signal_in)   # for FIR, a=1
-        signal_out = filtfilt(taps, 1, signal_in, method="gust")   # for FIR, a=1
+        signal_out = filtfilt(taps, 1, signal_in, method="gust")  # for FIR, a=1
         # # Savitzky Golay
         # window_coef = int(nyq_rate / 50)
         #
@@ -491,7 +510,7 @@ def filter_drift(signal_in, drift_order=2):
             raise ValueError('Drift order "{}" not implemented'.format(drift_order))
 
     def func_exp(x, a, b, c):
-        return a * np.exp(-b * x) + c   # a decaying exponential curve to fit to
+        return a * np.exp(-b * x) + c  # a decaying exponential curve to fit to
 
     # TODO drift model must be fit to baseline data (pre & post transient)
     drift_range = signal_in.max() - signal_in.min()
@@ -501,7 +520,7 @@ def filter_drift(signal_in, drift_order=2):
         return signal_in, drift_out
 
     drift_x = np.arange(start=0, stop=len(signal_in))
-    exp_b_estimates = (0.01, 0.1)   # assumed bounds of the B constant for a decaying exponential fit
+    exp_b_estimates = (0.01, 0.1)  # assumed bounds of the B constant for a decaying exponential fit
 
     if type(drift_order) is int:
         # np.polyfit : Least squares polynomial fit
@@ -510,7 +529,7 @@ def filter_drift(signal_in, drift_order=2):
     else:
         # scipy.optimize.curve_fit : Use non-linear least squares to fit a function, f, to data
         exp_bounds_lower = [0, exp_b_estimates[0], signal_in.min()]
-        exp_bounds_upper = [drift_range*2, exp_b_estimates[1], signal_in.max()]
+        exp_bounds_upper = [drift_range * 2, exp_b_estimates[1], signal_in.max()]
         try:
             # popt, pcov = curve_fit(func_exp, drift_x, signal_in)
             popt, pcov = curve_fit(func_exp, drift_x, signal_in, bounds=(exp_bounds_lower, exp_bounds_upper))
@@ -747,13 +766,13 @@ def calculate_snr(signal_in, noise_count=10):
     i_noise_calc = find_tran_baselines(signal_in)
     # i_noise_calc = range(np.argmin(signal_in), np.argmin(signal_in) + 10)
 
-    if len(i_noise_calc) < 5:
+    if i_noise_calc is np.nan or len(i_noise_calc) < 5:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     data_noise = signal_in[i_noise_calc]
 
     # Use noise values
     noise_rms = np.sqrt(np.mean(data_noise) ** 2)
-    noise_sd = statistics.stdev(data_noise.astype(float)) # standard deviation
+    noise_sd = statistics.stdev(data_noise.astype(float))  # standard deviation
 
     # Calculate Peak-Peak value
     peak_peak = abs(peak_value - noise_rms)
@@ -857,7 +876,7 @@ def calculate_error(ideal, modified):
     if modified.dtype not in [int, np.uint16, float]:
         raise TypeError('Modified values must either be "int", "uint16" or "float"')
 
-    MIN = 1    # Min to avoid division by 0
+    # MIN = 1  # Min to avoid division by 0
 
     error = ((modified.astype(float) - ideal.astype(float)) / (ideal.astype(float)) * 100)
     error_mean = error.mean()

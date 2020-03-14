@@ -1066,8 +1066,8 @@ class TestSnrSignal(unittest.TestCase):
                      ".", color=color_raw, markersize=signal_markersize, label='Noise')
         ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
         # spline
-        x_signal = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        x_sp, spline = spline_signal(x_signal, self.signal)
+        # x_signal = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        x_sp, spline = spline_signal(self.signal)
         ax_data.plot(x_sp, spline(x_sp), color=color_filtered,
                      linestyle='-', label='LSQ spline')
 
@@ -1102,7 +1102,7 @@ class TestSnrSignal(unittest.TestCase):
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
-        # fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
+        fig_snr.savefig(dir_unit + '/results/processing_SNRDetection.png')
         fig_snr.show()
 
     def test_stats(self):
