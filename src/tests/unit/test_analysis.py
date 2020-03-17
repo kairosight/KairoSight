@@ -391,31 +391,29 @@ class TestAnalysisPoints(unittest.TestCase):
             ax.spines['left'].set_visible(False)
             ax.spines['top'].set_visible(False)
             ax.spines['bottom'].set_visible(False)
-            ax.set_xlim(self.zoom_t)
+            # ax.set_xlim(self.zoom_t)
             ax.set_yticks([])
             ax.set_yticklabels([])
 
         # Plot signals and points
         ax_data.plot(self.time, self.signal, color=gray_heavy,
                      linestyle='-', marker='.', markersize=points_lw * 3, label='Vm (Model)')
-        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
+        # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
 
-        spl = UnivariateSpline(time_x, self.signal, ext='zeros')
-        df_spline = spl(time_x, nu=1, ext='zeros')
+        # spl = UnivariateSpline(time_x, self.signal, ext='zeros')
+        # df_spline = spl(time_x, nu=1, ext='zeros')
         # smooth the 1st with a Savitzky Golay filter
         # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-        d1f_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-        spl_df_smooth = UnivariateSpline(time_x, d1f_smooth, ext='zeros')
-
-        d2f_smooth = spl_df_smooth(time_x, nu=1, ext='zeros')
+        xx_d1f, d1f_smooth = spline_deriv(self.signal)
+        xx_d2f, d2f_smooth = spline_deriv(d1f_smooth)
 
         # df/dt
-        ax_df1.plot(self.time, d1f_smooth, color=gray_med,
+        ax_df1.plot(xx_d1f, d1f_smooth, color=gray_med,
                     linestyle='--', label='dF/dt')
         ax_df1.hlines(0, xmin=0, xmax=self.zoom_t[1], color=gray_light, linewidth=1)
         d1f_max = round(abs(max(d1f_smooth, key=abs)) + 0.5, -1)
         # d2f/dt2
-        ax_df2.plot(self.time, d2f_smooth, color=gray_med,
+        ax_df2.plot(xx_d2f, d2f_smooth, color=gray_med,
                     linestyle=':', label='d2F/dt2')
         ax_df2.hlines(0, xmin=0, xmax=self.zoom_t[1], color=gray_light, linewidth=1)
         ax_df1.set_ylim([-d1f_max, d1f_max])

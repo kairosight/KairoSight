@@ -1,5 +1,5 @@
 import unittest
-from memory_profiler import profile
+# from memory_profiler import profile
 from util.datamodel import *
 from util.preparation import *
 import sys
@@ -357,19 +357,31 @@ class TestMaskGenerate(unittest.TestCase):
         # # frame_1 = np.concatenate((frame_model, frame_border1), axis=1)
         # self.frame_model = frame_model
 
-        # File paths and files needed for tests
         # Load data to test with
-        exp_name = 'Developmental: 2 wk'
-        file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # exp_name = 'Developmental: 6 wk'
+        self.exp_name = '2-wk old'
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
+        # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
+        # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
+
+        # self.exp_name = '6-wk old'
+        # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
+
+        self.file_path = dir_tests + '/data/' + file_path_local
+        study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd
+        self.file_name = file_path_local.split(sep='/')[-1].split(sep='(')[0]  # e.g. 08-228_Vm
+        self.test_name = '{}, {}, {}'.format(self.exp_name, study_name, self.file_name)
+        # #
+
         # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
         # file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
         # file_name_pig = '2019/12/13 pigb-03, PCL 300ms'
         # file_stack_pig = dir_tests + '/data/20191213-piga/03-300_Ca.tif'
         # file_name_pig = '2019/03/22 pigb-01, PCL 350ms'
         # file_stack_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_transient.tif'
-        self.file_name, self.file_stack = file_name_pig, file_stack_pig
         # file_name_rat = '2020/01/09 rata-05, PCL 200ms'
         # file_stack_rat = dir_tests + '/data/20200109-rata/05-200_Ca_451-570.tif'
         # self.file_name, self.file_stack = file_name_rat, file_stack_rat
@@ -381,7 +393,8 @@ class TestMaskGenerate(unittest.TestCase):
         print("sys.maxsize : " + str(sys.maxsize) +
               ' \nIs it greater than 32-bit limit? : ' + str(sys.maxsize > 2 ** 32))
 
-        self.stack1, self.meta1 = open_stack(source=self.file_stack)
+        # self.scale_cm_px = 1 / self.scale_px_cm
+        self.stack1, self.meta1 = open_stack(source=self.file_path)
         self.frame1 = self.stack1[10, :, :]
 
     # @profile
@@ -444,7 +457,8 @@ class TestMaskGenerate(unittest.TestCase):
     def test_plot(self):
         # Make sure mask looks correct real data
         mask_type = 'Random_walk'
-        frame_masked, frame_mask = mask_generate(self.frame1, mask_type)
+        strict = 1
+        frame_masked, frame_mask = mask_generate(self.frame1, mask_type, strict)
 
         fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
         axis_in = fig_mask.add_subplot(131)
@@ -460,7 +474,7 @@ class TestMaskGenerate(unittest.TestCase):
             ax.set_yticklabels([])
             ax.set_xticks([])
             ax.set_xticklabels([])
-        fig_mask.suptitle('Masking, {}\n({})'.format(mask_type, self.file_name))
+        fig_mask.suptitle('Masking: {}, strictness:{}\n({})'.format(mask_type, strict, self.test_name))
         # axis_in.set_title('Input frame')
         # axis_mask.set_title('Mask')
         # axis_masked.set_title('Masked frame')
@@ -470,7 +484,9 @@ class TestMaskGenerate(unittest.TestCase):
         img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
-        fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig2wk.png')
+        # fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig2wk.png')
+        fig_mask.savefig(dir_unit + '/results/prep_Mask_{}_{}.png'.
+                         format(self.exp_name, self.file_name))
         fig_mask.show()
 
 

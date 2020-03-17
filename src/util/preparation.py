@@ -210,7 +210,7 @@ def crop_stack(stack_in, d_x=False, d_y=False):
     return stack_out
 
 
-def mask_generate(frame_in, mask_type='Otsu_global'):
+def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
     """Generate a mask for a frame 2-D array (Y, X) of grayscale optical data
     using binary threshold (histogram-based or local) or segmentation algorithms.
 
@@ -220,6 +220,9 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
             A 2-D array (Y, X) of optical data, dtype : uint16 or float
        mask_type : str  # TODO add masking via SNR
             The type of masking thresholding algorithm to use, default : Otsu_global
+       strict : int, optional
+            How strict to be with any adjustable masking methods, default : 3
+            Ranges from 0 to 6
 
        Returns
        -------
@@ -237,6 +240,8 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         raise TypeError('Frame values must either be "np.uint16" or "float"')
     if type(mask_type) is not str:
         raise TypeError('Filter type must be a "str"')
+    if type(strict) is not int:
+        raise TypeError('Strictness type must be an "int"')
 
     if mask_type not in MASK_TYPES:
         raise ValueError('Filter type must be one of the following: {}'.format(MASK_TYPES))
@@ -260,38 +265,36 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
         frame_out[mask] = 0
 
     elif mask_type is 'Random_walk':
-        # The range of the binary image spans over (-1, 1).
-        # We choose the hottest and the coldest pixels as markers.
+        # https://scikit-image.org/docs/0.13.x/auto_examples/segmentation/plot_random_walker_segmentation.html
+        # The range of the binary image spans over (-1, 1)
+        # We choose extreme tails of the histogram as markers, and use diffusion to fill in the rest.
         frame_in_float = img_as_float(frame_in)
-        # TODO "smooth" before marking for mask
-        # reduction_factor = 1 / 5
-        # frame_in_rescale_space = rescale(frame_in_float, reduction_factor)
-
         frame_in_rescale = rescale_intensity(frame_in_float,
                                              in_range=(frame_in_float.min(), frame_in_float.max()),
                                              out_range=(-1, 1))
         markers = np.zeros(frame_in_rescale.shape)
-        # Darkish half and lightish half
-        # TODO calculate these bounds
         otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
         # calculate thresholds between -1 and otsu: darkest to lightest
-        dark_otsu = np.mean([-1, otsu])
-        darker_otsu = np.mean([-1, dark_otsu])
-        darkest_otsu = np.mean([-1, darker_otsu])
-        lighter_otsu = np.mean([dark_otsu, otsu])
-        lightest_otsu = np.mean([lighter_otsu, otsu])
-        light_otsu = np.mean([dark_otsu, lighter_otsu])
+        # dark_otsu = np.mean([-1, otsu])
+        # darker_otsu = np.mean([-1, dark_otsu])
+        # darkest_otsu = np.mean([-1, darker_otsu])
+        # lighter_otsu = np.mean([dark_otsu, otsu])
+        # lightest_otsu = np.mean([lighter_otsu, otsu])
+        # light_otsu = np.mean([dark_otsu, lighter_otsu])
 
-        adjusted_otsu = dark_otsu
-        # # adjusted_otsu = global_otsu - (abs((-1 - global_otsu)/2))
+        num_otsus = 9
+        otsus = np.linspace(-1, otsu, num=num_otsus)
+        markers_dark_cutoff = otsus[1]
+        markers_light_cutoff = otsus[-((num_otsus - 6) + strict)]
 
-        print('* Masking with Otsu value: {}'.format(adjusted_otsu))
-        markers[frame_in_rescale < adjusted_otsu] = 1
-        markers[frame_in_rescale >= adjusted_otsu] = 2
+        print('* Marking Random Walk with Otsu values: {} & {}'
+              .format(round(markers_dark_cutoff, 2), round(markers_light_cutoff, 2)))
+        markers[frame_in_rescale < markers_dark_cutoff] = 1
+        markers[frame_in_rescale > markers_light_cutoff] = 2
 
         # Run random walker algorithm
-        binary_random_walk = random_walker(frame_in_rescale, markers, beta=2, mode='bf')
-        # Keep the largest region, as a np.uint16
+        binary_random_walk = random_walker(frame_in_rescale, markers, beta=50, mode='bf')
+        # Keep the largest bright region
         labeled_mask = label(binary_random_walk)
         largest_mask = np.empty_like(labeled_mask, dtype=np.bool_)
         largest_region_area = 0
@@ -301,15 +304,15 @@ def mask_generate(frame_in, mask_type='Otsu_global'):
             # for prop in region_prop:
             #     print(prop, region_prop[prop])
             # use the second-largest region
+            print('* Region #{}\t:\tint: _\tarea: {}'
+                  .format(idx + 1, region_prop.area))
             if region_prop.area < 2:
                 pass
             if region_prop.area > largest_region_area and region_prop.label > 1:
-                print('* Region #{}\t:\tint: _\tarea: {}'
-                      .format(idx + 1, region_prop.area))
                 largest_region_area = region_prop.area
                 largest_mask[labeled_mask == region_prop.label] = False
                 largest_mask[labeled_mask != region_prop.label] = True
-                print('* Using #{} area: {}'
+                print('\t* Using #{} area: {}'
                       .format(idx+1, region_prop.area))
 
         frame_out[largest_mask] = 0

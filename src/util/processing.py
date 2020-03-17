@@ -85,6 +85,7 @@ def find_tran_peak(signal_in, props=False):
         signal_mean = int(np.floor(np.nanmean(signal_in)))
     signal_range = signal_bounds[1] - signal_mean
 
+    # TODO use a LSQ spline (avoid extreme sample issues)
     # Roughly find the "prominent" peaks a minimum distance from eachother
     prominence = signal_range * 0.9
     distance = (len(signal_in) / 2)
@@ -168,52 +169,63 @@ def find_tran_baselines(signal_in, peak_side='left'):
     #     for value in np.flip(df_spline[:i_peak_df]):
     #         if abs(value) < peak_df_prom:
     #             i_df_left = i_df_left - 1
-    #     i_start = int(len(xs[i_df_left:i_peak_df]) * (2/3))
+    #     i_start_df = int(len(xs[i_df_left:i_peak_df]) * (2/3))
     #     # i_df_limit = i_df_left
 
     # TODO catch atrial-type signals and limit to the plataea before the peak
     # starting from the center(ish) of the derivative spline before its peak
     # i_peak_df_search = np.arange(0, i_peak_df)
     # i_peak_df = np.argmax(df_spline[i_peak_df_search])
-    # i_start = int(len(xs[0:i_peak_df]) * (3/5))
+    # i_start_df = int(len(xs[0:i_peak_df]) * (3/5))
 
     # find the df max before the signal's peak (~ large rise time)
-    df_max_offset = int((i_peak * SPLINE_FIDELITY) * (2/3))
-    i_peak_df = df_max_offset + np.argmax(df_spline[df_max_offset:i_peak * SPLINE_FIDELITY])
+    df_max_search_left = int((i_peak * SPLINE_FIDELITY) * (2/3))
+    i_peak_df = df_max_search_left + np.argmax(df_spline[df_max_search_left:i_peak * SPLINE_FIDELITY])
 
-    # i_start = int(len(xs[0:i_peak_df]) * (2/3))
-    # start at the derivitave's min in a local rising area (before the peak and after an arbitrary point)
-    i_start_search_l = int(i_peak_df * (1 / 2))
-    # df_local = df_spline[i_start_search_l:i_peak_df]   # local df area
+    # # i_start_df = int(len(xs[0:i_peak_df]) * (2/3))
+    # # start at the derivitave's min in a local rising area (before the peak and after an arbitrary point)
+    # i_start_search_l = int(i_peak_df * (1 / 2))
+    # # df_local = df_spline[i_start_search_l:i_peak_df]   # local df area
 
     # # use the 2nd derivative to set the search
     # xdf2, df_2_spline = spline_deriv(df_spline)
 
-    i_start = i_start_search_l
-    # i_start = int(i_peak_df * (2/3))
     # include indexes within the standard deviation of the local area of the derivative
     df_sd = statistics.stdev(df_spline)
     df_prominence_cutoff = df_sd
+
+    df_start_search_left = int(i_peak_df * (1/2))
+    i_min_df = df_start_search_left + np.argmin(df_spline[df_start_search_left:i_peak_df])
+
+    # find first value within cutoff
+    for idx_flip, value in enumerate(np.flip(df_spline[:i_min_df])):
+        if abs(value) < df_prominence_cutoff:
+            i_start_df = i_min_df - idx_flip
+            break
+        else:   # no values within cutoff?
+            i_start_df = i_min_df
+
+    # i_start_df = int(i_peak_df * (2/3))
     # df_prominence_cutoff = np.mean(df_spline)
     # if df_prominence_cutoff < 0.3:
     #     df_prominence_cutoff = 0.3  # minimum SD cutoff
 
-    i_left = i_start
-    i_right = i_start
+    i_left_df = i_start_df
+    i_right_df = i_start_df
     # look left
-    for value in np.flip(df_spline[:i_start]):
+    for value in np.flip(df_spline[:i_start_df]):
         if abs(value) < df_prominence_cutoff:
-            i_left = i_left - 1
+            i_left_df = i_left_df - 1
         else:
             break
     # look right
-    for value in df_spline[i_start:]:
+    for value in df_spline[i_start_df:]:
         if abs(value) < df_prominence_cutoff:
-            i_right = i_right + 1
+            i_right_df = i_right_df + 1
         else:
             break
     # combine
-    i_baselines_search = np.arange(i_left, i_right)
+    i_baselines_search = np.arange(i_left_df, i_right_df)
 
     # if len(i_baselines_search) < 10:
     #     if peak_side is 'left':
@@ -226,15 +238,14 @@ def find_tran_baselines(signal_in, peak_side='left'):
     #             i_baselines_all = i_baselines_all_r
     # else:
     #     i_baselines_all = i_baselines_search
-    if (i_right > i_peak_df) or (len(i_baselines_search) is 0):
-        print('\t*{} gives {}-{}\ti_start\t{}\tfrom peak\t{}'.format(df_prominence_cutoff, i_left, i_right,
-                                                                     i_start, i_peak_df))
-        # if i_right > i_peak_df:
-        if len(i_baselines_search) is 0:
-            return np.nan
+    if (i_right_df > i_peak_df) or (len(i_baselines_search) is 0):
+        print('\t*{} gives {}-{}\ti_start_df\t{}\tfrom peak\t{}'.format(round(df_prominence_cutoff, 3),
+                                                                        i_left_df, i_right_df, i_start_df, i_peak_df))
 
-        return np.arange(i_left, i_start)
-        # return np.arange(i_start, int(i_peak_df / SPLINE_FIDELITY))
+        # use arbtrary backup baselines: the 10 signal samples before the df search start (non-inclusive)
+        i_start = int(i_start_df / SPLINE_FIDELITY)
+        i_baselines_backup = np.arange(i_start - 10, i_start)
+        return i_baselines_backup
 
     # use all detected indexes
     i_baselines_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
@@ -366,6 +377,7 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
     elif filter_type is 'gaussian':
         # Good for ___, but ___
         sigma = kernel  # standard deviation of the gaussian kernel
+        # TODO avoid smearing with 0-value or masked pixels
         frame_out = gaussian(frame_in, sigma=sigma, mode='mirror', preserve_range=True)
     else:
         raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))

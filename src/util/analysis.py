@@ -163,11 +163,11 @@ def find_tran_downstroke(signal_in):
     time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
     spl = UnivariateSpline(time_x, signal_in)
     df_spline = spl(time_x, nu=1)
-    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+    # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
 
     # find the 2nd derivative max within the search area
-    search_df_smooth = df_smooth[search_min:search_max]
-    i_start_search = np.argmin(search_df_smooth)  # df min, Downstroke
+    # search_df_smooth = df_smooth[search_min:search_max]
+    i_start_search = np.argmin(df_spline[search_min:search_max])  # df min, Downstroke
     i_downstroke = search_min + i_start_search
 
     return i_downstroke
