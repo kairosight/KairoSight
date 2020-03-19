@@ -20,6 +20,7 @@ import cv2
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MASK_TYPES = ['Otsu_global', 'Mean', 'Random_walk', 'best_ever']
+MASK_STRICT_MAX = 6
 
 
 def open_signal(source, fps=500):
@@ -210,7 +211,7 @@ def crop_stack(stack_in, d_x=False, d_y=False):
     return stack_out
 
 
-def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
+def mask_generate(frame_in, mask_type='Otsu_global', strict=5):
     """Generate a mask for a frame 2-D array (Y, X) of grayscale optical data
     using binary threshold (histogram-based or local) or segmentation algorithms.
 
@@ -221,8 +222,8 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
        mask_type : str  # TODO add masking via SNR
             The type of masking thresholding algorithm to use, default : Otsu_global
        strict : int, optional
-            How strict to be with any adjustable masking methods, default : 3
-            Ranges from 0 to 6
+            How strict to be with any adjustable masking methods, default : 5
+            Ranges from 0 to 6, higher means brighter cutoff
 
        Returns
        -------
@@ -230,6 +231,8 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
             A 2-D array (Y, X) of masked optical data,  dtype : frame_in.dtype
        mask : ndarray
             A binary 2-D array generated from the threshold algorithm, dtype : np.bool_
+       markers : ndarray
+            A 2-D array of markers generated during a masking algorithm, dtype : frame_in.dtype or float
        """
     # Check parameters
     if type(frame_in) is not np.ndarray:
@@ -248,6 +251,8 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
 
     frame_out = frame_in.copy()
     mask = frame_in.copy()
+    markers = np.zeros(frame_in.shape)
+
     frame_in_gradient = sobel(frame_in)
 
     if mask_type is 'Otsu_global':
@@ -282,18 +287,23 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
         # lightest_otsu = np.mean([lighter_otsu, otsu])
         # light_otsu = np.mean([dark_otsu, lighter_otsu])
 
-        num_otsus = 9
+        num_otsus = 9       # number of sections between -1 and otsu
         otsus = np.linspace(-1, otsu, num=num_otsus)
-        markers_dark_cutoff = otsus[1]
-        markers_light_cutoff = otsus[-((num_otsus - 6) + strict)]
+        print('* Masking otsu choices: {}'.format([round(ots, 3) for ots in otsus]))
+        # markers_dark_cutoff = otsus[1]      # darkest section (< first otsu section)
+        # TODO use strictness for dark cutoff
+        markers_dark_cutoff = otsus[3]      # darkest section (< first otsu section)
+        markers_light_cutoff = otsus[(num_otsus-1) - (MASK_STRICT_MAX - strict)]   # lightest section (> #strictness otsu section)
+        # markers_light_cutoff = otsu + 0.5   # lightest section (> #strictness otsu section)
 
-        print('* Marking Random Walk with Otsu values: {} & {}'
-              .format(round(markers_dark_cutoff, 2), round(markers_light_cutoff, 2)))
+        print('\t* Marking Random Walk with Otsu values: {} & {}'
+              .format(round(markers_dark_cutoff, ), round(markers_light_cutoff, 3)))
+
         markers[frame_in_rescale < markers_dark_cutoff] = 1
         markers[frame_in_rescale > markers_light_cutoff] = 2
 
         # Run random walker algorithm
-        binary_random_walk = random_walker(frame_in_rescale, markers, beta=50, mode='bf')
+        binary_random_walk = random_walker(frame_in_rescale, markers, mode='bf')
         # Keep the largest bright region
         labeled_mask = label(binary_random_walk)
         largest_mask = np.empty_like(labeled_mask, dtype=np.bool_)
@@ -321,7 +331,7 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=3):
     else:
         raise NotImplementedError('Mask type "{}" not implemented'.format(mask_type))
 
-    return frame_out, mask
+    return frame_out, mask, markers
 
 
 def mask_apply(stack_in, mask):

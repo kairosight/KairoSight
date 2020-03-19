@@ -20,19 +20,27 @@ SNR_MAX = 100
 
 def spline_signal(signal_in):
     xx_signal = np.arange(0, (len(signal_in)))
-    # # Lease Square approximation
+    # Lease Square approximation
     # Computing the inner knots and using them:
-    xs = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
-    n_knots = 25  # number of knots to us in LSQ spline
+    x_spline = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
+    n_knots = 25  # number of knots to use in LSQ spline
     t_knots = np.linspace(xx_signal[0], xx_signal[-1], n_knots)  # equally spaced knots in the interval
-    t_knots = t_knots[1:-1]  # take only the three inner values
+    t_knots = t_knots[1:-1]  # discard edge knots
     # t_knots = [0, 1, 2, 3]
-    bspline_degree = 3
+    bspline_degree = 5
     # sql = make_lsq_spline(xx_signal, signal_in, t_knots)
-    sql = LSQUnivariateSpline(xx_signal, signal_in, t_knots, k=bspline_degree)
-    # df_spline = sql.derivative()(xs)
+    spline = LSQUnivariateSpline(xx_signal, signal_in, t_knots, k=bspline_degree)
+    # x_signal = np.arange(len(signal_in))
+    # x_spline = np.linspace(x_signal[0], x_signal[-1], len(x_signal) * SPLINE_FIDELITY)
+    # # n_segments = int(len(x_signal) / 5)
+    # n_segments = 25
+    # n_knots = n_segments
+    # knots = np.linspace(x_signal[0], x_signal[-1], n_knots + 2)[1:-2]
+    # bspline_degree = 3
+    # spline = LSQUnivariateSpline(x_signal, signal_in, knots, k=bspline_degree)
+    return x_spline, spline
 
-    return xs, sql
+    # return xs, sql
 
 
 def spline_deriv(signal_in):
@@ -179,8 +187,9 @@ def find_tran_baselines(signal_in, peak_side='left'):
     # i_start_df = int(len(xs[0:i_peak_df]) * (3/5))
 
     # find the df max before the signal's peak (~ large rise time)
-    df_max_search_left = int((i_peak * SPLINE_FIDELITY) * (2/3))
-    i_peak_df = df_max_search_left + np.argmax(df_spline[df_max_search_left:i_peak * SPLINE_FIDELITY])
+    df_max_search_left = int((i_peak * SPLINE_FIDELITY) * (1/2))
+    i_peak_signal = i_peak * SPLINE_FIDELITY
+    i_peak_df = df_max_search_left + np.argmax(df_spline[df_max_search_left:i_peak_signal])
 
     # # i_start_df = int(len(xs[0:i_peak_df]) * (2/3))
     # # start at the derivitave's min in a local rising area (before the peak and after an arbitrary point)
@@ -239,17 +248,24 @@ def find_tran_baselines(signal_in, peak_side='left'):
     # else:
     #     i_baselines_all = i_baselines_search
     if (i_right_df > i_peak_df) or (len(i_baselines_search) is 0):
-        print('\t*{} gives {}-{}\ti_start_df\t{}\tfrom peak\t{}'.format(round(df_prominence_cutoff, 3),
+        print('\t*Range:{}, SD:{} gives {}-{}\ti_start_df:{}\tfrom peak:{}'.format(round(df_prominence_cutoff, 3),
+                                                                        round(df_prominence_cutoff, 3),
                                                                         i_left_df, i_right_df, i_start_df, i_peak_df))
 
         # use arbtrary backup baselines: the 10 signal samples before the df search start (non-inclusive)
         i_start = int(i_start_df / SPLINE_FIDELITY)
-        i_baselines_backup = np.arange(i_start - 10, i_start)
+        if i_start > 10:
+            i_baselines_backup = np.arange(i_start - 10, i_start)
+        else:
+            i_baselines_backup = np.arange(0, 10)
         return i_baselines_backup
 
     # use all detected indexes
     i_baselines_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
     i_baselines_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
+
+    if i_baselines_right - i_baselines_left < 5:
+        i_baselines_right = i_baselines_left + 5
 
     # i_baselines_d1f_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
     # i_baselines_d1f_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)

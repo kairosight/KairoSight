@@ -22,6 +22,7 @@ dir_unit = str(Path.cwd())
 dir_integration = str(Path.cwd())
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
+marker1, marker2, marker3, marker4 = [25, 20, 10, 5]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
@@ -358,13 +359,13 @@ class TestAnalysisPoints(unittest.TestCase):
                                                         fps=self.signal_fps)
         self.time, self.signal = self.time_vm, invert_signal(self.signal_vm)
 
-        self.zoom_t = [5, 55]
+        self.zoom_t = [0, 55]
 
     def test_plot(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout
         fig_analysis = plt.figure(figsize=(6, 6))  # _ x _ inch page
-        gs0 = fig_analysis.add_gridspec(3, 1)  # 3 row, 1 columns
+        gs0 = fig_analysis.add_gridspec(3, 1, height_ratios=[0.5, 0.25, 0.25])  # 3 row, 1 columns
 
         # Data plot
         ax_data = fig_analysis.add_subplot(gs0[0])
@@ -379,8 +380,15 @@ class TestAnalysisPoints(unittest.TestCase):
         points_lw = 3
         # Set axes z orders so connecting lines are shows
         ax_data.set_zorder(3)
+        # ax_data.set_xlim(self.zoom_t)
+
         ax_df1.set_zorder(2)
+        # df_zoom_t = [SPLINE_FIDELITY * x for x in self.zoom_t]
+        # ax_df1.set_xlim(df_zoom_t)
+
         ax_df2.set_zorder(1)
+        # df2_zoom_t = [SPLINE_FIDELITY * x for x in df_zoom_t]
+        # ax_df2.set_xlim(df2_zoom_t)
 
         for ax in [ax_data, ax_df1]:
             ax.set_xticklabels([])
@@ -391,80 +399,106 @@ class TestAnalysisPoints(unittest.TestCase):
             ax.spines['left'].set_visible(False)
             ax.spines['top'].set_visible(False)
             ax.spines['bottom'].set_visible(False)
-            # ax.set_xlim(self.zoom_t)
+            ax.set_xlim(self.zoom_t)
             ax.set_yticks([])
             ax.set_yticklabels([])
 
         # Plot signals and points
         ax_data.plot(self.time, self.signal, color=gray_heavy,
-                     linestyle='-', marker='.', markersize=points_lw * 3, label='Vm (Model)')
-        # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-
-        # spl = UnivariateSpline(time_x, self.signal, ext='zeros')
-        # df_spline = spl(time_x, nu=1, ext='zeros')
-        # smooth the 1st with a Savitzky Golay filter
-        # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-        xx_d1f, d1f_smooth = spline_deriv(self.signal)
-        xx_d2f, d2f_smooth = spline_deriv(d1f_smooth)
+                     linestyle='-', marker='.', markersize=points_lw, label='Vm (Model)')
+        # spline
+        x_sp, spline = spline_signal(self.signal)
+        # ax_data.plot(x_sp, spline(x_sp), color=color_filtered,
+        #              linestyle='-', label='LSQ spline')
 
         # df/dt
-        ax_df1.plot(xx_d1f, d1f_smooth, color=gray_med,
-                    linestyle='--', label='dF/dt')
-        ax_df1.hlines(0, xmin=0, xmax=self.zoom_t[1], color=gray_light, linewidth=1)
-        d1f_max = round(abs(max(d1f_smooth, key=abs)) + 0.5, -1)
+        time_df = np.linspace(self.time[0], self.time[-2], len(self.time - 1) * SPLINE_FIDELITY)
+        xx_d1f, d1f_smooth = spline_deriv(self.signal)
+        ax_df1.plot(time_df, d1f_smooth, color=gray_med,
+                    linestyle='--')
+        ax_df1.hlines(0, xmin=0, xmax=time_df[-1], color=gray_light, linewidth=1)
+        # d1f_max = round(abs(max(d1f_smooth, key=abs)) + 0.5, -1)
+        # ax_df1.set_ylim([-d2f_smooth.max(), d2f_smooth.max()])
+
         # d2f/dt2
-        ax_df2.plot(xx_d2f, d2f_smooth, color=gray_med,
-                    linestyle=':', label='d2F/dt2')
-        ax_df2.hlines(0, xmin=0, xmax=self.zoom_t[1], color=gray_light, linewidth=1)
-        ax_df1.set_ylim([-d1f_max, d1f_max])
-        d2f_max = round(abs(max(d2f_smooth, key=abs)) + 0.5, -1)
-        ax_df2.set_ylim([-d2f_max, d2f_max])
+        time_df2 = np.linspace(time_df[0], time_df[-2], len(time_df - 1) * SPLINE_FIDELITY)
+        xx_d2f, d2f_smooth = spline_deriv(d1f_smooth)
+        ax_df2.plot(time_df2, d2f_smooth, color=gray_med,
+                    linestyle=':')
+        ax_df2.hlines(0, xmin=0, xmax=time_df2[-1], color=gray_light, linewidth=1)
+        # d2f_max = round(abs(max(d2f_smooth, key=abs)) + 0.5, -1)
+        # ax_df2.set_ylim([-d2f_smooth.max(), d2f_smooth.max()])
 
         # Start
         i_start = find_tran_start(self.signal)  # 1st df2 max, Start
-        start_con = ConnectionPatch(xyA=[self.time[i_start], self.signal[i_start]],
-                                    xyB=[self.time[i_start], d2f_smooth[i_start]], coordsA="data", coordsB="data",
-                                    axesA=ax_data, axesB=ax_df2, arrowstyle="-", linewidth=points_lw,
-                                    color=colors_times['Start'], label='Start')
-        ax_data.add_artist(start_con)
+        ax_data.vlines(x=self.time[i_start],
+                       ymin=0,
+                       ymax=self.signal[i_start],
+                       color=colors_times['Start'], linestyle=':', linewidth=points_lw,
+                       label='Start')
+        ax_data.plot(self.time[i_start],
+                     self.signal[i_start],
+                     "x", color=colors_times['Start'], markersize=marker3)
+        ax_df2.plot(time_df2[i_start * SPLINE_FIDELITY * SPLINE_FIDELITY],
+                    d2f_smooth[i_start * SPLINE_FIDELITY * SPLINE_FIDELITY],
+                    "x", color=colors_times['Start'], markersize=marker3)
 
         # Activation
         i_activation = find_tran_act(self.signal)  # 1st df max, Activation
-        act_con = ConnectionPatch(xyA=[self.time[i_activation], self.signal[i_activation]],
-                                  xyB=[self.time[i_activation], d1f_smooth[i_activation]],
-                                  coordsA="data", coordsB="data",
-                                  axesA=ax_data, axesB=ax_df1, arrowstyle="-", linewidth=points_lw,
-                                  color=colors_times['Activation'], label='Activation')
-        ax_data.add_artist(act_con)
+        ax_data.vlines(x=self.time[i_activation],
+                       ymin=0,
+                       ymax=self.signal[i_activation],
+                       color=colors_times['Activation'], linestyle=':', linewidth=points_lw,
+                       label='Activation')
+        ax_data.plot(self.time[i_activation],
+                     self.signal[i_activation],
+                     "x", color=colors_times['Activation'], markersize=marker3)
+        ax_df1.plot(time_df[i_activation * SPLINE_FIDELITY],
+                    d1f_smooth[i_activation * SPLINE_FIDELITY],
+                    "x", color=colors_times['Activation'], markersize=marker3)
 
         # Peak
         i_peak = find_tran_peak(self.signal)  # max of signal, Peak
         peak_frac = (self.signal[i_peak] - ax_data.get_ylim()[0]) / \
                     (ax_data.get_ylim()[1] - ax_data.get_ylim()[0])
-        ax_data.axvline(x=self.time[i_peak], ymin=0, ymax=peak_frac,
-                        color=colors_times['Peak'], linewidth=points_lw,
-                        label='Peak')
+        ax_data.vlines(x=self.time[i_peak],
+                       ymin=0,
+                       ymax=self.signal[i_peak],
+                       color=colors_times['Peak'], linestyle=':', linewidth=points_lw,
+                       label='Peak')
+        ax_data.plot(self.time[i_peak],
+                     self.signal[i_peak],
+                     "x", color=colors_times['Peak'], markersize=marker3)
 
         # Downstroke
         i_downstroke = find_tran_downstroke(self.signal)  # df min, Downstroke
-        down_con = ConnectionPatch(xyA=[self.time[i_downstroke], self.signal[i_downstroke]],
-                                   xyB=[self.time[i_downstroke], d1f_smooth[i_downstroke]],
-                                   coordsA="data", coordsB="data",
-                                   axesA=ax_data, axesB=ax_df1, arrowstyle="-", linewidth=points_lw,
-                                   color=colors_times['Downstroke'], label='Downstroke')
-        ax_data.add_artist(down_con)
+        ax_data.vlines(x=self.time[i_downstroke],
+                       ymin=0,
+                       ymax=self.signal[i_downstroke],
+                       color=colors_times['Downstroke'], linestyle=':', linewidth=points_lw,
+                       label='Downstroke')
+        ax_data.plot(self.time[i_downstroke],
+                     self.signal[i_downstroke],
+                     "x", color=colors_times['Downstroke'], markersize=marker3)
+        ax_df1.plot(time_df[i_downstroke * SPLINE_FIDELITY],
+                    d1f_smooth[i_downstroke * SPLINE_FIDELITY],
+                    "x", color=colors_times['Downstroke'], markersize=marker3)
 
         # End
         i_end = find_tran_end(self.signal)  # 2st df2 max, End
-        end_con = ConnectionPatch(xyA=[self.time[i_end], self.signal[i_end]],
-                                  xyB=[self.time[i_end], d2f_smooth[i_end]],
-                                  coordsA="data", coordsB="data",
-                                  axesA=ax_data, axesB=ax_df2, arrowstyle="-", linewidth=points_lw,
-                                  color=colors_times['End'], label='End')
-        ax_data.add_artist(end_con)
+        ax_data.vlines(x=self.time[i_end],
+                       ymin=0,
+                       ymax=self.signal[i_end],
+                       color=colors_times['End'], linestyle=':', linewidth=points_lw,
+                       label='End')
+        ax_data.plot(self.time[i_end],
+                     self.signal[i_end],
+                     "x", color=colors_times['End'], markersize=marker3)
+        ax_df2.plot(time_df2[i_end * SPLINE_FIDELITY * SPLINE_FIDELITY],
+                    d2f_smooth[i_end * SPLINE_FIDELITY * SPLINE_FIDELITY],
+                    "x", color=colors_times['End'], markersize=marker3)
 
         ax_data.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
-        ax_df1.legend(loc='upper right', ncol=1, prop={'size': fontsize3}, numpoints=1, frameon=True)
 
         # fig_analysis.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
         fig_analysis.show()
@@ -1138,6 +1172,7 @@ class TestEnsemble(unittest.TestCase):
     # #     file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
     # #     file_name, file_signal = file_name_pig, file_signal_pig
     # #     time, signal = open_signal(source=file_signal)
+
 
 # class TestPhase(unittest.TestCase):
 #     # Setup data to test with

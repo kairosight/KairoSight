@@ -1066,7 +1066,6 @@ class TestSnrSignal(unittest.TestCase):
                      ".", color=color_raw, markersize=signal_markersize, label='Noise')
         ax_data.axhline(y=rms_bounds[1], color=gray_light, linestyle='-.', label='Peak, Calculated')
         # spline
-        # x_signal = np.linspace(0, len(self.signal) - 1, len(self.signal))
         x_sp, spline = spline_signal(self.signal)
         ax_data.plot(x_sp, spline(x_sp), color=color_filtered,
                      linestyle='-', label='LSQ spline')

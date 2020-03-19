@@ -458,8 +458,8 @@ class TestMapAnalysisPig(unittest.TestCase):
         self.scale_px_cm = 101.4362
         # file_path = dir_tests + '/data/20200228-piga/baseline/04-450_Ca(941-1190).tif'
         # file_frames = (941, 1190)
-        file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
         # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
         # file_path = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
         # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
@@ -551,6 +551,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         stack_out = stack_reduced
         print('\nDONE Reducing stack')
         # Mask
+        print('Generating Masking ...')
         self.frame_bright = np.zeros_like(stack_out[0])  # use brightest frame to generate mask
         frame_bright_idx = 0
         for idx, frame in enumerate(stack_out):
@@ -560,7 +561,8 @@ class TestMapAnalysisPig(unittest.TestCase):
                 self.frame_bright = frame.copy()
         print('Brightest frame: {}'.format(frame_bright_idx))
         mask_type = 'Random_walk'
-        _, self.mask_out = mask_generate(self.frame_bright, mask_type)
+        _, self.mask_out, _ = mask_generate(self.frame_bright, mask_type)
+        print('\nDONE generating Mask')
         # stack_out = mask_apply(stack_out, self.mask_out)
 
         self.prep = 'Reduced x{}, Mask'.format(self.reduction)
@@ -580,11 +582,15 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # # Invert
         if 'Vm' in file_path_local:
-            print('Hello Voltage!')
-        print('Inverting stack with {} frames, size W {} X H {} ...'
-              .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
-        stack_out = invert_stack(stack_out)
-        print('\nDONE Inverting stack')
+            print('\t * Hello Voltage!')
+        elif 'Ca' in file_path_local:
+            print('\t * Hello Calcium!')
+        else:
+            print('\t * Hello Signal?')
+# print('Inverting stack with {} frames, size W {} X H {} ...'
+        #       .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
+        # stack_out = invert_stack(stack_out)
+        # print('\nDONE Inverting stack')
 
         # # Normalize
         # map_shape = stack_out.shape[1:]

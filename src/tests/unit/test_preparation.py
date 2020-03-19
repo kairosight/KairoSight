@@ -457,8 +457,8 @@ class TestMaskGenerate(unittest.TestCase):
     def test_plot(self):
         # Make sure mask looks correct real data
         mask_type = 'Random_walk'
-        strict = 1
-        frame_masked, frame_mask = mask_generate(self.frame1, mask_type, strict)
+        strict = 5
+        frame_masked, frame_mask, markers = mask_generate(self.frame1, mask_type, strict)
 
         fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
         axis_in = fig_mask.add_subplot(131)
@@ -481,7 +481,7 @@ class TestMaskGenerate(unittest.TestCase):
 
         cmap_frame = SCMaps.grayC.reversed()
         img_in = axis_in.imshow(self.frame1, cmap=cmap_frame)
-        img_mask = axis_mask.imshow(frame_mask, cmap=cmap_frame)
+        img_mask = axis_mask.imshow(markers, cmap='magma')
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
         # fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig2wk.png')

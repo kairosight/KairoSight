@@ -38,33 +38,21 @@ def find_tran_start(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+    # if any(v < 0 for v in signal_in):
+    #     raise ValueError('All signal values must be >= 0')
 
     # Limit search to
-    # before the peak and
-    # after the "middle" non-prominent point (baseline) before the peak
-    i_baselines = find_tran_baselines(signal_in)
-    i_act = find_tran_act(signal_in)
-    # search_min = max(0, i_act - int((i_peak - i_act) * 2))
-    d_search = int(np.max((i_baselines) - np.min(i_baselines)) / 2)
-    search_min = np.min(i_baselines) + d_search
-    search_max = i_act
+    # before the peak and after the mid-baseline began
+    baselines = find_tran_baselines(signal_in)
+    i_search_l = baselines[int(len(baselines)/2)]
+    i_search_r = find_tran_peak(signal_in)
 
-    # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
-    # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    spl = UnivariateSpline(time_x, signal_in)
-    df_spline = spl(time_x, nu=1)
-    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-
-    spl_df_smooth = UnivariateSpline(time_x, df_smooth)
-    d2f_smooth = spl_df_smooth(time_x, nu=1)
-
+    xdf, df_spline = spline_deriv(signal_in)
+    xdf2, df2_spline = spline_deriv(df_spline)
     # find the 2nd derivative max within the search area
-    signal_search_d2f_smooth = d2f_smooth[search_min:search_max]
-    i_start_search = np.argmax(signal_search_d2f_smooth)
-    i_start = search_min + i_start_search
+    i_df_start = np.argmax(df2_spline[i_search_l * SPLINE_FIDELITY * SPLINE_FIDELITY:
+                                      i_search_r * SPLINE_FIDELITY * SPLINE_FIDELITY])
+    i_start = i_search_l + int(i_df_start / SPLINE_FIDELITY / SPLINE_FIDELITY)
 
     return i_start
 
@@ -156,18 +144,11 @@ def find_tran_downstroke(signal_in):
     # Limit search to after the peak and before the end
     i_peak = find_tran_peak(signal_in)
     search_min = i_peak
-    # i_baseline = find_tran_baselines(signal_in, peak_side='right')
-    # search_max = max(i_baseline)
     search_max = len(signal_in) - 1
-
-    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    spl = UnivariateSpline(time_x, signal_in)
-    df_spline = spl(time_x, nu=1)
-    # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-
+    xdf, df_spline = spline_deriv(signal_in)
     # find the 2nd derivative max within the search area
-    # search_df_smooth = df_smooth[search_min:search_max]
-    i_start_search = np.argmin(df_spline[search_min:search_max])  # df min, Downstroke
+    i_start_search = int(np.argmin(
+        df_spline[search_min * SPLINE_FIDELITY:search_max * SPLINE_FIDELITY]) / SPLINE_FIDELITY)  # df min, Downstroke
     i_downstroke = search_min + i_start_search
 
     return i_downstroke
@@ -193,29 +174,37 @@ def find_tran_end(signal_in):
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    # Limit search to after the Downstroke and before a the end of the ending baseline
     i_downstroke = find_tran_downstroke(signal_in)
-    search_min = i_downstroke
-    # first index after peak where the signal < before its start value,
-    # e.g. at signal[((i_peak - i_act) * 3)] before the activation
-    # i_baseline = find_tran_baselines(signal_in, peak_side='right')
-    # search_max = max(i_baseline)
-    search_max = len(signal_in) - 1
 
-    # smooth the 1st with a Savitzky Golay filter and, from that, calculate the 2nd derivative
-    # https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
-    time_x = np.linspace(0, len(signal_in) - 1, len(signal_in))
-    spl = UnivariateSpline(time_x, signal_in)
-    df_spline = spl(time_x, nu=1)
-    df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
+    # Limit search to after the Downstroke and before a the end of the ending baseline
+    i_search_l = i_downstroke
+    # i_baselines = find_tran_baselines(signal_in)
+    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
 
-    spl_df_smooth = UnivariateSpline(time_x, df_smooth)
-    d2f_smooth = spl_df_smooth(time_x, nu=1)
+    snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
+    # # exclusion criteria    TODO spread around!
+    # if snr is np.nan or snr < 5:
+    #     return np.nan  # exclusion criteria : signal strength too low to analyze
+    # if type(i_peak) not in [np.int64, float]:
+    #     i_peak = i_peak[0]  # use the first detected peak
+    # i_baselines = find_tran_baselines(signal_in, peak_side='right')
+    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
+    cutoff = rms_bounds[0]  # TODO use baseline LSQ spline to the RIGHT of the peak
 
-    search_d2f_smooth = d2f_smooth[search_min: search_max]
+    i_search = np.where(signal_in[i_peak:] <= cutoff)
+    if len(i_search) == 0:
+        return np.nan  # exclusion criteria: transient does not return to cutoff value
+    if len(i_search[0]) == 0:
+        return np.nan  # exclusion criteria: transient does not return to cutoff value
+    # try:
+    i_search_r = i_peak + i_search[0][0]
 
-    i_end_search = np.argmax(search_d2f_smooth)  # 2st df2 max, End
-    i_end = search_min + i_end_search
+    xdf, df_spline = spline_deriv(signal_in)
+    xdf2, df2_spline = spline_deriv(df_spline)
+    # find the 2nd derivative max within the search area
+    i_df_start = np.argmax(df2_spline[i_search_l * SPLINE_FIDELITY * SPLINE_FIDELITY:
+                                      i_search_r * SPLINE_FIDELITY * SPLINE_FIDELITY])
+    i_end = i_search_l + int(i_df_start / SPLINE_FIDELITY / SPLINE_FIDELITY)
 
     return i_end
 
@@ -292,34 +281,34 @@ def calc_tran_duration(signal_in, percent=80):
     #     raise ValueError('All signal values must be between 0-99%')
 
     snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
-    # exclusion criteria
+    # exclusion criteria    TODO spread around!
     if snr is np.nan or snr < 5:
-        return np.nan   # exclusion criteria : signal strength too low to analyze
+        return np.nan  # exclusion criteria : signal strength too low to analyze
     if type(i_peak) not in [np.int64, float]:
         i_peak = i_peak[0]  # use the first detected peak
 
     # i_baselines = find_tran_baselines(signal_in, peak_side='right')
     # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
-    noise_rms = rms_bounds[0]   # TODO use baseline LSQ spline to the RIGHT of the peak
+    noise_rms = rms_bounds[0]  # TODO use baseline LSQ spline to the RIGHT of the peak
 
     cutoff = noise_rms + (float(peak_peak) * float(((100 - percent) / 100)))
 
     i_search = np.where(signal_in[i_peak:] <= cutoff)
     if len(i_search) == 0:
-        return np.nan   # exclusion criteria: transient does not return to cutoff value
+        return np.nan  # exclusion criteria: transient does not return to cutoff value
     if len(i_search[0]) == 0:
-        return np.nan   # exclusion criteria: transient does not return to cutoff value
+        return np.nan  # exclusion criteria: transient does not return to cutoff value
     # try:
     i_duration = i_peak + i_search[0][0]
     i_activation = find_tran_act(signal_in)
     if i_activation > i_peak:
-        return np.nan   # exclusion criteria: peak seems to before activation
+        return np.nan  # exclusion criteria: peak seems to before activation
     duration = i_duration - i_activation
     # except Exception:
     #     return np.nan
 
     if duration < DUR_MIN:
-        return np.nan   # exclusion criteria: transient does not return to cutoff value
+        return np.nan  # exclusion criteria: transient does not return to cutoff value
 
     return duration
 
@@ -458,7 +447,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, **kwargs):
                 map_out[iy, ix] = np.nan
             else:
                 if time_in is not None:
-                    pixel_analysis_value = time_in[analysis_result]     # TODO catch issue w/ duration when t[0] != 0
+                    pixel_analysis_value = time_in[analysis_result]  # TODO catch issue w/ duration when t[0] != 0
                 else:
                     pixel_analysis_value = analysis_result
                 map_out[iy, ix] = pixel_analysis_value
@@ -677,7 +666,6 @@ def calc_ensemble(time_in, signal_in, crop='center'):
             signal_align = align_signals(signals_trans_act[0], signal_align)
 
         signals_trans_act.append(signal_align)
-
 
     # use the lowest activation time
     # cycle_shift = min(min(i_acts), cycle_shift)

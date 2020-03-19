@@ -19,7 +19,7 @@ seed(1)
 np.random.seed(seed=1)
 
 
-def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=100, famp=100, noise=0,
+def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, noise=0,
                      num=1, cl=100, apd=None, cad=None):
     """Create a 2-D array of model 16-bit optical data of either
     murine action potentials (OAP) or murine calcium transients (OCT).
