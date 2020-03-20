@@ -393,23 +393,27 @@ class TestMaskGenerate(unittest.TestCase):
         # self.frame_model = frame_model
 
         # Load data to test with
-        self.exp_name = '2-wk old'
-        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
-        # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
+        # self.exp_name = '2-wk old'
+        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
+        # # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
+        # # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
 
-        # self.exp_name = '6-wk old'
-        # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
+        self.exp_name = '6-wk old'
+        # file_path_local = '/20190517-piga/02-400_Vm(501-700).tif'
+        # self.strict = (1, 3)
+        file_path_local = '/20190517-piga/03-350_Ca(251-500).tif'
+        self.strict = (5, 8)
 
         self.file_path = dir_tests + '/data/' + file_path_local
         study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd
         self.file_name = file_path_local.split(sep='/')[-1].split(sep='(')[0]  # e.g. 08-228_Vm
         self.test_name = '{}, {}, {}'.format(self.exp_name, study_name, self.file_name)
         # #
+        self.mask_type = 'Random_walk'
 
         # file_stack_pig = dir_tests + '/data/20191004-piga/02-300_Ca(480-660).tif'
         # file_name_pig = '2019/10/04 piga-02 Ca, ' + exp_name + ', PCL: 300ms'
@@ -493,9 +497,7 @@ class TestMaskGenerate(unittest.TestCase):
 
     def test_plot(self):
         # Make sure mask looks correct real data
-        mask_type = 'Random_walk'
-        strict = 5
-        frame_masked, frame_mask, markers = mask_generate(self.frame1, mask_type, strict)
+        frame_masked, frame_mask, markers = mask_generate(self.frame1, self.mask_type, self.strict)
 
         fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
         axis_in = fig_mask.add_subplot(131)
@@ -511,7 +513,7 @@ class TestMaskGenerate(unittest.TestCase):
             ax.set_yticklabels([])
             ax.set_xticks([])
             ax.set_xticklabels([])
-        fig_mask.suptitle('Masking: {}, strictness:{}\n({})'.format(mask_type, strict, self.test_name))
+        fig_mask.suptitle('Masking: {}, strictness:{}\n({})'.format(self.mask_type, self.strict, self.test_name))
         # axis_in.set_title('Input frame')
         # axis_mask.set_title('Mask')
         # axis_masked.set_title('Masked frame')

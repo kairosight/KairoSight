@@ -46,7 +46,8 @@ ACT_MAX_PIG_WHOLE = 250
 ACT_MAX_PIG_LV = 100
 cmap_duration = SCMaps.oslo.reversed()
 cmap_duration.set_bad(color=gray_light, alpha=0)
-DUR_MIN_PIG = 80
+DUR_MIN_PIG_WHOLE = 80
+DUR_MIN_PIG_LV = 120
 DUR_MAX_PIG = DUR_MAX
 
 
@@ -452,43 +453,43 @@ class TestMapAnalysisPig(unittest.TestCase):
         fps = 500.0
         # TODO try an ensemble
 
-        self.exp_name = '2-wk'
-        # exp_name = 'MEHP: Baseline'
-        file_XY = (770, 1048)
-        self.scale_px_cm = 101.4362
-        # file_path = dir_tests + '/data/20200228-piga/baseline/04-450_Ca(941-1190).tif'
+        # self.exp_name = '2-wk'
+        # # exp_name = 'MEHP: Baseline'
+        # file_XY = (770, 1048)
+        # self.scale_px_cm = 101.4362
+        # # file_path = dir_tests + '/data/20200228-piga/baseline/04-450_Ca(941-1190).tif'
+        # # file_frames = (941, 1190)
+        # # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        # # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # # file_frames = (1031, 1280)
+        # # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # file_path_local = '/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
+        # # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
         # file_frames = (941, 1190)
-        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # file_path = dir_tests + '/data/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # file_name_pig = '2020/02/28 piga-05 Ca, ' + exp_name + ', PCL: 400ms'
-        file_frames = (1031, 1280)
-        # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
-        # file_frames = (941, 1190)
-        file_X0Y0_Vm = (190, 200)
-        file_X0Y0_Ca = (1140, 200)
-        # exp_name = 'MEHP: 60 uM'
-        # file_X0Y0 = (1060, 160)
-        # file_path = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
-        # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
-        # file_frames = (871, 1120)
+        # file_X0Y0_Vm = (190, 200)
+        # file_X0Y0_Ca = (1140, 200)
+        # # exp_name = 'MEHP: 60 uM'
+        # # file_X0Y0 = (1060, 160)
+        # # file_path = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
+        # # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
+        # # file_frames = (871, 1120)
 
-        # self.exp_name = '6-wk'
+        self.exp_name = '6-wk'
         # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
         # self.scale_px_cm = 67.0000
 
-        # file_XY = (900, 1200)
-        # self.scale_px_cm = 158.7823
-        # # file_path_local = '/20190517-piga/01-350_Ca.pcoraw'
-        # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
-        # self.file_path = dir_tests + '/data/' + file_path_local
-        # file_frames = (501, 700)
+        file_XY = (900, 1200)
+        self.scale_px_cm = 158.7823
+        # file_path_local = '/20190517-piga/02-400_Vm(501-700).tif'
+        # strict = (1, 3)
         # file_X0Y0_Vm = (950, 150)
-        # file_X0Y0_Ca = ('20?', 150)
+        # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
+        file_path_local = '/20190517-piga/03-350_Ca(251-500).tif'
+        strict = (5, 8)
+        file_X0Y0_Ca = (70, 150)
         # # file_XY = (900, 1440)
         # # self.scale_px_cm = 143.3298
         # # file_path = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
@@ -546,7 +547,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         for idx, frame in enumerate(stack_out):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
             #     f_filtered = filter_spatial(frame, kernel=self.kernel)
-            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True))
+            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
             stack_reduced[idx, :, :] = frame_reduced
         stack_out = stack_reduced
         print('\nDONE Reducing stack')
@@ -561,7 +562,7 @@ class TestMapAnalysisPig(unittest.TestCase):
                 self.frame_bright = frame.copy()
         print('Brightest frame: {}'.format(frame_bright_idx))
         mask_type = 'Random_walk'
-        _, self.mask_out, _ = mask_generate(self.frame_bright, mask_type)
+        _, self.mask_out, _ = mask_generate(self.frame_bright, mask_type, strict)
         print('\nDONE generating Mask')
         # stack_out = mask_apply(stack_out, self.mask_out)
 
@@ -583,14 +584,14 @@ class TestMapAnalysisPig(unittest.TestCase):
         # # Invert
         if 'Vm' in file_path_local:
             print('\t * Hello Voltage!')
+            print('Inverting stack with {} frames, size W {} X H {} ...'
+                  .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
+            stack_out = invert_stack(stack_out)
+            print('\nDONE Inverting stack')
         elif 'Ca' in file_path_local:
             print('\t * Hello Calcium!')
         else:
             print('\t * Hello Signal?')
-# print('Inverting stack with {} frames, size W {} X H {} ...'
-        #       .format(stack_out.shape[0], stack_out.shape[2], stack_out.shape[1]))
-        # stack_out = invert_stack(stack_out)
-        # print('\nDONE Inverting stack')
 
         # # Normalize
         # map_shape = stack_out.shape[1:]
@@ -1134,7 +1135,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         # Calculate the Duration map
         analysis_map = map_tran_analysis(stack, calc_tran_duration, stack_time, percent=dur_percent)
         # Exclusion criteria for pigs
-        # analysis_map[analysis_map < DUR_MIN_PIG] = np.nan
+        analysis_map[analysis_map < DUR_MIN_PIG_LV] = np.nan
 
         map_min = np.nanmin(analysis_map)
         map_max = np.nanmax(analysis_map)

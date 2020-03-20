@@ -20,7 +20,7 @@ import cv2
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MASK_TYPES = ['Otsu_global', 'Mean', 'Random_walk', 'best_ever']
-MASK_STRICT_MAX = 6
+MASK_STRICT_MAX = 9
 
 
 def open_signal(source, fps=500):
@@ -212,7 +212,7 @@ def crop_stack(stack_in, d_x=False, d_y=False):
     return stack_out
 
 
-def mask_generate(frame_in, mask_type='Otsu_global', strict=5):
+def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
     """Generate a mask for a frame 2-D array (Y, X) of grayscale optical data
     using binary threshold (histogram-based or local) or segmentation algorithms.
 
@@ -222,9 +222,10 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=5):
             A 2-D array (Y, X) of optical data, dtype : uint16 or float
        mask_type : str  # TODO add masking via SNR
             The type of masking thresholding algorithm to use, default : Otsu_global
-       strict : int, optional
-            How strict to be with any adjustable masking methods, default : 5
-            Ranges from 0 to 6, higher means brighter cutoff
+       strict : tuple, optional
+            How strict to be with adjustable masking (dark, light), default : (3, 5)
+            Ranges from 1 to 9, higher means brighter cutoff.
+            Dark must be less than light: dark < light
 
        Returns
        -------
@@ -244,8 +245,14 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=5):
         raise TypeError('Frame values must either be "np.uint16" or "float"')
     if type(mask_type) is not str:
         raise TypeError('Filter type must be a "str"')
-    if type(strict) is not int:
-        raise TypeError('Strictness type must be an "int"')
+    if type(strict) is not tuple:
+        raise TypeError('Strictness type must be an "tuple"')
+    if len(strict) is not 2:
+        raise TypeError('Strictness length must be 2')
+    if strict[0] > strict[1]:
+        raise TypeError('Strictness for Dark cutoff must be greater than Light cutoff')
+    if strict[0] < 1:
+        raise TypeError('Strictness for Dark cutoff must be greater than 0')
 
     if mask_type not in MASK_TYPES:
         raise ValueError('Filter type must be one of the following: {}'.format(MASK_TYPES))
@@ -288,17 +295,18 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=5):
         # lightest_otsu = np.mean([lighter_otsu, otsu])
         # light_otsu = np.mean([dark_otsu, lighter_otsu])
 
-        num_otsus = 9       # number of sections between -1 and otsu
+        num_otsus = MASK_STRICT_MAX + 1       # number of sections between -1 and otsu
         otsus = np.linspace(-1, otsu, num=num_otsus)
         print('* Masking otsu choices: {}'.format([round(ots, 3) for ots in otsus]))
         # markers_dark_cutoff = otsus[1]      # darkest section (< first otsu section)
         # TODO use strictness for dark cutoff
-        markers_dark_cutoff = otsus[3]      # darkest section (< first otsu section)
-        markers_light_cutoff = otsus[(num_otsus-1) - (MASK_STRICT_MAX - strict)]   # lightest section (> #strictness otsu section)
+        markers_dark_cutoff = otsus[strict[0]]      # darkest section (< first otsu section)
+        # markers_light_cutoff = otsus[(num_otsus-1) - (MASK_STRICT_MAX - strict[1])]   # lightest section (> #strictness otsu section)
+        markers_light_cutoff = otsus[strict[1]]   # lightest section (> #strictness otsu section)
         # markers_light_cutoff = otsu + 0.5   # lightest section (> #strictness otsu section)
 
         print('\t* Marking Random Walk with Otsu values: {} & {}'
-              .format(round(markers_dark_cutoff, ), round(markers_light_cutoff, 3)))
+              .format(round(markers_dark_cutoff, 3), round(markers_light_cutoff, 3)))
 
         markers[frame_in_rescale < markers_dark_cutoff] = 1
         markers[frame_in_rescale > markers_light_cutoff] = 2
