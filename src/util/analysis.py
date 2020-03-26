@@ -7,6 +7,8 @@ from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
 # Constants
+# Transient Signal-to-Noise limit
+SNR_MIN = 5.0
 # Transient feature limits (ms)
 TRAN_MAX = 500
 RISE_MAX = 150
@@ -85,28 +87,24 @@ def find_tran_act(signal_in):
     i_peak = find_tran_peak(signal_in)
     if i_peak is np.nan:
         return np.nan
-    i_baselines = find_tran_baselines(signal_in, peak_side='left')
+    i_baselines = find_tran_baselines(signal_in)
     # i_baseline = int(np.median(i_baselines))
-    if i_baselines is np.nan or len(i_baselines) < 5:
+    if i_baselines is np.nan:
         return np.nan
-    # if i_baseline < i_peak:
+
+    baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
+    peak_peak = signal_in[i_peak] - baselines_rms
+    data_noise = signal_in[i_baselines]
+    noise_sd = statistics.stdev(data_noise.astype(float))  # standard deviation
+    snr = peak_peak / noise_sd
+    if snr < SNR_MIN:
+        print('\t ** SNR too low to analyze: {}'.format(round(snr, 3)))
+        return np.nan
+
     search_min = i_baselines[-1]  # TODO try the last baseline index
-
-    # else:   # not enough baselines before the peak
-    #     # search_min = 0  # not enough baselines before the peak, use everything before the peak
-    #     search_min = np.argmin(signal_in[:i_peak])      # use the min value before the peak
-
-    # limit to BEFORE the peak
-    # search_max_calc = i_peak + int((len(signal_in[i_peak:]) * (2/3)))   # a bit after the peak, some length of signal
-    # search_max_backup = i_peak + 5                                      # a bit after the peak, arbitrary length
-    # search_max = np.nanmin((search_max_calc, search_max_backup))
     search_max = i_peak
 
-    # xx_search = np.linspace(search_min, search_max - 1,
-    #                         search_max - search_min)
-    # signal_search = signal_in[search_min:search_max]
-
-    # use a LSQ spline of entire signal
+    # use a LSQ derivative spline of entire signal
     x_df, signal_df = spline_deriv(signal_in)
 
     # find the 1st derivative max within the search area (first few are likely to be extreme)
@@ -254,58 +252,52 @@ def calc_tran_duration(signal_in, percent=80):
             The % duration of the transient in number of indices
         """
     # Check parameters
-    # if type(signal_in) is not np.ndarray:
-    #     raise TypeError('Signal data type must be an "ndarray"')
-    # if signal_in.dtype not in [np.uint16, float]:
-    #     raise TypeError('Signal values must either be "int" or "float"')
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "int" or "float"')
     if type(percent) is not int:
         raise TypeError('Percent data type must be an "int"')
-
-    # # snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
-    # # if snr is np.nan:
-    # #     return np.nan
-    # i_peak = find_tran_peak(signal_in)
-    # if type(i_peak) not in [np.int64, float]:
-    #     i_peak = i_peak[0]  # use the first detected peak
-    # i_baselines = find_tran_baselines(signal_in, peak_side='right')
-    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
-    # peak_peak = signal_in[i_peak] - baselines_rms
-    #
-    # i_activation = find_tran_act(signal_in)
-    #
-    # cutoff = baselines_rms + (float(peak_peak) * float(((100 - percent) / 100)))
-
     # if any(v < 0 for v in signal_in):
     #     raise ValueError('All signal values must be >= 0')
     # if any(x < 0 or x >= 100 for x in signal_in):
     #     raise ValueError('All signal values must be between 0-99%')
 
-    snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
-    # exclusion criteria    TODO spread around!
-    if snr is np.nan or snr < 5:
-        return np.nan  # exclusion criteria : signal strength too low to analyze
-    if type(i_peak) not in [np.int64, float]:
-        i_peak = i_peak[0]  # use the first detected peak
+    # snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
+    # # exclusion criteria    TODO spread around!
+    # if snr is np.nan or snr < 5:
+    #     return np.nan  # exclusion criteria : signal strength too low to analyze
+    #
+    # noise_rms = rms_bounds[0]  # TODO use baseline LSQ spline to the RIGHT of the peak
+    #
+    # cutoff = noise_rms + (float(peak_peak) * float(((100 - percent) / 100)))
+    #
+    # i_search = np.where(signal_in[i_peak:] <= cutoff)
+    # if len(i_search) == 0 or len(i_search[0]) == 0:
+    #     return np.nan  # exclusion criteria: transient does not return to cutoff value
+    # i_duration = i_peak + i_search[0][0]
 
-    # i_baselines = find_tran_baselines(signal_in, peak_side='right')
-    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
-    noise_rms = rms_bounds[0]  # TODO use baseline LSQ spline to the RIGHT of the peak
+    xs, signal_sql = spline_signal(signal_in)
+    signal_spline = signal_sql(xs)
 
-    cutoff = noise_rms + (float(peak_peak) * float(((100 - percent) / 100)))
+    i_peak = find_tran_peak(signal_in)
+    i_baselines = find_tran_baselines(signal_in)
+    if i_baselines is np.nan:
+        return np.nan
+    baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
+    peak_peak = signal_in[i_peak] - baselines_rms
+    cutoff = baselines_rms + (float(peak_peak) * float(((100 - percent) / 100)))
 
-    i_search = np.where(signal_in[i_peak:] <= cutoff)
-    if len(i_search) == 0:
+    i_spline_search = np.where(signal_spline[i_peak*SPLINE_FIDELITY:] <= cutoff)
+
+    if len(i_spline_search) == 0 or len(i_spline_search[0]) == 0:
         return np.nan  # exclusion criteria: transient does not return to cutoff value
-    if len(i_search[0]) == 0:
-        return np.nan  # exclusion criteria: transient does not return to cutoff value
-    # try:
-    i_duration = i_peak + i_search[0][0]
+    i_cutoff = i_peak + int(i_spline_search[0][0] / SPLINE_FIDELITY)
+
     i_activation = find_tran_act(signal_in)
     if i_activation > i_peak:
         return np.nan  # exclusion criteria: peak seems to before activation
-    duration = i_duration - i_activation
-    # except Exception:
-    #     return np.nan
+    duration = i_cutoff - i_activation
 
     if duration < DUR_MIN:
         return np.nan  # exclusion criteria: transient does not return to cutoff value

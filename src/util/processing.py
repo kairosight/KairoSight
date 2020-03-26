@@ -3,15 +3,16 @@ import sys
 
 import numpy as np
 from scipy.interpolate import LSQUnivariateSpline
-from scipy.signal import find_peaks, filtfilt, kaiserord, firwin, butter
+from scipy.signal import find_peaks, find_peaks_cwt, filtfilt, kaiserord, firwin, butter
 from scipy.optimize import curve_fit
 from skimage.morphology import square
 # from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
-from skimage.filters.rank import median, mean, mean_bilateral
+from skimage.filters.rank import median, mean, mean_bilateral, entropy
 
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 SPLINE_FIDELITY = 3
+BASELINES_MIN = 10
 SNR_MAX = 100
 
 
@@ -23,11 +24,11 @@ def spline_signal(signal_in):
     # Lease Square approximation
     # Computing the inner knots and using them:
     x_spline = np.linspace(xx_signal[0], xx_signal[-1], len(xx_signal) * SPLINE_FIDELITY)
-    n_knots = 25  # number of knots to use in LSQ spline
+    n_knots = 35  # number of knots to use in LSQ spline
     t_knots = np.linspace(xx_signal[0], xx_signal[-1], n_knots)  # equally spaced knots in the interval
-    t_knots = t_knots[1:-1]  # discard edge knots
+    t_knots = t_knots[2:-2]  # discard edge knots
     # t_knots = [0, 1, 2, 3]
-    bspline_degree = 5
+    bspline_degree = 3
     # sql = make_lsq_spline(xx_signal, signal_in, t_knots)
     spline = LSQUnivariateSpline(xx_signal, signal_in, t_knots, k=bspline_degree)
     # x_signal = np.arange(len(signal_in))
@@ -53,7 +54,7 @@ def spline_deriv(signal_in):
 
 
 def find_tran_peak(signal_in, props=False):
-    """Find the time of the peak of a transient,
+    """Find the index of the peak of a transient,
     defined as the maximum value
 
         Parameters
@@ -93,142 +94,90 @@ def find_tran_peak(signal_in, props=False):
         signal_mean = int(np.floor(np.nanmean(signal_in)))
     signal_range = signal_bounds[1] - signal_mean
 
-    # TODO use a LSQ spline (avoid extreme sample issues)
+    # TODO detect dual peaks, alternans, etc.
+
+    # # Roughly find the peaks using a smoothing wavelet transformation
+    # distance = int(len(signal_in) / 2)
+    # i_peaks = find_peaks_cwt(signal_in, widths=np.arange(10, distance))
+    # if len(i_peaks) is 0:  # no peak detected
+    #     return np.nan
+    # if len(i_peaks) > 1:
+    #     return i_peaks[0]
+    # return i_peaks
+
     # Roughly find the "prominent" peaks a minimum distance from eachother
     prominence = signal_range * 0.9
-    distance = (len(signal_in) / 2)
+    distance = int(len(signal_in) / 2)
     i_peaks, properties = find_peaks(signal_in,
                                      height=signal_mean, prominence=prominence,
                                      distance=distance)
-    # TODO detect dual peaks, alternans, etc.
-
     if len(i_peaks) is 0:  # no peak detected
         if props:
             return np.nan, np.nan
         else:
             return np.nan
 
+    # Use the peak with the max prominence (in case of a tie, first is chosen)
+    i_peak = i_peaks[np.argmax(properties['prominences'])]
     if props:
-        return i_peaks, properties
+        return i_peak, properties
     else:
-        # Use the peak with the max prominence (in case of a tie, first is chosen)
-        i_peak = i_peaks[np.argmax(properties['prominences'])]
         return i_peak
 
 
 def find_tran_baselines(signal_in, peak_side='left'):
     # Characterize the signal
-    signal_bounds = (signal_in.min(), signal_in.max())
+    # signal_bounds = (signal_in.min(), signal_in.max())
     # signal_range = signal_bounds[1] - signal_bounds[0]
     # find the peak (roughly)
-    i_peaks, properties = find_tran_peak(signal_in, props=True)
-    if i_peaks is np.nan:
+    signal_range = signal_in.max() - signal_in.min()
+    i_peak = find_tran_peak(signal_in)
+    if i_peak is np.nan:
         return np.nan
-    i_peak = i_peaks[np.argmax(properties['prominences'])]
+    signal_cutoff = signal_in.min() + (signal_range / 2)
+    i_signal_cutoff_left = np.where(signal_in[:i_peak] <= signal_cutoff)[0][0]
+    i_signal_cutoff_right = np.where(signal_in[:i_peak] <= signal_cutoff)[0][-1]
 
-    # use the prominence of the peak to find a "rough" baseline
-    # assumes SNR > 2.85?
-    # prominence_floor = signal_in[i_peak] - (properties['prominences'][0] * 0.65)
-    # i_baselines_far_l, i_baselines_far_r = 0, 0
+    # Exclude signals without a prominent peak
 
-    # # use a spline of the rough baseline and find the "flattest" section
-    # if peak_side is 'left':
-    #     # Find first index below the prominence floor
-    #     i_baselines_far_l = np.where(signal_in[:i_peak] <= prominence_floor)[0][0]
-    #     i_baselines_far_r = np.where(signal_in[:i_peak] <= prominence_floor)[0][-1]
-    #
-    #     i_baselines_all = np.arange(0, i_baselines_far_r + 1)
-    #
-    #     # derivative spline of entire signal
-    #     # xs, df_spline = spline_deriv(signal_baseline)
-    #
-    # if peak_side is 'right':
-    #     # Find first index below the prominence floor
-    #     i_baselines_far_l = np.where(signal_in[i_peak:] <= prominence_floor)[0][0] + i_peak
-    #     i_baselines_far_r = np.where(signal_in[i_peak:] <= prominence_floor)[0][-1] + i_peak
-    #
-    #     i_baselines_all = np.arange(i_baselines_far_l, len(signal_in) - 1)
-    #
-    # if len(i_baselines_all) < 20:
-    #     if peak_side is 'left':
-    #         # attempt on right side
-    #         i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
-    #         if len(i_baselines_all_r) < len(i_baselines_all):
-    #             i_baselines_all = i_baselines_all
-    #         else:
-    #             i_baselines_all = i_baselines_all_r
-    #
-    # signal_baseline = signal_in[i_baselines_all]
-    # xx_baseline = np.linspace(0, len(signal_baseline) - 1, len(signal_baseline))
-    #
-    # # use a spline of the rough baseline and find the "flattest" section
-    # xs, df_spline = spline_deriv(signal_baseline)
-
-    # TODO use more data to make derivative spline
+    # use the derivative spline to find relatively quiescent baseline period
     xdf, df_spline = spline_deriv(signal_in)
-
-    # i_df_limit = 0
-    # if peak_side is 'left':
-    #     i_peak_df_search = np.arange(0, i_peak_df)
-    #     i_peak_df = np.argmax(df_spline[i_peak_df_search])
-    #     # using the prominence of this first peak, find the farthest index before any subsequent "peaks"?
-    #     peak_df_prom = df_spline[i_peak_df] * 0.5
-    #     i_df_left = i_peak_df
-    #     for value in np.flip(df_spline[:i_peak_df]):
-    #         if abs(value) < peak_df_prom:
-    #             i_df_left = i_df_left - 1
-    #     i_start_df = int(len(xs[i_df_left:i_peak_df]) * (2/3))
-    #     # i_df_limit = i_df_left
+    df_range = df_spline.max() - df_spline.min()
 
     # TODO catch atrial-type signals and limit to the plataea before the peak
-    # starting from the center(ish) of the derivative spline before its peak
-    # i_peak_df_search = np.arange(0, i_peak_df)
-    # i_peak_df = np.argmax(df_spline[i_peak_df_search])
-    # i_start_df = int(len(xs[0:i_peak_df]) * (3/5))
-
     # find the df max before the signal's peak (~ large rise time)
-    df_max_search_left = int((i_peak * SPLINE_FIDELITY) * (1/2))
-    i_peak_signal = i_peak * SPLINE_FIDELITY
-    i_peak_df = df_max_search_left + np.argmax(df_spline[df_max_search_left:i_peak_signal])
-
-    # # i_start_df = int(len(xs[0:i_peak_df]) * (2/3))
-    # # start at the derivitave's min in a local rising area (before the peak and after an arbitrary point)
-    # i_start_search_l = int(i_peak_df * (1 / 2))
-    # # df_local = df_spline[i_start_search_l:i_peak_df]   # local df area
-
-    # # use the 2nd derivative to set the search
-    # xdf2, df_2_spline = spline_deriv(df_spline)
+    # df_max_search_left = int((i_peak * SPLINE_FIDELITY) * (1 / 2))
+    df_search_left = SPLINE_FIDELITY * SPLINE_FIDELITY
 
     # include indexes within the standard deviation of the local area of the derivative
-    df_sd = statistics.stdev(df_spline)
-    df_prominence_cutoff = df_sd
+    df_sd = statistics.stdev(df_spline[df_search_left:-df_search_left])
+    df_prominence_cutoff = df_sd * 2
 
-    df_start_search_left = int(i_peak_df * (1/2))
-    i_min_df = df_start_search_left + np.argmin(df_spline[df_start_search_left:i_peak_df])
+    df_max_search_right = i_signal_cutoff_right * SPLINE_FIDELITY
+
+    i_peak_df = df_search_left + np.argmax(df_spline[df_search_left:df_max_search_right])
+    df_search_start_right = i_peak_df
+
+    # i_min_df = df_search_left + np.argmin(df_spline[df_search_left:df_search_start_right])
+    i_start_df = i_peak_df
 
     # find first value within cutoff
-    for idx_flip, value in enumerate(np.flip(df_spline[:i_min_df])):
+    df_spline_search = df_spline[:i_peak_df+1]
+    for idx_flip, value in enumerate(np.flip(df_spline_search)):
         if abs(value) < df_prominence_cutoff:
-            i_start_df = i_min_df - idx_flip
+            i_start_df = i_peak_df - idx_flip
             break
-        else:   # no values within cutoff?
-            i_start_df = i_min_df
-
-    # i_start_df = int(i_peak_df * (2/3))
-    # df_prominence_cutoff = np.mean(df_spline)
-    # if df_prominence_cutoff < 0.3:
-    #     df_prominence_cutoff = 0.3  # minimum SD cutoff
 
     i_left_df = i_start_df
     i_right_df = i_start_df
-    # look left
-    for value in np.flip(df_spline[:i_start_df]):
+    # look left TODO allow to go further (higher cutoff?) to not overestimate noisy SNRs
+    for value in np.flip(df_spline[df_search_left:i_start_df]):
         if abs(value) < df_prominence_cutoff:
             i_left_df = i_left_df - 1
         else:
             break
     # look right
-    for value in df_spline[i_start_df:]:
+    for value in df_spline[i_start_df:i_peak_df]:
         if abs(value) < df_prominence_cutoff:
             i_right_df = i_right_df + 1
         else:
@@ -247,25 +196,29 @@ def find_tran_baselines(signal_in, peak_side='left'):
     #             i_baselines_all = i_baselines_all_r
     # else:
     #     i_baselines_all = i_baselines_search
-    if (i_right_df > i_peak_df) or (len(i_baselines_search) is 0):
-        print('\t*Range:{}, SD:{} gives {}-{}\ti_start_df:{}\tfrom peak:{}'.format(round(df_prominence_cutoff, 3),
-                                                                        round(df_prominence_cutoff, 3),
-                                                                        i_left_df, i_right_df, i_start_df, i_peak_df))
+    if (i_right_df > i_peak_df) or (len(i_baselines_search) < (BASELINES_MIN * SPLINE_FIDELITY)):
+        print('\n\t\t* df_cutoff: {} gives [{}:{}]\ti_start_df[{}]: {}\tfrom i_peak_df[{}]: {}'
+              .format(round(df_prominence_cutoff, 3), i_left_df, i_right_df,
+                      i_start_df, round(df_spline[i_start_df], 3),
+                      i_peak_df, round(df_spline[i_peak_df], 3)))
 
-        # use arbtrary backup baselines: the 10 signal samples before the df search start (non-inclusive)
-        i_start = int(i_start_df / SPLINE_FIDELITY)
-        if i_start > 10:
-            i_baselines_backup = np.arange(i_start - 10, i_start)
+        if i_right_df > i_peak_df:
+            return np.nan
+
+        # use arbitrary backup baselines: the 10 signal samples before the df search start (non-inclusive)
+        i_right_df = int(i_right_df / SPLINE_FIDELITY)
+        if i_right_df > BASELINES_MIN:
+            i_baselines_backup = np.arange(i_right_df - BASELINES_MIN, i_right_df)
         else:
-            i_baselines_backup = np.arange(0, 10)
+            i_baselines_backup = np.arange(0, BASELINES_MIN)
         return i_baselines_backup
 
     # use all detected indexes
     i_baselines_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
     i_baselines_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
 
-    if i_baselines_right - i_baselines_left < 5:
-        i_baselines_right = i_baselines_left + 5
+    # if i_baselines_right - i_baselines_left < 5:
+    #     i_baselines_right = i_baselines_left + 5
 
     # i_baselines_d1f_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
     # i_baselines_d1f_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
@@ -763,42 +716,28 @@ def calculate_snr(signal_in, noise_count=10):
         raise ValueError('Number of noise values to use must be < length of signal array')
 
     # Find peak values
-    i_peaks, properties = find_tran_peak(signal_in, props=True)
-    if (i_peaks is np.nan) or (len(i_peaks) == 0):
+    i_peak, properties = find_tran_peak(signal_in, props=True)
+    if i_peak is np.nan:
         # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
-    # signal_range = signal_bounds[1] - signal_bounds[0]
-    # noise_height = signal_bounds[0] + signal_range/2    # assumes max noise/signal amps. of 1 / 2
 
-    # if len(i_peaks) > 1:
-    #     # Use the peak with the max prominence
-    #     i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
-    #     ir_peak = i_peaks
-    # else:
-    # Use the peak with the max prominence
-    i_peak_calc = i_peaks[np.argmax(properties['prominences'])]
+    i_peak_calc = i_peak
     ir_peak = i_peak_calc
 
-    # Use the peak value and peak_extent*2 number of neighboring values
-    # peak_extent = 1
-    # data_peak = signal_in[i_peak_calc - peak_extent: i_peak_calc + peak_extent]
-    # peak_rms = np.sqrt(np.mean(data_peak.astype(np.dtype(float)) ** 2))
-    # peak_sd = statistics.pstdev(data_peak.astype(float))
-    # Use the rms of the peak's extent + their  SD/2, to be weighted towards the peak
+    # Use the peak value
     peak_value = signal_in[i_peak_calc]
 
     # Find noise values
     i_noise_calc = find_tran_baselines(signal_in)
-    # i_noise_calc = range(np.argmin(signal_in), np.argmin(signal_in) + 10)
 
     if i_noise_calc is np.nan or len(i_noise_calc) < 5:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     data_noise = signal_in[i_noise_calc]
 
-    # Use noise values
+    # Use noise values and their RMS
     noise_rms = np.sqrt(np.mean(data_noise) ** 2)
     noise_sd = statistics.stdev(data_noise.astype(float))  # standard deviation
 

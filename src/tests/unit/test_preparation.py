@@ -393,20 +393,22 @@ class TestMaskGenerate(unittest.TestCase):
         # self.frame_model = frame_model
 
         # Load data to test with
-        # self.exp_name = '2-wk old'
-        # # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
-        # # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        self.exp_name = '2-wk old'
+        # file_stack_pig = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
+        # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
+        # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        self.strict = (2, 5)
         # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
+        # self.strict = (4, 7)
+        # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
 
-        self.exp_name = '6-wk old'
-        # file_path_local = '/20190517-piga/02-400_Vm(501-700).tif'
-        # self.strict = (1, 3)
-        file_path_local = '/20190517-piga/03-350_Ca(251-500).tif'
-        self.strict = (5, 8)
+        # self.exp_name = '6-wk old'
+        # # file_path_local = '/20190517-piga/02-400_Vm(501-700).tif'
+        # # self.strict = (1, 3)
+        # file_path_local = '/20190517-piga/03-350_Ca(251-500).tif'
+        # self.strict = (5, 8)
 
         self.file_path = dir_tests + '/data/' + file_path_local
         study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd

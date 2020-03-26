@@ -46,7 +46,7 @@ ACT_MAX_PIG_WHOLE = 250
 ACT_MAX_PIG_LV = 100
 cmap_duration = SCMaps.oslo.reversed()
 cmap_duration.set_bad(color=gray_light, alpha=0)
-DUR_MIN_PIG_WHOLE = 80
+DUR_MIN_PIG_WHOLE = 60
 DUR_MIN_PIG_LV = 120
 DUR_MAX_PIG = DUR_MAX
 
@@ -449,47 +449,51 @@ class TestMapAnalysis(unittest.TestCase):
 # noinspection PyTypeChecker
 class TestMapAnalysisPig(unittest.TestCase):
     def setUp(self):
+        # TODO try an ensemble
         # #Load data to test with
         fps = 500.0
-        # TODO try an ensemble
+        self.exp_name = '2-wk'
+        # exp_name = 'MEHP: Baseline'
+        file_XY = (770, 1048)
+        self.scale_px_cm = 101.4362
+        # file_path_local = '/20200228-piga/baseline/04-450_Vm(941-1190).tif'
+        # strict = (2, 5)
+        # file_path_local = '/20200228-piga/baseline/04-450_Ca(941-1190).tif'
+        # strict = (4, 7)
+        file_frames = (941, 1190)
+        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        # strict = (2, 5)
+        # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        # strict = (4, 7)
+        # file_frames = (1031, 1280)
 
-        # self.exp_name = '2-wk'
-        # # exp_name = 'MEHP: Baseline'
-        # file_XY = (770, 1048)
-        # self.scale_px_cm = 101.4362
-        # # file_path = dir_tests + '/data/20200228-piga/baseline/04-450_Ca(941-1190).tif'
-        # # file_frames = (941, 1190)
-        # # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        # # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # # file_frames = (1031, 1280)
-        # # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        strict = (2, 5)
         # file_path_local = '/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        # # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        # # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
-        # # file_path = dir_tests + '/data/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        # # file_name_pig = '2020/02/28 piga-06 Ca, ' + exp_name + ', PCL: 350ms'
+        # strict = (4, 7)
         # file_frames = (941, 1190)
         # file_X0Y0_Vm = (190, 200)
         # file_X0Y0_Ca = (1140, 200)
-        # # exp_name = 'MEHP: 60 uM'
-        # # file_X0Y0 = (1060, 160)
-        # # file_path = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
-        # # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
-        # # file_frames = (871, 1120)
 
-        self.exp_name = '6-wk'
-        # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
-        # self.scale_px_cm = 67.0000
+        # exp_name = 'MEHP: 60 uM'
+        # file_X0Y0 = (1060, 160)
+        # file_path = dir_tests + '/data/20200228-piga/MEHP 60 uM/09-400_Ca(871-1120).tif'
+        # file_name_pig = '2020/02/28 piga-09, Vm, ' + exp_name + ' PCL 400ms'
+        # file_frames = (871, 1120)
 
-        file_XY = (900, 1200)
-        self.scale_px_cm = 158.7823
-        # file_path_local = '/20190517-piga/02-400_Vm(501-700).tif'
-        # strict = (1, 3)
-        # file_X0Y0_Vm = (950, 150)
-        # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
-        file_path_local = '/20190517-piga/03-350_Ca(251-500).tif'
-        strict = (5, 8)
-        file_X0Y0_Ca = (70, 150)
+        # self.exp_name = '6-wk'
+        # # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
+        # # self.scale_px_cm = 67.0000
+        #
+        # file_XY = (900, 1200)
+        # self.scale_px_cm = 158.7823
+        # # file_path_local = '/20190517-piga/02-400_Vm(501-700).tif'
+        # # strict = (1, 3)
+        # # file_X0Y0_Vm = (950, 150)
+        # # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
+        # file_path_local = '/20190517-piga/03-350_Ca(251-500).tif'
+        # strict = (5, 8)
+        # file_X0Y0_Ca = (70, 150)
         # # file_XY = (900, 1440)
         # # self.scale_px_cm = 143.3298
         # # file_path = dir_tests + '/data/20191004-piga/01-350_Vm(880-1060).tif'
@@ -535,7 +539,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 5  # set to XX (to min ~200 X 200 pixels)
+        self.reduction = 7  # set to XX (to min ~200 X 200 pixels)
         self.scale_px_cm = int(self.scale_px_cm / self.reduction)
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
@@ -732,22 +736,24 @@ class TestMapAnalysisPig(unittest.TestCase):
         ax_map.set_title('SNR Map\n{} - {} ({} pixels)'
                          .format(round(map_min, 2), round(map_max, 2), map_n))
 
-        # Frame from imported stack
-        stack_frame_import = self.frame_bright
         # Frame from prepped/processed stack
-        frame_bright = np.zeros_like(stack[0])
+        frame_processed = np.zeros_like(stack[0])
         for idx, frame in enumerate(stack):
             frame_brightness = np.nanmean(frame)
-            if frame_brightness > np.nanmean(frame_bright):
-                frame_bright = frame
+            if frame_brightness > np.nanmean(frame_processed):
+                frame_processed = frame
         # print('Brightest frame: {}'.format(frame_bright_idx))
-        # Frame from Prepped and Processed stack
-        stack_frame = np.ma.masked_where(frame_bright == 0, frame_bright)
+        # Frame from Prepped and Processed stack (blurred mask)
+        mask_frame = np.ma.masked_where(frame_processed == 0, frame_processed)
+        # mask_frame_entropy = np.ma.masked_where(frame_bright == 0, entropy(frame_bright, disk(self.kernel)))
 
         cmap_frame = SCMaps.grayC.reversed()
-        cmap_norm_frame = colors.Normalize(vmin=stack_frame_import.min(), vmax=stack_frame.max())
-        img_frame_import = ax_frame.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
-        img_frame = ax_frame.imshow(stack_frame, norm=cmap_norm_frame, cmap=cmap_frame)
+        # Frame from imported stack
+        cmap_norm_frame = colors.Normalize(vmin=self.frame_bright.min(), vmax=mask_frame.max())
+        img_frame_import = ax_frame.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        # img_border = ax_frame.imshow(mask_frame_entropy, cmap=cmap_frame)
+
+        img_frame = ax_frame.imshow(mask_frame, norm=cmap_norm_frame, cmap=cmap_frame)
         # scale bar
         heart_scale = [self.scale_px_cm, self.scale_px_cm]  # x, y (pixels/cm)
         heart_scale_bar = AnchoredSizeBar(ax_frame.transData, heart_scale[0], size_vertical=0.2,
@@ -819,9 +825,7 @@ class TestMapAnalysisPig(unittest.TestCase):
                 traceback.print_exc(file=sys.stdout)
 
         # SNR Map
-        ax_map.imshow(stack_frame_import, norm=cmap_norm_frame, cmap=cmap_frame)
-        # img_map_mask = ax_map.imshow(self.mask_out, norm=cmap_norm_frame,
-        #                              cmap=cmap_frame, alpha=0.3)  # mask, optional
+        ax_map.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
         cmap_norm_snr = colors.Normalize(vmin=map_min_display,
                                          vmax=map_max_display)
         img_map = ax_map.imshow(analysis_map, norm=cmap_norm_snr, cmap=cmap_snr)
@@ -976,13 +980,15 @@ class TestMapAnalysisPig(unittest.TestCase):
         for ax, ax_df, sig in zip([ax_signal_min, ax_signal_xy, ax_signal_max],
                                   [ax_df_min, ax_df_xy, ax_df_max],
                                   [signal_min, signal_roi, signal_max]):
-
+            print('* Plotting a signal *')
             # Signal of interest (and underlying calculations)
             snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(sig)
             snr_display = round(snr, 2)
             i_peak = find_tran_peak(sig)  # max of signal, Peak
             i_activation = find_tran_act(sig)  # 1st df max, Activation
             try:
+                ax.plot(stack_time[ir_noise], sig[ir_noise],
+                        "x", color=color_snr, markersize=marker4)
                 ax.plot(stack_time[i_peak], sig[i_peak],
                         "x", color=colors_times['Peak'], markersize=marker3)
                 ax.plot(stack_time[i_activation], sig[i_activation],
@@ -1135,7 +1141,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         # Calculate the Duration map
         analysis_map = map_tran_analysis(stack, calc_tran_duration, stack_time, percent=dur_percent)
         # Exclusion criteria for pigs
-        analysis_map[analysis_map < DUR_MIN_PIG_LV] = np.nan
+        analysis_map[analysis_map < DUR_MIN_PIG_WHOLE] = np.nan
 
         map_min = np.nanmin(analysis_map)
         map_max = np.nanmax(analysis_map)
@@ -1236,6 +1242,8 @@ class TestMapAnalysisPig(unittest.TestCase):
             i_peak = find_tran_peak(sig)  # max of signal, Peak
             i_activation = find_tran_act(sig)  # 1st df max, Activation
             try:
+                ax.plot(stack_time[ir_noise], sig[ir_noise],
+                        "x", color=color_snr, markersize=marker4)
                 ax.plot(stack_time[i_peak], sig[i_peak],
                         "x", color=colors_times['Peak'], markersize=marker3)
                 ax.plot(stack_time[i_activation], sig[i_activation],

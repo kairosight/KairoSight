@@ -959,8 +959,9 @@ class TestSnrSignal(unittest.TestCase):
         self.signal_t0 = 50
         self.signal_fps = 500
         self.signal_f0 = 1000
+
         self.signal_famp = 200
-        self.signal_noise = 5
+        self.signal_noise = 40
 
         self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t, t0=self.signal_t0,
                                                         f0=self.signal_f0, famp=self.signal_famp,
@@ -1071,14 +1072,17 @@ class TestSnrSignal(unittest.TestCase):
                      linestyle='-', label='LSQ spline')
 
         # df/dt
-        # x_signal = np.arange(0, len(self.signal), (self.signal_fps/1000))
-        x_df, df_signal = spline_deriv(self.signal)
-        # x_spline = np.arange(0, len(x_signal), (self.signal_fps/1000) / spline_fidelity)
-        # x_spline = np.linspace(0, len(self.signal) - 1, len(df_spline))
-        ax_df1.plot(x_df, df_signal, color=gray_med,
-                    linestyle='--', label='dF/dt')
+        x_df, df_spline = spline_deriv(self.signal)
+        df_search_left = SPLINE_FIDELITY * SPLINE_FIDELITY
+        df_sd = statistics.stdev(df_spline[df_search_left:-df_search_left])
+        df_prominence_cutoff = df_sd * 2
+
+        ax_df1.plot(x_df, df_spline, color=gray_med,
+                    linestyle='-', label='dF/dt')
+        ax_df1.axhline(y=df_prominence_cutoff, color=color_raw, linestyle='-.', label='Noise +Bound')
+        ax_df1.axhline(y=-df_prominence_cutoff, color=color_raw, linestyle='-.', label='Noise -Bound')
         ax_df1.plot(ir_noise,
-                    df_signal[ir_noise * SPLINE_FIDELITY],
+                    df_spline[ir_noise * SPLINE_FIDELITY],
                     ".", color=color_raw, markersize=signal_markersize)
 
         # ax_data.axhline(y=self.signal_f0 + self.signal_famp,
@@ -1091,13 +1095,18 @@ class TestSnrSignal(unittest.TestCase):
                                                  color=gray_light, linestyle='-.', label='Noise, Calculated')
         #
         # ax_snr.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
-        ax_data.text(0.65, 0.78, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
+        text_x = 0.6
+        ax_data.text(text_x, 0.9, 'Signal Amp., Actual : {}'.format(round(self.signal_famp, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.65, 0.7, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
+        ax_data.text(text_x, 0.84, 'Signal Amp., Calculated : {}'.format(round(peak_peak, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.65, 0.5, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
+        ax_data.text(text_x, 0.76, 'Noise SD, Actual : {}'.format(round(self.signal_noise, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
-        ax_data.text(0.65, 0.42, 'SNR, Calculated : {}'.format(round(snr, 3)),
+        ax_data.text(text_x, 0.7, 'Noise SD, Calculated : {}'.format(round(sd_noise, 3)),
+                     fontsize=fontsize2, transform=ax_data.transAxes)
+        ax_data.text(text_x, 0.62, 'SNR, Actual : {}'.format(round((self.signal_famp / self.signal_noise), 3)),
+                     fontsize=fontsize2, transform=ax_data.transAxes)
+        ax_data.text(text_x, 0.56, 'SNR, Calculated : {}'.format(round(snr, 3)),
                      fontsize=fontsize2, transform=ax_data.transAxes)
         # # ax_snr.text(-1, .18, r'Omega: $\Omega$', {'color': 'b', 'fontsize': 20})
         #
