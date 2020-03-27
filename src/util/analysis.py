@@ -295,7 +295,7 @@ def calc_tran_duration(signal_in, percent=80):
     i_cutoff = i_peak + int(i_spline_search[0][0] / SPLINE_FIDELITY)
 
     i_activation = find_tran_act(signal_in)
-    if i_activation > i_peak:
+    if i_activation > i_peak or i_activation is np.nan:
         return np.nan  # exclusion criteria: peak seems to before activation
     duration = i_cutoff - i_activation
 

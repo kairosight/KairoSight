@@ -467,10 +467,10 @@ class TestMapAnalysisPig(unittest.TestCase):
         # strict = (4, 7)
         # file_frames = (1031, 1280)
 
-        file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        strict = (2, 5)
-        # file_path_local = '/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        # strict = (4, 7)
+        # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
+        # strict = (2, 5)
+        file_path_local = '/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        strict = (4, 7)
         # file_frames = (941, 1190)
         # file_X0Y0_Vm = (190, 200)
         # file_X0Y0_Ca = (1140, 200)
@@ -658,6 +658,13 @@ class TestMapAnalysisPig(unittest.TestCase):
         self.roi_lbwh = (left, bottom, width, height)
 
         self.time_pig, self.stack_pig = time_real, stack_out
+
+    @classmethod
+    def setUpClass(cls):
+        """ get_some_resource() is slow, to avoid calling it for each test use setUpClass()
+            and store the result as class variable
+        """
+        super(TestMapAnalysisPig, cls).setUpClass()
 
     def test_map_snr_pig(self):
         # Make sure map looks correct with pig data
