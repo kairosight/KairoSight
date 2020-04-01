@@ -46,7 +46,7 @@ def find_tran_start(signal_in):
     # Limit search to
     # before the peak and after the mid-baseline began
     baselines = find_tran_baselines(signal_in)
-    i_search_l = baselines[int(len(baselines)/2)]
+    i_search_l = baselines[int(len(baselines) / 2)]
     i_search_r = find_tran_peak(signal_in)
 
     xdf, df_spline = spline_deriv(signal_in)
@@ -288,7 +288,7 @@ def calc_tran_duration(signal_in, percent=80):
     peak_peak = signal_in[i_peak] - baselines_rms
     cutoff = baselines_rms + (float(peak_peak) * float(((100 - percent) / 100)))
 
-    i_spline_search = np.where(signal_spline[i_peak*SPLINE_FIDELITY:] <= cutoff)
+    i_spline_search = np.where(signal_spline[i_peak * SPLINE_FIDELITY:] <= cutoff)
 
     if len(i_spline_search) == 0 or len(i_spline_search[0]) == 0:
         return np.nan  # exclusion criteria: transient does not return to cutoff value
@@ -558,7 +558,17 @@ def calc_ensemble(time_in, signal_in, crop='center'):
         return np.zeros_like(signal_in)
 
     # Find the peaks
-    i_peaks, _ = find_tran_peak(signal_in, props=True)
+    # i_peaks, _ = find_peaks(signal_in)
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_mean = np.nanmean(signal_in)
+    if signal_in.dtype is np.uint16:
+        signal_mean = int(np.floor(np.nanmean(signal_in)))
+    signal_range = signal_bounds[1] - signal_mean
+    prominence = signal_range * 0.8
+    distance_min = 10
+    i_peaks, properties = find_peaks(signal_in,
+                                     height=signal_mean, prominence=prominence,
+                                     distance=distance_min)
 
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
@@ -568,7 +578,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
         raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
     # do not use the first and last peaks
-    i_peaks = i_peaks[1:-2]
+    i_peaks = i_peaks[1:-1]
     # Split up the signal using peaks and estimated cycle length
     est_cycle_array = np.diff(i_peaks).astype(float)
     est_cycle_i = np.nanmean(est_cycle_array)
@@ -587,14 +597,14 @@ def calc_ensemble(time_in, signal_in, crop='center'):
     # TODO ensembles are too wide due to bad activation times
     # TODO ensembles distorted by early peaks (late activation times?)
     for peak_num, peak in enumerate(i_peaks):
-        signal = signal_in[i_peaks[peak_num] - cycle_shift:
-                           i_peaks[peak_num] + cycle_shift]
-        signals_trans_peak.append(signal)
+        sig = signal_in[i_peaks[peak_num] - cycle_shift:
+                        i_peaks[peak_num] + cycle_shift]
+        signals_trans_peak.append(sig)
         # signal = normalize_signal(signal)
 
-        i_baselines = find_tran_baselines(signal)
+        i_baselines = find_tran_baselines(sig)
         i_baselines_full.append((i_peaks[peak_num] - cycle_shift) + i_baselines)
-        i_act_signal = find_tran_act(signal)
+        i_act_signal = find_tran_act(sig)
         i_act_full = (i_peaks[peak_num] - cycle_shift) + i_act_signal
         i_acts_full.append(i_act_full)
 
@@ -602,44 +612,18 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
     # With that peak detection, find activation times and align transient
     for act_num, i_act_full in enumerate(i_acts_full):
-        # i_start_signal = find_tran_start(signal)
-        # signal = normalize_signal(signal)
-        # i_act_signal = find_tran_act(signal)
-        # i_act_full = (i_peaks[act_num] - cycle_shift) + i_act_signal
-        # i_act_full = i_act_signal + (est_cycle_i * act_num)
-
-        # # align along activation times, and crop using the last signal's left-most baseline
-        # # i_align = i_act_full - int((est_cycle_i/8))
-        # # align along activation times, and crop using start time and est_cycle_i
-        # last_baselines = np.min(i_baselines_full[-1])
-        # last_act = i_acts_full[-1]
-        # d_last_crop = last_act - last_baselines
-        # i_align = i_act_full - d_last_crop
-        # # cycle_shift = min(i_peaks)
-        # signal_cycle = normalize_signal(signal_in[i_align:i_align + est_cycle_i])
-
-        # # align along activation times, and crop using the first signal's left-most baseline
-        # i_align = i_acts_full[act_num] - 40
-        # i_align = i_acts_full[act_num] - (i_acts_full[0] - (i_peaks[0] - cycle_shift))
-
-        # signal_align = normalize_signal(signal_in[i_align:i_align + est_cycle_i])
         if crop is 'center':
             # center : crop transients using the cycle length
             # cropped to center at the alignment points
 
-            # align along activation times, and crop using the first signal's baseline
-            # i_baseline = i_baselines_full[0][-1]
+            # align along activation times, and crop to include ensuing diastolic intervals
+            # i_baseline = int(np.median(i_baselines_full[0]))
             i_baseline = int(np.median(i_baselines_full[0]))
-            i_align = i_act_full - (i_acts_full[0] - i_baseline)
+            # i_align = i_act_full - (i_acts_full[0] - i_baseline)
+            i_start = i_act_full - (i_acts_full[0] - i_baselines_full[0][0])
+            i_end = i_act_full + (i_peaks[1] - i_acts_full[0])
 
-            i_baseline = int(np.median(i_baselines_full[0]))
-            if i_baseline < i_act_full:
-                crop_l = i_baseline
-            else:
-                crop_l = 0  # not enough baselines before the act time, use everything before the peak
-
-            # i_align = i_act_full - (i_acts_full[0] - crop_l)
-            signal_align = signal_in[i_align:i_align + est_cycle_i]
+            signal_align = signal_in[i_start:i_end]
         elif type(crop) is tuple:
             # stack : crop transients using the cycle length
             # cropped to allow for an ensemble stack with propagating transients
@@ -654,11 +638,13 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
         signal_align = normalize_signal(signal_align)
         # Use correlation to tighten alignment
+        shift_max = 0
         if act_num > 0:
-            signal_align = align_signals(signals_trans_act[0], signal_align)
-
+            signal_align, shift = align_signals(signals_trans_act[0], signal_align)
+            shift_max = np.nanmax([shift_max, abs(shift)])
         signals_trans_act.append(signal_align)
 
+    signals_trans_act = [sig[:-shift_max] for sig in signals_trans_act]
     # use the lowest activation time
     # cycle_shift = min(min(i_acts), cycle_shift)
     # for act_num, act in enumerate(i_acts):

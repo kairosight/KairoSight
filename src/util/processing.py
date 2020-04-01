@@ -13,6 +13,7 @@ from skimage.filters.rank import median, mean, mean_bilateral, entropy
 FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 SPLINE_FIDELITY = 3
 BASELINES_MIN = 10
+BASELINES_MAX = 20
 SNR_MAX = 100
 
 
@@ -106,7 +107,7 @@ def find_tran_peak(signal_in, props=False):
     # return i_peaks
 
     # Roughly find the "prominent" peaks a minimum distance from eachother
-    prominence = signal_range * 0.9
+    prominence = signal_range * 0.8
     distance = int(len(signal_in) / 2)
     i_peaks, properties = find_peaks(signal_in,
                                      height=signal_mean, prominence=prominence,
@@ -207,6 +208,8 @@ def find_tran_baselines(signal_in, peak_side='left'):
     i_baselines_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right)
+    if len(i_baselines) > BASELINES_MAX:
+        i_baselines = i_baselines[-BASELINES_MAX:]
 
     return i_baselines
 

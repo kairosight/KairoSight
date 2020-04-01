@@ -416,6 +416,8 @@ def align_signals(signal1, signal2):
         -------
         signal2_aligned : ndarray
             Aligned version of signal2
+        shift : int
+            Number of indexes signal2 was shifted during alignment
 
         Notes
         -----
@@ -438,12 +440,10 @@ def align_signals(signal1, signal2):
     signal2_aligned = np.roll(sig2, shift=shift+1)
     if shift > 0:
         signal2_aligned[:shift] = np.nan
-        # signal2_aligned = signal2_aligned[shift:]
     else:
         signal2_aligned[shift:] = np.nan
-        # signal2_aligned = signal2_aligned[:-shift]
 
-    return signal2_aligned
+    return signal2_aligned, shift
 
 
 def align_stacks(stack1, stack2):

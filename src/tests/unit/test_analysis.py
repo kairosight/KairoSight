@@ -668,25 +668,24 @@ class TestEnsemble(unittest.TestCase):
         file_name_pig = '2019/03/22 pigb-01-Ca'
         self.file_name, file_signal = file_name_pig, file_signal_pig
         self.signal_cl = '350'
-        self.signal_time, self.signal = open_signal(source=file_signal, fps=404)
+        self.time, self.signal = open_signal(source=file_signal, fps=404)
         # # real stack
-        extension = '.tif'
-        fps = 500
-        # self.file = '02-350_ca'
-        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
-        self.file = '02-300_Ca'
-        file_stack_pig = dir_tests + '/data/20191004-piga/' + self.file + extension
-        self.file_path = file_stack_pig
-        print('Opening stack ...')
-        self.stack_real, self.stack_meta = open_stack(source=self.file_path)
-        print('DONE Opening stack\n')
+        # extension = '.tif'
+        # fps = 500
+        # # self.file = '02-350_ca'
+        # # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
+        # self.file = '02-300_Ca'
+        # file_stack_pig = dir_tests + '/data/20191004-piga/' + self.file + extension
+        # self.file_path = file_stack_pig
+        # print('Opening stack ...')
+        # self.stack_real, self.stack_meta = open_stack(source=self.file_path)
+        # print('DONE Opening stack\n')
         # self.stack_frame = self.stack_real[0, :, :]  # frame from stack
-        #
-        # Generate array of timestamps
-        FRAMES = self.stack_real.shape[0]
-        FPMS = fps / 1000
-        FINAL_T = floor(FRAMES / FPMS)
-        self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+        # # Generate array of timestamps
+        # FRAMES = self.stack_real.shape[0]
+        # FPMS = fps / 1000
+        # FINAL_T = floor(FRAMES / FPMS)
+        # self.time_real = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
         #
         # # real stack trace
         # self.stack_real_trace_X, self.stack_real_trace_Y = 400, 300
@@ -737,12 +736,13 @@ class TestEnsemble(unittest.TestCase):
 
     def test_trace(self):
         # Make sure ensembled transient looks correct
-        ensemble_crop = (50, 150)
+        ensemble_crop = 'center'
+        # ensemble_crop = (50, 150)
         time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
             = calc_ensemble(self.time, self.signal, crop=ensemble_crop)
 
-        snr_model = round(self.signal_famp / self.signal_noise, 3)
-        last_baselines = find_tran_baselines(signals[-1])
+        # snr_model = round(self.signal_famp / self.signal_noise, 3)
+        # last_baselines = find_tran_baselines(signals[-1])
 
         # Build a figure to plot SNR results
         # fig_snr, ax_snr = plot_test()
@@ -793,12 +793,12 @@ class TestEnsemble(unittest.TestCase):
             # ax_ensemble.plot(time_ensemble[i_start], signal[i_start],
             #                  "x", color=colors_times['Start'], markersize=10)
             # Activation
-            i_activation = find_tran_act(signal)  # 1st df max, Activation
-            ax_ensemble.plot(i_activation, signal[i_activation],
+            i_activation = find_tran_act(sig)  # 1st df max, Activation
+            ax_ensemble.plot(i_activation, sig[i_activation],
                              ".", color=colors_times['Activation'], markersize=signal_markersize)
             # Peak
-            i_peak = find_tran_peak(signal)  # max of signal, Peak
-            ax_ensemble.plot(i_peak, signal[i_peak],
+            i_peak = find_tran_peak(sig)  # max of signal, Peak
+            ax_ensemble.plot(i_peak, sig[i_peak],
                              "+", color=colors_times['Peak'], markersize=signal_markersize)
             # # Downstroke
             # i_downstroke = find_tran_downstroke(signal)  # df min, Downstroke
@@ -813,8 +813,8 @@ class TestEnsemble(unittest.TestCase):
             snr = snr_results[0]
             ir_noise = snr_results[-2]
             signal_snrs.append(snr)
-            ax_ensemble.plot(ir_noise, signal[ir_noise],
-                             "x", color=gray_med, markersize=signal_markersize / 2)
+            # ax_ensemble.plot(ir_noise, sig[ir_noise],
+            #                  "x", color=gray_med, markersize=signal_markersize / 2)
 
         # Stats: SNRs
         snr_old = round(np.mean(signal_snrs), 3)
@@ -853,10 +853,10 @@ class TestEnsemble(unittest.TestCase):
         # Text: Conditions
         ax_ensemble.text(0.72, 0.65, 'PCL actual (ms): {}'.format(self.signal_cl),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        # ax_ensemble.text(0.72, 0.6, 'File: {}'.format(self.file_name),
-        #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
-        ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
+        ax_ensemble.text(0.72, 0.6, 'File: {}'.format(self.file_name),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
+        # ax_ensemble.text(0.72, 0.6, 'SNR actual: {}'.format(snr_model),
+        #                  color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
         # Text: Cycles
         ax_ensemble.text(0.72, 0.5, 'PCL detected (ms): {}'.format(round(np.mean(est_cycle_length), 3)),
                          color=gray_heavy, fontsize=fontsize1, transform=ax_ensemble.transAxes)
@@ -877,8 +877,8 @@ class TestEnsemble(unittest.TestCase):
         #                      color=colors_times['Activation'], lw=3,
         #                      capsize=4, capthick=1.0)
 
-        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
-        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Pig.png')
+        # fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble.png')
+        fig_ensemble.savefig(dir_unit + '/results/analysis_Ensemble_Pig.png')
         fig_ensemble.show()
 
     def test_stack(self):
