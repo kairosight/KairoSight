@@ -135,14 +135,14 @@ def find_tran_baselines(signal_in, peak_side='left'):
     if i_peak is np.nan:
         return np.nan
     signal_cutoff = signal_in.min() + (signal_range / 2)
-    i_signal_cutoff_left = np.where(signal_in[:i_peak] <= signal_cutoff)[0][0]
+    # i_signal_cutoff_left = np.where(signal_in[:i_peak] <= signal_cutoff)[0][0]
     i_signal_cutoff_right = np.where(signal_in[:i_peak] <= signal_cutoff)[0][-1]
 
     # Exclude signals without a prominent peak
 
     # use the derivative spline to find relatively quiescent baseline period
     xdf, df_spline = spline_deriv(signal_in)
-    df_range = df_spline.max() - df_spline.min()
+    # df_range = df_spline.max() - df_spline.min()
 
     # TODO catch atrial-type signals and limit to the plataea before the peak
     # find the df max before the signal's peak (~ large rise time)
@@ -185,17 +185,6 @@ def find_tran_baselines(signal_in, peak_side='left'):
     # combine
     i_baselines_search = np.arange(i_left_df, i_right_df)
 
-    # if len(i_baselines_search) < 10:
-    #     if peak_side is 'left':
-    #         i_baselines_all_l = i_baselines_search
-    #         # attempt on right side
-    #         i_baselines_all_r = find_tran_baselines(signal_in, peak_side='right')
-    #         if len(i_baselines_all_r) < len(i_baselines_search):
-    #             i_baselines_all = i_baselines_all_l
-    #         else:
-    #             i_baselines_all = i_baselines_all_r
-    # else:
-    #     i_baselines_all = i_baselines_search
     if (i_right_df > i_peak_df) or (len(i_baselines_search) < (BASELINES_MIN * SPLINE_FIDELITY)):
         print('\n\t\t* df_cutoff: {} gives [{}:{}]\ti_start_df[{}]: {}\tfrom i_peak_df[{}]: {}'
               .format(round(df_prominence_cutoff, 3), i_left_df, i_right_df,
@@ -216,22 +205,6 @@ def find_tran_baselines(signal_in, peak_side='left'):
     # use all detected indexes
     i_baselines_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
     i_baselines_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
-
-    # if i_baselines_right - i_baselines_left < 5:
-    #     i_baselines_right = i_baselines_left + 5
-
-    # i_baselines_d1f_left = int(i_baselines_search[0] / SPLINE_FIDELITY)
-    # i_baselines_d1f_right = int(i_baselines_search[-1] / SPLINE_FIDELITY)
-    #
-    # # use a subset of the flattest baselines
-    # # search_buffer = int((len(i_baselines_search) / spline_fidelity) / 2)
-    # # search_buffer = int((i_baselines_d1f_right - i_baselines_d1f_left) / 4)
-    # # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0] + search_buffer
-    # # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0] - search_buffer
-    #
-    # # use all detected indexes
-    # i_baselines_left = i_baselines_d1f_left + i_baselines_all[0]
-    # i_baselines_right = i_baselines_d1f_right + i_baselines_all[0]
 
     i_baselines = np.arange(i_baselines_left, i_baselines_right)
 
@@ -340,13 +313,12 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
         frame_out = mean(frame_in, square(kernel))
     elif filter_type is 'bilateral':
         # Good for edge preservation, but slow
-        sigma_color = 50  # standard deviation of the intensity gaussian kernel
-        sigma_space = 10  # standard deviation of the spatial gaussian kernel
+        # sigma_color = 50  # standard deviation of the intensity gaussian kernel
+        # sigma_space = 10  # standard deviation of the spatial gaussian kernel
         frame_out = mean_bilateral(frame_in, square(kernel))
     elif filter_type is 'gaussian':
         # Good for ___, but ___
         sigma = kernel  # standard deviation of the gaussian kernel
-        # TODO avoid smearing with 0-value or masked pixels
         frame_out = gaussian(frame_in, sigma=sigma, mode='mirror', preserve_range=True)
     else:
         raise NotImplementedError('Filter type "{}" not implemented'.format(filter_type))
@@ -573,6 +545,18 @@ def invert_signal(signal_in):
 
 
 def invert_stack(stack_in):
+    """Invert the values of an image stack (3-D array).
+
+        Parameters
+        ----------
+        stack_in : ndarray
+            Image stack with shape (T, Y, X)
+
+        Returns
+        -------
+        stack_out : ndarray
+            A cropped 3-D array (T, Y, X) of optical data, dtype : float
+        """
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
@@ -588,11 +572,6 @@ def invert_stack(stack_in):
         print('\r\tInversion of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
               end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
-        # pixel_ensemble = calc_ensemble(time_in, pixel_data)
-        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-        # snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak = calculate_snr(pixel_data, noise_count)
-        # Set every pixel's values to the analysis value of the signal at that pixel
-        # map_out[iy, ix] = analysis_type(pixel_ensemble[1])
         pixel_data_inv = invert_signal(pixel_data)
         stack_out[:, iy, ix] = pixel_data_inv
 
@@ -631,6 +610,40 @@ def normalize_signal(signal_in):
     signal_out = np.interp(signal_in, xp, fp)
 
     return signal_out
+
+
+def normalize_stack(stack_in):
+    """Normalize the values of an image stack (3-D array) to range from 0 to 1..
+
+        Parameters
+        ----------
+        stack_in : ndarray
+            Image stack with shape (T, Y, X), dtype : uint16 or float
+
+        Returns
+        -------
+        stack_out : ndarray
+            A normalized image stack (T, Y, X), dtype : float
+        """
+    # Check parameters
+    if type(stack_in) is not np.ndarray:
+        raise TypeError('Stack type must be an "ndarray"')
+    if len(stack_in.shape) is not 3:
+        raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
+    if stack_in.dtype not in [np.uint16, float]:
+        raise TypeError('Stack values must either be "np.uint16" or "float"')
+
+    stack_out = np.empty_like(stack_in, dtype=float)
+    map_shape = stack_in.shape[1:]
+    # Assign a value to each pixel
+    for iy, ix in np.ndindex(map_shape):
+        print('\r\tNormalizing Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
+              end='', flush=True)
+        pixel_data = stack_in[:, iy, ix]
+        pixel_data_norm = normalize_signal(pixel_data)
+        stack_out[:, iy, ix] = pixel_data_norm
+
+    return stack_out
 
 
 def calc_ff0(signal_in):
