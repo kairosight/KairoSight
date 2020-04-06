@@ -1052,7 +1052,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
             return
         else:
             # Add or update the ROI
-            if self.comboBoxROIs.currentIndex() is 0:
+            if self.comboBoxROIs.currentIndex() == 0:
                 # Add the preview ROI to the current TIFF window
                 print('\n*** Applying *NEW* ROI ')
                 self.currentWindow.addROI(roi=self.roi_preview)
@@ -1069,7 +1069,7 @@ class WindowIsolate(QWidget, Ui_WidgetIsolate):
     def discardROI(self):
         """Remove an existing ROI from an open TIFF"""
         print('\n*** Discarding ROI')
-        if self.comboBoxROIs.currentIndex() is 0:
+        if self.comboBoxROIs.currentIndex() == 0:
             print('\n*** Cannot discard *NEW* ROI!')
         else:
             if len(self.currentROIs) < 1:
@@ -1586,7 +1586,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
         if not self.analysis_preview:
             print('** No analysis_preview to add or edit with')
         else:
-            if self.comboBoxAnalysis.currentIndex() is 0:
+            if self.comboBoxAnalysis.currentIndex() == 0:
                 print('** Applying *NEW* Analysis')
                 # self.currentWindow.addAnalysis(self.currentWindow.analysis_default)
                 self.currentWindow.addAnalysis(analysis=self.analysis_preview)
@@ -1609,7 +1609,7 @@ class WindowAnalyze(QWidget, Ui_WidgetAnalyze):
     def discardAnalysis(self):
         """Remove an existing Analysis from a TIFF"""
         print('\n*** Discarding Analysis')
-        if self.comboBoxAnalysis.currentIndex() is 0:
+        if self.comboBoxAnalysis.currentIndex() == 0:
             print('** Cannot discard *NEW* Analysis!')
         else:
             if len(self.currentAnalysis) < 1:
