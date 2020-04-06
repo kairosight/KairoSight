@@ -6,14 +6,14 @@ Python based software to analyze scientific images across time.
 * From your directory, use pip to install required packages:
 
 
-	pip install -r requirements.txt	
+```pip install -r requirements.txt```
 or
 
-	pip3 install -r requirements.txt
+```pip3 install -r requirements.txt```
 
-or
+or  
 
-	conda install --file requirements[linux_conda].txt
+```conda install --file requirements[linux_conda].txt```
 
 
 # Use
