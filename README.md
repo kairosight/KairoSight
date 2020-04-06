@@ -11,6 +11,10 @@ or
 
 	pip3 install -r requirements.txt
 
+or
+
+	conda install --file requirements[linux_conda].txt
+
 
 # Use
 * From /src/ start the GUI with:
