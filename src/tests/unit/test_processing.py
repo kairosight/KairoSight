@@ -1054,12 +1054,10 @@ class TestSnrSignal(unittest.TestCase):
             ax.spines['left'].set_visible(False)
             ax.spines['top'].set_visible(False)
             ax.spines['bottom'].set_visible(False)
-            # ax.set_yticks([])
-            # ax.set_yticklabels([])
 
         # Plot signals and points
         ax_data.plot(self.signal, color=gray_med,
-                     linestyle='-', marker='+', )
+                     linestyle='-', marker='+')
 
         ax_data.plot(ir_peak, self.signal[ir_peak], "x", color=color_raw, markersize=signal_markersize * 2,
                      label='Peak')

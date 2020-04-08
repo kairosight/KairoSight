@@ -22,7 +22,7 @@ dir_unit = str(Path.cwd())
 dir_integration = str(Path.cwd())
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
-marker1, marker2, marker3, marker4 = [25, 20, 10, 5]
+marker1, marker2, marker3, marker4, marker5 = [25, 20, 10, 5, 3]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
@@ -361,7 +361,15 @@ class TestAnalysisPoints(unittest.TestCase):
 
         self.zoom_t = [0, 55]
 
-    def test_plot(self):
+        # # Import real data
+        # real trace
+        file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
+        file_name_pig = '2019/03/22 pigb-01-Ca'
+        self.file_name, file_signal = file_name_pig, file_signal_pig
+        self.signal_cl = '350'
+        self.time_real, self.signal_real = open_signal(source=file_signal, fps=404)
+
+    def test_detections(self):
         # Build a figure to plot the signal, it's derivatives, and the analysis points
         # General layout
         fig_analysis = plt.figure(figsize=(6, 6))  # _ x _ inch page
@@ -502,6 +510,109 @@ class TestAnalysisPoints(unittest.TestCase):
 
         # fig_analysis.savefig(dir_unit + '/results/analysis_AnalysisPoints.png')
         fig_analysis.show()
+
+    def test_features(self):
+        # Build a figure to plot an isolated transient and major analysis points/durations
+        transients, cycle = isolate_transients(self.signal_real)
+        transient_signal = transients[1]
+        transient_time = self.time_real[0:len(transient_signal)]
+
+        # General layout
+        fig_transient = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        plt.rc('xtick', labelsize=fontsize2)
+        plt.rc('ytick', labelsize=fontsize2)
+        gs0 = fig_transient.add_gridspec(3, 1, height_ratios=[0.15, 0.75, 0.1], hspace=0.1)  # 3 rows, 1 column
+        ax_signal = fig_transient.add_subplot(gs0[0])
+        ax_features = fig_transient.add_subplot(gs0[1])
+        ax_blank = fig_transient.add_subplot(gs0[2])
+        ax_signal.set_zorder(2)
+        ax_features.set_zorder(1)
+
+        for ax in [ax_signal, ax_features, ax_blank]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.xaxis.set_major_locator(plticker.MultipleLocator(100))
+            ax.xaxis.set_minor_locator(plticker.MultipleLocator(50))
+
+        ax_signal.set_ylabel('Amplitude\n(arb. u.)')
+        ax_signal.set_xticklabels([])
+
+        ax_features.set_ylabel('Amplitude\n(Normalized)')
+        ax_features.yaxis.set_major_locator(plticker.MultipleLocator(1))
+        ax_features.set_xticks([])
+        ax_features.set_xticklabels([])
+
+        ax_blank.set_xlabel('Time (ms)')
+        ax_blank.set_yticks([])
+        ax_blank.set_yticklabels([])
+
+        ax_signal.plot(self.time_real, self.signal_real, color=gray_light,
+                       linestyle='None', marker='.', label='Ca pixel data')
+        ax_features.plot(transient_time, transient_signal, color=gray_med, marker='.')
+        ax_blank.set_xlim(ax_features.get_xlim())
+        ax_blank.set_ylim([0, 1])
+
+        # Transient Features
+        # Start
+        i_start = find_tran_start(transient_signal)  # 1st df2 max, Start
+        ax_features.plot(transient_time[i_start],
+                         transient_signal[i_start],
+                         ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                         color=colors_times['Start'], label='Start')
+        # Activation timepoint
+        i_activation = find_tran_act(transient_signal)  # 1st df max, Activation
+        ax_features.plot(transient_time[i_activation],
+                         transient_signal[i_activation],
+                         ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                         color=colors_times['Activation'], label='Activation')
+        # Peak
+        i_peak = find_tran_peak(transient_signal)  # max of signal, Peak
+        ax_features.plot(transient_time[i_peak],
+                         transient_signal[i_peak],
+                         ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                         color=colors_times['Peak'], label='Peak')
+        # Depolarization timespan
+        depolarization = i_peak - i_start
+        ax_blank.hlines(y=0.9,
+                        xmin=transient_time[i_start],
+                        xmax=transient_time[i_peak],
+                        color=colors_times['Activation'], linewidth=marker5)
+        # Duration timepoint- 90%
+        duration = calc_tran_duration(transient_signal, percent=90)
+        i_duration = i_activation + duration
+        ax_features.plot(transient_time[i_duration],
+                         transient_signal[i_duration],
+                         ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                         color=colors_times['Downstroke'], label='Duration 90%')
+        # Duration timespan
+        ax_blank.hlines(y=0.75,
+                        xmin=transient_time[i_activation],
+                        xmax=transient_time[i_activation + duration],
+                        color=colors_times['Downstroke'], linewidth=marker5)
+        # DI (Diastolic Interval) timespan
+        diastolic = cycle - duration
+        i_diastolic = i_duration + diastolic
+        ax_blank.hlines(y=0.6,
+                        xmin=transient_time[i_duration],
+                        xmax=transient_time[i_diastolic],
+                        color=colors_times['End'], linewidth=marker5)
+        # # Downstroke
+        # i_downstroke = find_tran_downstroke(self.signal)  # df min, Downstroke
+        # ax_features.plot(self.time_real[i_downstroke],
+        #              self.signal_real[i_downstroke],
+        #              "x", color=colors_times['Downstroke'], markersize=marker3)
+        # # End
+        # i_end = find_tran_end(transient_signal)  # 2st df2 max, End
+        # ax_features.plot(transient_time[i_end],
+        #                  transient_signal[i_end],
+        #                  "x", color=colors_times['End'], markersize=marker3)
+
+        ax_features.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_transient.savefig(dir_unit + '/results/analysis_TransientFeatures.png')
+        fig_transient.show()
 
 
 # class TestDuration(unittest.TestCase):
@@ -662,7 +773,7 @@ class TestEnsemble(unittest.TestCase):
         # self.stack_import, self.stack_meta = open_stack(source=file_stack_model)
         # print('DONE Opening stack\n')
 
-        # # Import real data
+        # Import real data
         # real trace
         file_signal_pig = dir_tests + '/data/20190322-pigb/01-350_Ca_30x30-LV-198x324.csv'
         file_name_pig = '2019/03/22 pigb-01-Ca'
@@ -744,7 +855,6 @@ class TestEnsemble(unittest.TestCase):
         # snr_model = round(self.signal_famp / self.signal_noise, 3)
         # last_baselines = find_tran_baselines(signals[-1])
 
-        # Build a figure to plot SNR results
         # fig_snr, ax_snr = plot_test()
         fig_ensemble = plt.figure(figsize=(12, 8))  # _ x _ inch page
         gs0 = fig_ensemble.add_gridspec(2, 1, height_ratios=[0.2, 0.8])  # 3 rows, 1 column

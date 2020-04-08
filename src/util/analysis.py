@@ -1,4 +1,3 @@
-from util.preparation import align_signals
 from util.processing import *
 import time
 import numpy as np
@@ -7,8 +6,6 @@ from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline
 
 # Constants
-# Transient Signal-to-Noise limit
-SNR_MIN = 5.0
 # Transient feature limits (ms)
 TRAN_MAX = 500
 RISE_MAX = 150
@@ -37,7 +34,7 @@ def find_tran_start(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
+    if signal_in.dtype not in [np.uint16, float, np.float32]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     # if any(v < 0 for v in signal_in):
@@ -59,66 +56,6 @@ def find_tran_start(signal_in):
     return i_start
 
 
-def find_tran_act(signal_in):
-    """Find the time of the activation of a transient,
-    defined as the the maximum of the 1st derivative OR
-
-        Parameters
-        ----------
-        signal_in : ndarray
-            The array of data to be evaluated, dtype : uint16 or float
-
-        Returns
-        -------
-        i_activation : np.int64
-            The index of the signal array corresponding to the activation of the transient
-        """
-    # Check parameters
-    if type(signal_in) is not np.ndarray:
-        raise TypeError('Signal data type must be an "ndarray"')
-    # if signal_in.dtype not in [np.uint16, float]:
-    #     raise TypeError('Signal values must either be "int" or "float"')
-
-    # if any(v < 0 for v in signal_in):
-    #     raise ValueError('All signal values must be >= 0')
-
-    # Limit the search to be well before
-    # and well after the peak (depends on which side of the peak the baselines are)
-    i_peak = find_tran_peak(signal_in)
-    if i_peak is np.nan:
-        return np.nan
-    i_baselines = find_tran_baselines(signal_in)
-    # i_baseline = int(np.median(i_baselines))
-    if i_baselines is np.nan:
-        return np.nan
-
-    baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
-    peak_peak = signal_in[i_peak] - baselines_rms
-    data_noise = signal_in[i_baselines]
-    noise_sd = statistics.stdev(data_noise.astype(float))  # standard deviation
-    snr = peak_peak / noise_sd
-    if snr < SNR_MIN:
-        print('\t ** SNR too low to analyze: {}'.format(round(snr, 3)))
-        return np.nan
-
-    search_min = i_baselines[-1]  # TODO try the last baseline index
-    search_max = i_peak
-
-    # use a LSQ derivative spline of entire signal
-    x_df, signal_df = spline_deriv(signal_in)
-
-    # find the 1st derivative max within the search area (first few are likely to be extreme)
-    i_act_search_df = np.argmax(signal_df[search_min * SPLINE_FIDELITY:search_max * SPLINE_FIDELITY])
-    i_act_search = int(np.floor(i_act_search_df / SPLINE_FIDELITY))
-
-    i_activation = search_min + i_act_search
-
-    if i_activation == i_peak:
-        print('\tWarning! Activation time same as Peak: {}'.format(i_activation))
-
-    return i_activation
-
-
 def find_tran_downstroke(signal_in):
     """Find the time of the downstroke of a transient,
     defined as the minimum of the 1st derivative
@@ -136,13 +73,13 @@ def find_tran_downstroke(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
+    if signal_in.dtype not in [np.uint16, np.float32]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     # Limit search to after the peak and before the end
     i_peak = find_tran_peak(signal_in)
     search_min = i_peak
-    search_max = len(signal_in) - 1
+    search_max = len(signal_in) - SPLINE_FIDELITY
     xdf, df_spline = spline_deriv(signal_in)
     # find the 2nd derivative max within the search area
     i_start_search = int(np.argmin(
@@ -169,33 +106,25 @@ def find_tran_end(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
+    if signal_in.dtype not in [np.uint16, np.float32]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     i_downstroke = find_tran_downstroke(signal_in)
 
     # Limit search to after the Downstroke and before a the end of the ending baseline
     i_search_l = i_downstroke
-    # i_baselines = find_tran_baselines(signal_in)
-    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
 
     snr, rms_bounds, peak_peak, sd_noise, ir_noise, i_peak = calculate_snr(signal_in)
-    # # exclusion criteria    TODO spread around!
-    # if snr is np.nan or snr < 5:
-    #     return np.nan  # exclusion criteria : signal strength too low to analyze
-    # if type(i_peak) not in [np.int64, float]:
-    #     i_peak = i_peak[0]  # use the first detected peak
-    # i_baselines = find_tran_baselines(signal_in, peak_side='right')
-    # baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
     cutoff = rms_bounds[0]  # TODO use baseline LSQ spline to the RIGHT of the peak
 
-    i_search = np.where(signal_in[i_peak:] <= cutoff)
+    i_search = i_peak + np.where(signal_in[i_peak:] <= cutoff)
     if len(i_search) == 0:
         return np.nan  # exclusion criteria: transient does not return to cutoff value
     if len(i_search[0]) == 0:
         return np.nan  # exclusion criteria: transient does not return to cutoff value
-    # try:
-    i_search_r = i_peak + i_search[0][0]
+    i_search_r = i_search[0][-1]
+    # search_min = i_peak
+    # search_max = len(signal_in) - SPLINE_FIDELITY
 
     xdf, df_spline = spline_deriv(signal_in)
     xdf2, df2_spline = spline_deriv(df_spline)
@@ -236,8 +165,8 @@ def calc_tran_activation(signal_in):
 
 def calc_tran_duration(signal_in, percent=80):
     """Calculate the duration of a transient,
-    defined as the number of indices between the start time and a time
-    nearest a percentage of the start-to-peak value (e.g. APD-80, CAD-90)
+    defined as the number of indices between the activation time
+    and the time nearest a percentage of the peak-to-peak range (e.g. APD-80, APD-90, CAD-80 ...)
 
         Parameters
         ----------
@@ -254,7 +183,7 @@ def calc_tran_duration(signal_in, percent=80):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
+    if signal_in.dtype not in [np.uint16, np.float32]:
         raise TypeError('Signal values must either be "int" or "float"')
     if type(percent) is not int:
         raise TypeError('Percent data type must be an "int"')
@@ -331,7 +260,8 @@ def calc_tran_tau(signal_in):
 
 def calc_tran_di(signal_in):
     """Calculate the diastolic interval (DI) of a transient,
-    defined as the number of indices between restoration and the next transient's activation
+    defined as the number of indices between this transient's
+    and the next transient's activation
 
         Parameters
         ----------
@@ -350,11 +280,10 @@ def calc_tran_di(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, float]:
+    if signal_in.dtype not in [np.uint16, np.float32]:
         raise TypeError('Signal values must either be "int" or "float"')
 
-    if any(v < 0 for v in signal_in):
-        raise ValueError('All signal values must be >= 0')
+
 
 
 # def calc_pixel_analysis(x, y, map):
@@ -551,7 +480,6 @@ def calc_ensemble(time_in, signal_in, crop='center'):
     # Calculate the number of transients in the signal
     # Characterize the signal
     signal_bounds = (signal_in.min(), signal_in.max())
-    signal_range = signal_bounds[1] - signal_bounds[0]
     unique, counts = np.unique(signal_in, return_counts=True)
 
     if len(unique) < 10:  # signal is too flat to have a valid peak

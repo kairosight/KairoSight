@@ -1,3 +1,5 @@
+from util.preparation import *
+
 import statistics
 import sys
 
@@ -10,11 +12,17 @@ from skimage.morphology import square
 from skimage.filters import gaussian
 from skimage.filters.rank import median, mean, mean_bilateral, entropy
 
-FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
+# Constants
+# LSQ Spline fidelity
 SPLINE_FIDELITY = 3
+# Baseline sample number limits
 BASELINES_MIN = 10
 BASELINES_MAX = 20
+# Transient Signal-to-Noise limit
+SNR_MIN = 5.0
 SNR_MAX = 100
+# Baseline sample number limits
+FILTERS_SPATIAL = ['median', 'mean', 'bilateral', 'gaussian', 'best_ever']
 
 
 # TODO add TV, a non-local, and a weird filter
@@ -62,6 +70,8 @@ def find_tran_peak(signal_in, props=False):
         ----------
         signal_in : ndarray
             The array of data to be evaluated, dtype : uint16 or float
+        props : bool # TODO remove and propagate change to always return props
+            Whether to return properties of the peaks, default : False
 
         Returns
         -------
@@ -143,11 +153,9 @@ def find_tran_baselines(signal_in, peak_side='left'):
 
     # use the derivative spline to find relatively quiescent baseline period
     xdf, df_spline = spline_deriv(signal_in)
-    # df_range = df_spline.max() - df_spline.min()
 
     # TODO catch atrial-type signals and limit to the plataea before the peak
     # find the df max before the signal's peak (~ large rise time)
-    # df_max_search_left = int((i_peak * SPLINE_FIDELITY) * (1 / 2))
     df_search_left = SPLINE_FIDELITY * SPLINE_FIDELITY
 
     # include indexes within the standard deviation of the local area of the derivative
@@ -214,6 +222,66 @@ def find_tran_baselines(signal_in, peak_side='left'):
     return i_baselines
 
 
+def find_tran_act(signal_in):
+    """Find the time of the activation of a transient,
+    defined as the the maximum of the 1st derivative OR
+
+        Parameters
+        ----------
+        signal_in : ndarray
+            The array of data to be evaluated, dtype : uint16 or float
+
+        Returns
+        -------
+        i_activation : np.int64
+            The index of the signal array corresponding to the activation of the transient
+        """
+    # Check parameters
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    # if signal_in.dtype not in [np.uint16, float]:
+    #     raise TypeError('Signal values must either be "int" or "float"')
+
+    # if any(v < 0 for v in signal_in):
+    #     raise ValueError('All signal values must be >= 0')
+
+    # Limit the search to be well before
+    # and well after the peak (depends on which side of the peak the baselines are)
+    i_peak = find_tran_peak(signal_in)
+    if i_peak is np.nan:
+        return np.nan
+    i_baselines = find_tran_baselines(signal_in)
+    # i_baseline = int(np.median(i_baselines))
+    if i_baselines is np.nan:
+        return np.nan
+
+    baselines_rms = np.sqrt(np.mean(signal_in[i_baselines]) ** 2)
+    peak_peak = signal_in[i_peak] - baselines_rms
+    data_noise = signal_in[i_baselines]
+    noise_sd = statistics.stdev(data_noise.astype(float))  # standard deviation
+    snr = peak_peak / noise_sd
+    if snr < SNR_MIN:
+        print('\t ** SNR too low to analyze: {}'.format(round(snr, 3)))
+        return np.nan
+
+    search_min = i_baselines[-1]  # TODO try the last baseline index
+    search_max = i_peak
+
+    # use a LSQ derivative spline of entire signal
+    x_df, signal_df = spline_deriv(signal_in)
+
+    # find the 1st derivative max within the search area (first few are likely to be extreme)
+    i_act_search_df = np.argmax(signal_df[search_min * SPLINE_FIDELITY:search_max * SPLINE_FIDELITY])
+    i_act_search = int(np.floor(i_act_search_df / SPLINE_FIDELITY))
+
+    i_activation = search_min + i_act_search
+
+    if i_activation == i_peak:
+        print('\tWarning! Activation time same as Peak: {}'.format(i_activation))
+
+    return i_activation
+
+
 def isolate_spatial(stack_in, roi):
     """Isolate a spatial region of a stack (3-D array, TYX) of grayscale optical data.
 
@@ -252,24 +320,110 @@ def isolate_temporal(stack_in, i_start, i_end):
     pass
 
 
-def isolate_transient(signal_in, i_start, i_end):
-    """Isolate a single transient from a signal array of optical data.
-
+def isolate_transients(signal_in, i_start=0, i_end=None):
+    """Isolate similar transients from a signal array of optical data.
         Parameters
         ----------
         signal_in : ndarray
-             The array of data to be evaluated, dtype : uint16 or float
-        i_start : int
-             Index or frame to start transient isolation
-        i_end : int
-             Index or frame to end transient isolation
+            The array of data to be evaluated, dtype : uint16 or float
+        i_start : int, optional
+            Index or frame to start transient isolation. The default is 0
+        i_end : int, optional
+            Index or frame to end transient isolation. The default is None.
+
 
         Returns
         -------
-        transient_out : ndarray
-             The isolated array of transient data, dtype : signal_in.dtype
+        transients : list
+            The isolated arrays of transient data, dtype : signal_in.dtype
+        cycle : int
+            The estimated cycle length, indexes between transient peaks TODO change to activation times
         """
-    pass
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
+
+    # Calculate the number of transients in the signal
+    if i_end:
+        signal_in = signal_in[:i_end]
+    # Characterize the signal
+    unique, counts = np.unique(signal_in, return_counts=True)
+
+    if len(unique) < 10:  # signal is too flat to have a valid peak
+        return np.zeros_like(signal_in)
+
+    # Find the peaks
+    # i_peaks, _ = find_peaks(signal_in)
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_mean = np.nanmean(signal_in)
+    if signal_in.dtype is np.uint16:
+        signal_mean = int(np.floor(np.nanmean(signal_in)))
+    signal_range = signal_bounds[1] - signal_mean
+    prominence = signal_range * 0.8
+    distance_min = 10
+    i_peaks, properties = find_peaks(signal_in,
+                                     height=signal_mean, prominence=prominence,
+                                     distance=distance_min)
+
+    if len(i_peaks) == 0:
+        raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+    if len(i_peaks) > 3:
+        print('* {} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+    else:
+        raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+
+    # do not use the first and last peaks
+    i_peaks = i_peaks[1:-1]
+    # Split up the signal using peaks and estimated cycle length
+    est_cycle_array = np.diff(i_peaks).astype(float)
+    cycle = int(np.floor(np.nanmean(est_cycle_array)))
+    cycle_shift = int(np.floor(cycle / 2))
+
+    signals_trans_peak = []
+    i_baselines_full = []
+    i_acts_full = []
+    signals_trans_act = []
+
+    # roughly isolate all transients centered on their peaks
+    # and cropped with a cycle-length-wide window
+    for peak_num, peak in enumerate(i_peaks):
+        sig = signal_in[i_peaks[peak_num] - cycle_shift:
+                        i_peaks[peak_num] + cycle_shift]
+        signals_trans_peak.append(sig)
+
+        i_baselines = find_tran_baselines(sig)
+        i_baselines_full.append((i_peaks[peak_num] - cycle_shift) + i_baselines)
+        i_act_signal = find_tran_act(sig)
+        i_act_full = (i_peaks[peak_num] - cycle_shift) + i_act_signal
+        i_acts_full.append(i_act_full)
+
+    # TODO exclude those with: abnormal rise times, low OWS ...
+
+    # With that peak detection, find activation times and align transient
+    shift_max = 0
+    for act_num, i_act_full in enumerate(i_acts_full):
+        # if crop is 'center':
+        # center : crop transients using the cycle length
+        # cropped to center at the alignment points
+
+        # align along activation times, and crop to include ensuing diastolic intervals
+        i_t_start = i_act_full - (i_acts_full[0] - i_baselines_full[0][0])
+        i_t_end = i_act_full + (i_peaks[1] - i_acts_full[0])
+
+        signal_align = signal_in[i_t_start:i_t_end]
+
+        signal_align = normalize_signal(signal_align)
+        # Use correlation to align the transients
+        shift_max = 0
+        if act_num > 0:
+            signal_align, shift = align_signals(signals_trans_act[0], signal_align)
+            shift_max = np.nanmax([shift_max, abs(shift)])
+        signals_trans_act.append(signal_align)
+
+    transients = [sig[:-shift_max] for sig in signals_trans_act]
+
+    return transients, cycle
 
 
 def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
