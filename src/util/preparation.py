@@ -5,22 +5,22 @@ from math import floor
 import numpy as np
 from pathlib import Path, PurePath
 from imageio import volread, volwrite, get_reader
-from scipy import signal
 from skimage.util import img_as_uint, img_as_float
-from skimage.filters import sobel, rank, threshold_otsu, threshold_mean, threshold_minimum
-from skimage.segmentation import felzenszwalb, slic, quickshift, watershed, random_walker
-from skimage.segmentation import mark_boundaries
 from skimage.transform import rescale
+from skimage.filters import sobel, threshold_otsu, threshold_mean
+from skimage.segmentation import random_walker
+# TODO Try felzenszwalb edge filter (https://scikit-image.org/docs/dev/auto_examples/segmentation/plot_segmentations.html#sphx-glr-auto-examples-segmentation-plot-segmentations-py)
+# TODO Try Canny edge filter (https://scikit-image.org/docs/dev/auto_examples/segmentation/plot_metrics.html#sphx-glr-auto-examples-segmentation-plot-metrics-py)
 from skimage.exposure import rescale_intensity
 from skimage.measure import label, regionprops
-from skimage.morphology import disk
-from skimage import measure
 import cv2
 
 # Constants
 FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MASK_TYPES = ['Otsu_global', 'Mean', 'Random_walk', 'best_ever']
 MASK_STRICT_MAX = 9
+
+# TODO move "reduce_stack" from test_Map setUps to a preparation as a new function
 
 
 def open_signal(source, fps=500):
@@ -54,23 +54,23 @@ def open_signal(source, fps=500):
 
     # Calculate important constants
     # Generate array of timestamps
-    FPMS = fps / 1000
+    fpms = fps / 1000
 
     if len(signal_text.shape) > 1:
         # Multiple columns
         data_x = signal_text[1:, 0]  # rows of the first column (skip X,Y header row)
         data_y_counts = signal_text[1:, 1].astype(np.uint16)  # rows of the first column (skip X,Y header row)
-        FRAMES = len(data_x)
-        FINAL_T = floor(FRAMES / FPMS)
+        n_frames = len(data_x)
+        t_final = floor(n_frames / fpms)
     else:
         # Single column, data only
         data_y_counts = signal_text[0]
-        FRAMES = len(data_y_counts)
-        FINAL_T = floor(FRAMES / FPMS)
+        n_frames = len(data_y_counts)
+        t_final = floor(n_frames / fpms)
 
     signal_data = data_y_counts
     # Generate array of timestamps
-    signal_time = np.linspace(start=0, stop=FINAL_T, num=FRAMES)
+    signal_time = np.linspace(start=0, stop=t_final, num=n_frames)
 
     return signal_time, signal_data
 
@@ -187,7 +187,7 @@ def crop_stack(stack_in, d_x=False, d_y=False):
     # if type(d_y) is not int:
     #     raise TypeError('Y pixels to crop must be an "int"')
 
-    # stack_out = stack_in.copy()
+    stack_out = []
     # if either X or Y crop is unused, set to 0
     if d_x is False:
         d_x = 0
@@ -287,23 +287,14 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
                                              out_range=(-1, 1))
         markers = np.zeros(frame_in_rescale.shape)
         otsu = threshold_otsu(frame_in_rescale, nbins=256 * 2)
-        # calculate thresholds between -1 and otsu: darkest to lightest
-        # dark_otsu = np.mean([-1, otsu])
-        # darker_otsu = np.mean([-1, dark_otsu])
-        # darkest_otsu = np.mean([-1, darker_otsu])
-        # lighter_otsu = np.mean([dark_otsu, otsu])
-        # lightest_otsu = np.mean([lighter_otsu, otsu])
-        # light_otsu = np.mean([dark_otsu, lighter_otsu])
 
+        # Calculate thresholds between -1 and otsu: darkest to lightest
         num_otsus = MASK_STRICT_MAX + 1       # number of sections between -1 and otsu
         otsus = np.linspace(-1, otsu, num=num_otsus)
+
         print('* Masking otsu choices: {}'.format([round(ots, 3) for ots in otsus]))
-        # markers_dark_cutoff = otsus[1]      # darkest section (< first otsu section)
-        # TODO use strictness for dark cutoff
         markers_dark_cutoff = otsus[strict[0]]      # darkest section (< first otsu section)
-        # markers_light_cutoff = otsus[(num_otsus-1) - (MASK_STRICT_MAX - strict[1])]   # lightest section (> #strictness otsu section)
         markers_light_cutoff = otsus[strict[1]]   # lightest section (> #strictness otsu section)
-        # markers_light_cutoff = otsu + 0.5   # lightest section (> #strictness otsu section)
 
         print('\t* Marking Random Walk with Otsu values: {} & {}'
               .format(round(markers_dark_cutoff, 3), round(markers_light_cutoff, 3)))
@@ -335,7 +326,6 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
                       .format(idx+1, region_prop.area))
 
         frame_out[largest_mask] = 0
-        # mask = markers
         mask = largest_mask
     else:
         raise NotImplementedError('Mask type "{}" not implemented'.format(mask_type))
@@ -392,58 +382,13 @@ def mask_apply(stack_in, mask):
 
 
 def get_gradient(im):
-    # Calculate the x and y gradients using Sobel operator
+    # Calculate the x and y gradients using a Sobel operator
     grad_x = cv2.Sobel(im, cv2.CV_32F, 1, 0, ksize=5)
     grad_y = cv2.Sobel(im, cv2.CV_32F, 0, 1, ksize=5)
 
     # Combine the two gradients
     grad = cv2.addWeighted(np.absolute(grad_x), 0.5, np.absolute(grad_y), 0.5, 0)
     return grad
-
-
-def align_signals(signal1, signal2):
-    """Aligns two signal arrays using signal.correlate.
-    https://stackoverflow.com/questions/19642443/use-of-pandas-shift-to-align-datasets-based-on-scipy-signal-correlate
-
-        Parameters
-        ----------
-        signal1 : ndarray, dtype : uint16 or float
-            Signal array
-        signal2 : ndarray, dtype : uint16 or float
-            Signal array, will be aligned to signal1
-
-        Returns
-        -------
-        signal2_aligned : ndarray
-            Aligned version of signal2
-        shift : int
-            Number of indexes signal2 was shifted during alignment
-
-        Notes
-        -----
-            Signal arrays must be the same length?
-            Should not be applied to signal data containing at least one transient.
-            Fills empty values with np.NaN
-    """
-    # Set signal datatype as float32
-    sig1 = np.float32(signal1)
-    sig2 = np.float32(signal2)
-
-    # Find the length of the signal
-    # sig_length = len(sig1)
-    # print('sig1 min, max: ', np.nanmin(sig1), ' , ', np.nanmax(sig1))
-    # print('sig2 min, max: ', np.nanmin(sig2), ' , ', np.nanmax(sig2))
-
-    # dx = np.mean(np.diff(sig1.x.values))
-    shift = (np.argmax(signal.correlate(sig1, sig2)) - len(sig2))
-
-    signal2_aligned = np.roll(sig2, shift=shift+1)
-    if shift > 0:
-        signal2_aligned[:shift] = np.nan
-    else:
-        signal2_aligned[shift:] = np.nan
-
-    return signal2_aligned, shift
 
 
 def align_stacks(stack1, stack2):
@@ -468,9 +413,7 @@ def align_stacks(stack1, stack2):
         # Assumes differences are translational with no rotation
         # Based on examples by Satya Mallick (https://www.learnopencv.com/image-alignment-ecc-in-opencv-c-python/)
     """
-    # Read uint16 grayscale images from the image stacks    # TODO actually use uint16
-    # im1 = np.float32(stack1[..., 0])
-    # im2 = np.float32(stack2[..., 0])
+    # Read uint16 grayscale images from the image stacks
     im1 = stack1[0, ...]
     im2 = stack2[0, ...]
 

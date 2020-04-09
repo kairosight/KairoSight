@@ -6,6 +6,8 @@ from pathlib import Path
 from math import pi
 import numpy as np
 import statistics
+from scipy.signal import freqz
+from skimage.restoration import estimate_sigma
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import matplotlib.colors as colors
@@ -22,7 +24,7 @@ fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 # color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
-color_ideal, color_raw, color_filtered = [gray_light, '#c70535', '#0566c7']
+# color_ideal, color_raw, color_filtered = [gray_light, '#c70535', '#0566c7']
 color_ideal, color_raw, color_filtered = [gray_light, '#d43f3a', '#443ad4']
 color_vm, color_ca = ['#FF9999', '#99FF99']
 
@@ -196,43 +198,6 @@ class TestFilterSpatial(unittest.TestCase):
         self.assertIsInstance(frame_out[0, 0], type(self.frame_noisy_ca[0, 0]))  # frame_out value type same as input
 
     def test_plot(self):
-        # Make sure filtered frame looks correct
-        frame_out = filter_spatial(self.frame_noisy_ca, filter_type=self.filter_type)
-
-        # Plot a frame from the stack and the filtered frame
-        fig_filtered, ax_noisy, ax_filtered, ax_ideal = plot_filter_spatial()
-        # Create normalization colormap range for all frames (round up to nearest 10)
-        cmap_frames = SCMaps.grayC.reversed()
-        frames_min, frames_max = 0, 0
-        for frame in [self.frame_noisy_ca, frame_out, self.frame_ideal_ca]:
-            frames_min = min(frames_max, np.nanmin(frame))
-            frames_max = max(frames_max, np.nanmax(frame))
-        cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
-                                     vmax=round(frames_max + 5.1, -1))
-        # Noise frame
-        ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.signal_noise))
-        img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
-        # Draw shape and size of spatial filter kernel
-
-        # Filtered frame
-        ax_filtered.set_title('Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel))
-        img_filtered = ax_filtered.imshow(frame_out, cmap=cmap_frames, norm=cmap_norm)
-
-        # Ideal frame
-        ax_ideal.set_title('Model Data')
-        img_ideal = ax_ideal.imshow(self.frame_ideal_ca, cmap=cmap_frames, norm=cmap_norm)
-        # Add colorbar (right of frame)
-        ax_ins_filtered = inset_axes(ax_ideal, width="5%", height="80%", loc=5, bbox_to_anchor=(0.1, 0, 1, 1),
-                                     bbox_transform=ax_ideal.transAxes, borderpad=0)
-        cb_filtered = plt.colorbar(img_ideal, cax=ax_ins_filtered, orientation="vertical")
-        cb_filtered.ax.set_xlabel('a.u.', fontsize=fontsize3)
-        cb_filtered.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
-        cb_filtered.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-        cb_filtered.ax.tick_params(labelsize=fontsize3)
-
-        fig_filtered.show()
-
-    def test_plot_trace(self):
         # Make sure filtered stack signals looks correct
         signal_x, signal_y = (int(self.WIDTH / 3), int(self.HEIGHT / 3))
         signal_r = self.kernel / 2
@@ -246,20 +211,21 @@ class TestFilterSpatial(unittest.TestCase):
         # General layout
         fig_filter_traces = plt.figure(figsize=(8, 6))  # _ x _ inch page
         gs0 = fig_filter_traces.add_gridspec(1, 3)  # 1 row, 3 columns
-        titles = ['Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
-                  'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel),
-                  'Model Data']
+        titles = ['Model Data',
+                  'Noisy Model Data\n(noise SD: {})'.format(self.signal_noise),
+                  'Spatially Filtered\n({}, kernel: {})'.format(self.filter_type, self.kernel)]
+
         # Create normalization colormap range for all frames (round up to nearest 10)
         cmap_frames = SCMaps.grayC.reversed()
         frames_min, frames_max = 0, 0
-        for idx, frame in enumerate([self.frame_noisy_ca, frame_filtered, self.frame_ideal_ca]):
+        for idx, frame in enumerate([self.frame_ideal_ca, self.frame_noisy_ca, frame_filtered]):
             frames_min = min(frames_max, np.nanmin(frame))
             frames_max = max(frames_max, np.nanmax(frame))
             cmap_norm = colors.Normalize(vmin=round(frames_min, -1),
                                          vmax=round(frames_max + 5.1, -1))
 
         # Plot the frame and a trace from the stack
-        for idx, stack in enumerate([self.stack_noisy_ca, stack_filtered, self.stack_ideal_ca]):
+        for idx, stack in enumerate([self.stack_ideal_ca, self.stack_noisy_ca, stack_filtered]):
             frame = stack[self.frame_num]
             signal = stack[:, signal_y, signal_x]
             gs_frame_signal = gs0[idx].subgridspec(2, 1, height_ratios=[0.6, 0.4])  # 2 rows, 1 columns
@@ -297,10 +263,10 @@ class TestFilterSpatial(unittest.TestCase):
                 ax.spines['bottom'].set_visible(False)
             ax_signal.plot(self.time_noisy_ca, signal, color=gray_heavy, linestyle='None', marker='+')
 
-        fig_filter_traces.show()
         fig_filter_traces.savefig(dir_unit + '/results/processing_SpatialFilter_Trace.png')
+        fig_filter_traces.show()
 
-    def test_plot_trace_real(self):
+    def test_plot_real(self):
         # Make sure filtered stack signals looks correct
         fps = 800
         frame_num = int(len(self.stack_real) / 8)  # frame from 1/8th total time
@@ -380,10 +346,10 @@ class TestFilterSpatial(unittest.TestCase):
     def test_plot_all(self):
         # Plot all filters to compare
         # Setup a figure to show a noisy frame, a spatially filtered frames, and an ideal frame
-        fig_filters = plt.figure(figsize=(10, 12))  # _ x _ inch page
+        fig_filters = plt.figure(figsize=(10, 10))  # _ x _ inch page
         # General layout
-        gs0 = fig_filters.add_gridspec(2, 1)  # 2 rows, 1 column
-        gs_frames = gs0[1].subgridspec(1, 2)  # 1 row, 2 columns
+        gs0 = fig_filters.add_gridspec(2, 1, height_ratios=[0.5, 0.5])  # 2 rows, 1 column
+        gs_frames = gs0[0].subgridspec(1, 2)  # 1 row, 2 columns
         # Create normalization colormap range for the frames (round up to nearest 10)
         cmap_frames = SCMaps.grayC.reversed()
         frames_min, frames_max = 0, 0
@@ -394,12 +360,12 @@ class TestFilterSpatial(unittest.TestCase):
                                      vmax=round(frames_max + 5.1, -1))
 
         # Noisy frame
-        ax_noisy = fig_filters.add_subplot(gs_frames[0])
+        ax_noisy = fig_filters.add_subplot(gs_frames[1])
         ax_noisy.set_title('Noisy Model Data\n(noise SD: {})'.format(self.signal_noise))
         img_noisy = ax_noisy.imshow(self.frame_noisy_ca, cmap=cmap_frames, norm=cmap_norm)
 
         # Filtered frames
-        gs_filters = gs0[0].subgridspec(1, len(FILTERS_SPATIAL) - 1)  # 1 row, X columns
+        gs_filters = gs0[1].subgridspec(1, len(FILTERS_SPATIAL) - 1)  # 1 row, X columns
         # Common between the two
         for idx, filter_type in enumerate(FILTERS_SPATIAL[:-1]):
             filtered_ca = filter_spatial(self.frame_noisy_ca, filter_type=filter_type)
@@ -425,7 +391,7 @@ class TestFilterSpatial(unittest.TestCase):
             #       .format(idx, filter_type, sigma_est))
 
         # Ideal frame
-        ax_ideal = fig_filters.add_subplot(gs_frames[1])
+        ax_ideal = fig_filters.add_subplot(gs_frames[0])
         ax_ideal.set_title('Model Data')
         img_ideal = ax_ideal.imshow(self.frame_ideal_ca, cmap=cmap_frames, norm=cmap_norm)
         # Add colorbar (right of frame)
@@ -446,8 +412,9 @@ class TestFilterSpatial(unittest.TestCase):
             ax.set_yticklabels([])
             ax.set_xticks([])
             ax.set_xticklabels([])
-        fig_filters.show()
+
         fig_filters.savefig(dir_unit + '/results/processing_SpatialFilters_All.png')
+        fig_filters.show()
 
 
 class TestFilterTemporal(unittest.TestCase):
@@ -1342,66 +1309,6 @@ class TestSnrMap(unittest.TestCase):
 
         fig_map_snr.savefig(dir_unit + '/results/processing_SNRMap_Ca_NEW.png')
         fig_map_snr.show()
-
-
-#
-# class TestSNRCube(unittest.TestCase):
-#     def setUp(self):
-#         # Setup data to test with, a propagating stack of varying SNR
-#         self.f0 = 1000
-#         self.famp = 100
-#         self.noise = 1
-#         self.d_noise = 10  # as a % of the signal amplitude
-#         self.noise_count = 100
-#         self.time_ca, self.stack_ca = model_stack_propagation(
-#             size=(10, 10), model_type='Ca', d_noise=self.d_noise, f0=self.f0,
-#             famp=self.famp, noise=self.noise)
-#         self.time, self.stack = self.time_ca, self.stack_ca
-#         self.FRAMES = self.stack.shape[0]
-#         self.HEIGHT, self.WIDTH = (self.stack.shape[1], self.stack.shape[2])
-#         self.frame_shape = (self.HEIGHT, self.WIDTH)
-#         self.origin_x, self.origin_y = self.WIDTH / 2, self.HEIGHT / 2
-#         self.div_borders = np.linspace(start=int(self.HEIGHT / 2), stop=self.HEIGHT / 2 / 5, num=5)
-#
-#     def test_plot3d(self):
-#         fig_3d = plt.figure(figsize=(8, 5))  # _ x _ inch page
-#         # Frame from stack
-#         ax_frame = fig_3d.add_subplot(121)
-#         cmap_frame = SCMaps.grayC.reversed()
-#         img_frame = ax_frame.imshow(self.stack[0, :, :], cmap=cmap_frame)
-#
-#         ax = fig_3d.add_subplot(122, projection='3d')
-#         spacing = 1
-#         # ax = axis.axes(projection='3d')
-#         for Y in range(self.HEIGHT):
-#             for X in range(self.WIDTH):
-#                 signal = self.stack[:, Y, X]
-#                 time_x = self.time
-#                 # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-#                 # signal_spl = UnivariateSpline(time_x, signal)
-#                 # df_smooth = spl(time_x, nu=1)
-#                 # signal_df = signal_spl(time_x, nu=1)
-#                 ax.plot3D(X+spacing, Y+spacing, time_x, 'gray')
-#                 # ax.plot3D(signal, signal, time_x, 'gray')
-#                 ax.set_zlim(ax.get_zlim()[0], ax.get_zlim()[1])
-#
-#                 # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
-#                 # ax.plot3D(X, Y, time_x, 'gray')
-#
-#                 # Data for a three-dimensional line
-#                 # zline = np.linspace(0, 15, 1000)
-#                 # xline = np.sin(zline)
-#                 # yline = np.cos(zline)
-#                 # ax.plot3D(xline, yline, zline, 'gray')
-#
-#                 # Data for three-dimensional scattered points
-#                 # zdata = 15 * np.random.random(100)
-#                 # xdata = np.sin(zdata) + 0.1 * np.random.randn(100)
-#                 # ydata = np.cos(zdata) + 0.1 * np.random.randn(100)
-#
-#                 # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
-#
-#         fig_3d.show()
 
 
 class TestErrorSignal(unittest.TestCase):

@@ -124,7 +124,6 @@ class TestStart(unittest.TestCase):
         ax_points.set_title('Analysis Point: Start')
         ax_points.set_ylabel('Arbitrary Fluorescent Units')
         ax_points.set_xlabel('Time (ms)')
-        points_lw = 3
 
         ax_points.plot(self.time, self.signal, color=gray_heavy,
                        linestyle='-', marker='x', label='Vm (Model)')
@@ -133,27 +132,13 @@ class TestStart(unittest.TestCase):
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
         ax_dfs.set_ylabel('dF/dt, d2F/dt2')  # we already handled the x-label with ax1
 
-        time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        spl = UnivariateSpline(time_x, self.signal)
-
-        df_spline = spl(time_x, nu=1)
-        df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-        spl_df_smooth = UnivariateSpline(time_x, df_smooth)
-
-        d2f_smooth = spl_df_smooth(time_x, nu=1)
-
         # df/dt
-        ax_dfs.plot(self.time, df_smooth,
-                    color=gray_med, linestyle='--', label='dF/dt')
         # d2f/dt2
-        ax_dfs.plot(self.time, d2f_smooth,
-                    color=gray_med, linestyle=':', label='d2F/dt2')
-        df_max = round(max(max(df_smooth, key=abs), max(d2f_smooth, key=abs)) + 5.1, -1)
-        ax_dfs.set_ylim([-df_max, df_max])
+        # ax_dfs.set_ylim([-df_max, df_max])
 
         # Start
         i_start = find_tran_start(self.signal)  # 1st df2 max, Start
-        ax_points.axvline(self.time[i_start], color=colors_times['Start'], linewidth=points_lw,
+        ax_points.axvline(self.time[i_start], color=colors_times['Start'],
                           label='Start')
 
         ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -202,7 +187,6 @@ class TestActivation(unittest.TestCase):
         ax_points.set_title('Analysis Point: Activation')
         ax_points.set_ylabel('Arbitrary Fluorescent Units')
         ax_points.set_xlabel('Time (frame #)')
-        points_lw = 3
 
         ax_points.plot(self.time, self.signal, color=gray_heavy,
                        linestyle='-', marker='x', label='Vm (Model)')
@@ -211,47 +195,10 @@ class TestActivation(unittest.TestCase):
         # show the workings of this analysis
         ax_dfs = ax_points.twinx()  # instantiate a second axes that shares the same x-axis
         ax_dfs.set_ylabel('dF/dt')
-        # Limit search to before the peak and after the first non-prominent point (baseline) before the peak
-        # Characterize the signal
-        signal_bounds = (self.signal.min(), self.signal.max())
-        signal_range = signal_bounds[1] - signal_bounds[0]
-        # find the peak
-        # i_peaks, properties = find_peaks(self.signal, prominence=(signal_range / 2))
-        # i_peak = i_peaks[0]  # the first detected peak
-        # # use the prominence of the peak to find a baseline
-        # prominece_floor = self.signal[i_peak] - (properties['prominences'][0] * 0.8)
-        # i_baslines = np.where(self.signal[:i_peak] <= prominece_floor)
-        i_peak = find_tran_peak(self.signal)
-        i_baselines = find_tran_baselines(self.signal)
-        i_baseline = np.max(i_baselines)
-        #
-        search_min = i_baseline
-        search_max = i_peak
-        #
-        # time_x = np.linspace(0, len(self.signal) - 1, len(self.signal))
-        # spl = UnivariateSpline(time_x, self.signal)
-        #
-        # df_spline = spl(time_x, nu=1)
-        # df_smooth = savgol_filter(df_spline, window_length=5, polyorder=3)
-        # # spl_df_smooth = UnivariateSpline(time_x, df_smooth)
-        #
-        # # d2f_smooth = spl_df_smooth(time_x, nu=1)
-
-        # df/dt
-        # df_spline, spline_fidelity = spline_deriv(self.signal)
-        # ax_dfs.plot(df_spline,
-        #             color=gray_med, linestyle='--', label='dF/dt')
-        # d2f/dt2
-        # ax_dfs.plot(self.time, d2f_smooth,
-        #             color=gray_med, linestyle=':', label='d2F/dt2')
-        # df_max = round(max(df_spline, key=abs) + 5.1, -1)
-        # ax_dfs.set_ylim([-df_max, df_max])
 
         # Activation
         i_act = find_tran_act(self.signal)  # 1st df max, Activation
-        ax_points.hlines(self.signal[i_baseline], xmin=search_min, xmax=search_max,
-                         color=colors_times['Activation'], linewidth=points_lw / 2, label='Search Area')
-        ax_points.axvline(self.time[i_act], color=colors_times['Activation'], linewidth=points_lw,
+        ax_points.axvline(self.time[i_act], color=colors_times['Activation'],
                           label='Activation')
 
         ax_dfs.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
@@ -723,10 +670,6 @@ class TestAnalysisPoints(unittest.TestCase):
 #         self.assertIsInstance(tau, np.float32)
 #
 #         self.assertAlmostEqual(tau, self.signal_t0)
-
-
-#  class TestMapTau(unittest.TestCase):
-#  class TestMapTau(unittest.TestCase):
 
 #  class TestDFreq(unittest.TestCase):
 

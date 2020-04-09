@@ -42,7 +42,7 @@ def align_stacks(stack1, stack2):
     stack1 : ndarray, dtype : uint16
         Image stack with shape (x, y, t)
     stack2 : ndarray, dtype : uint16
-        Image stack with shape (x, y, t), will be aligned to stack1
+        Image stack with shape (x, y, t), will be aligned to stack_dual
 
     Returns
     -------
@@ -104,7 +104,7 @@ def align_stacks(stack1, stack2):
     # # ECC Method
     # # Image registration using first frame
     # # Read the images to be aligned
-    # im1 = np.float32(stack1[0, ...])
+    # im1 = np.float32(stack_dual[0, ...])
     # im2 = np.float32(stack2[0, ...])
     # # # Convert images to grayscale
     # # im1_gray = cv2.cvtColor(im1, cv2.COLOR_BGR2GRAY)

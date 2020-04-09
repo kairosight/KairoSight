@@ -5,18 +5,17 @@ import sys
 
 import numpy as np
 from scipy.interpolate import LSQUnivariateSpline
-from scipy.signal import find_peaks, find_peaks_cwt, filtfilt, kaiserord, firwin, butter
+from scipy.signal import find_peaks, correlate, filtfilt, kaiserord, firwin, butter
 from scipy.optimize import curve_fit
 from skimage.morphology import square
-# from skimage.restoration import denoise_tv_chambolle, estimate_sigma
 from skimage.filters import gaussian
-from skimage.filters.rank import median, mean, mean_bilateral, entropy
+from skimage.filters.rank import median, mean, mean_bilateral
 
 # Constants
 # LSQ Spline fidelity
 SPLINE_FIDELITY = 3
 # Baseline sample number limits
-BASELINES_MIN = 10
+BASELINES_MIN = 5
 BASELINES_MAX = 20
 # Transient Signal-to-Noise limit
 SNR_MIN = 5.0
@@ -280,6 +279,51 @@ def find_tran_act(signal_in):
         print('\tWarning! Activation time same as Peak: {}'.format(i_activation))
 
     return i_activation
+
+
+def align_signals(signal1, signal2):
+    """Aligns two signal arrays using signal.correlate.
+    https://stackoverflow.com/questions/19642443/use-of-pandas-shift-to-align-datasets-based-on-scipy-signal-correlate
+
+        Parameters
+        ----------
+        signal1 : ndarray, dtype : uint16 or float
+            Signal array
+        signal2 : ndarray, dtype : uint16 or float
+            Signal array, will be aligned to signal1
+
+        Returns
+        -------
+        signal2_aligned : ndarray
+            Aligned version of signal2
+        shift : int
+            Number of indexes signal2 was shifted during alignment
+
+        Notes
+        -----
+            Signal arrays must be the same length?
+            Should not be applied to signal data containing at least one transient.
+            Fills empty values with np.NaN
+    """
+    # Set signal datatype as float32
+    sig1 = np.float32(signal1)
+    sig2 = np.float32(signal2)
+
+    # Find the length of the signal
+    # sig_length = len(sig1)
+    # print('sig1 min, max: ', np.nanmin(sig1), ' , ', np.nanmax(sig1))
+    # print('sig2 min, max: ', np.nanmin(sig2), ' , ', np.nanmax(sig2))
+
+    # dx = np.mean(np.diff(sig1.x.values))
+    shift = (np.argmax(correlate(sig1, sig2)) - len(sig2))
+
+    signal2_aligned = np.roll(sig2, shift=shift+1)
+    if shift > 0:
+        signal2_aligned[:shift] = np.nan
+    else:
+        signal2_aligned[shift:] = np.nan
+
+    return signal2_aligned, shift
 
 
 def isolate_spatial(stack_in, roi):

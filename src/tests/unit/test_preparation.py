@@ -213,12 +213,6 @@ class TestCropStack(unittest.TestCase):
 
 class TestCropDual(unittest.TestCase):
     def setUp(self):
-        # # Load data to test with
-        # file_name_rat = '2020/01/09 rata-02, PCL 350ms'
-        # self.file = '02-350_1-100'
-        # extension = '.tif'
-        # file_stack_rat = dir_tests + '/data/20200109-rata/' + self.file + extension
-
         # Load data to test with
         self.exp_name = '2-wk old'
         file_path_local = '/20200228-piga/baseline/05-400(1031-1280).tif'
@@ -228,27 +222,18 @@ class TestCropDual(unittest.TestCase):
 
         self.file_path = dir_tests + '/data/' + file_path_local
         study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd
-        self.file_name = file_path_local.split(sep='/')[-1].split(sep='(')[0]  # e.g. 08-228_Vm
+        self.file_name = file_path_local.split(sep='/')[-1].split(sep='(')[0]  # e.g. 08-228
         self.test_name = '{}, {}, {}'.format(self.exp_name, study_name, self.file_name)
         # #
-
-        # # for real cropping
-        # self.file = '12-150'
-        # extension = '.pcoraw'
-        # # extension = '.tif'
-        # file_stack_rat = dir_tests + '/data/20200109-rata/baseline/' + self.file + extension
-        # file_stack_rat = dir_tests + '/data/20200109-rata/BPA 10 nM/' + self.file + extension
-        # shape_out = (680, 680)
-
         # self.scale_cm_px = 1 / self.scale_px_cm
         print('Opening stack ...')
-        self.stack1, self.meta1 = open_stack(source=self.file_path)
-        self.frame1 = self.stack1[0, :, :]  # frame from stack
+        self.stack_dual, self.meta1 = open_stack(source=self.file_path)
+        self.frame1 = self.stack_dual[0, :, :]  # frame from stack
         print('DONE Opening stack\n')
 
         # Crop twice for each: once from the bottom/right, once for top/left
         # Size of resulting stacks: shape_out
-        shape_in = (self.stack1.shape[2], self.stack1.shape[1])
+        shape_in = (self.stack_dual.shape[2], self.stack_dual.shape[1])
 
         self.crop_vm_1 = (shape_in[0] - (shape_out[0] + X0Y0_Vm[0]), shape_in[1] - (shape_out[1] + X0Y0_Vm[1]))
         self.crop_vm_2 = (-X0Y0_Vm[0], -X0Y0_Vm[1])
@@ -258,11 +243,11 @@ class TestCropDual(unittest.TestCase):
 
     def test_plot(self):
         # Make sure dual-image files are cropped correctly
-        stack_vm_dirty = crop_stack(self.stack1, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
+        stack_vm_dirty = crop_stack(self.stack_dual, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
         stack_vm = crop_stack(stack_vm_dirty, d_x=self.crop_vm_2[0], d_y=self.crop_vm_2[1])
         frame_vm = stack_vm[0, :, :]
 
-        stack_ca_dirty = crop_stack(self.stack1, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
+        stack_ca_dirty = crop_stack(self.stack_dual, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
         stack_ca = crop_stack(stack_ca_dirty, d_x=self.crop_ca_2[0], d_y=self.crop_ca_2[1])
         frame_ca = stack_ca[0, :, :]
 
@@ -291,7 +276,7 @@ class TestCropDual(unittest.TestCase):
 
         # Plot a frame from each stack
         cmap_frames = SCMaps.grayC.reversed()
-        cmap_in_norm = colors.Normalize(vmin=self.stack1.min(), vmax=self.stack1.max())
+        cmap_in_norm = colors.Normalize(vmin=self.stack_dual.min(), vmax=self.stack_dual.max())
         img_in = axis_in.imshow(self.frame1, norm=cmap_in_norm, cmap=cmap_frames)
         # add colorbar (lower right of frame)
         ax_ins_img = inset_axes(axis_in, width="5%", height="100%", loc=5,
@@ -352,15 +337,15 @@ class TestCropDual(unittest.TestCase):
     def test_save(self):
         # Save cropped dual-image files
         directory = os.path.split(self.file_path)[0]
-        directory_vm = directory + '/' + self.file + '_Vm.tif'
-        directory_ca = directory + '/' + self.file + '_Ca.tif'
+        directory_vm = directory + '/' + self.file_name + '_Vm.tif'
+        directory_ca = directory + '/' + self.file_name + '_Ca.tif'
 
         print('Cropping Vm ...')
-        stack_vm_dirty = crop_stack(self.stack_full, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
+        stack_vm_dirty = crop_stack(self.stack_dual, d_x=self.crop_vm_1[0], d_y=self.crop_vm_1[1])
         stack_vm = crop_stack(stack_vm_dirty, d_x=self.crop_vm_2[0], d_y=self.crop_vm_2[1])
 
         print('Cropping Ca ...')
-        stack_ca_dirty = crop_stack(self.stack_full, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
+        stack_ca_dirty = crop_stack(self.stack_dual, d_x=self.crop_ca_1[0], d_y=self.crop_ca_1[1])
         stack_ca = crop_stack(stack_ca_dirty, d_x=self.crop_ca_2[0], d_y=self.crop_ca_2[1])
 
         # volwrite(dir_unit + '/results/prep_CropDual_Vm.tif', stack_vm)

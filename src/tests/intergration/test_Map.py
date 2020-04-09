@@ -2,6 +2,7 @@ import sys
 import traceback
 import unittest
 
+
 from util.datamodel import *
 from util.analysis import *
 from util.preparation import *
@@ -11,7 +12,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import matplotlib.colors as colors
-from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
@@ -26,10 +26,7 @@ fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
 marker1, marker2, marker3, marker4 = [25, 20, 10, 5]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_vm, color_ca = ['#FF9999', '#99FF99']
-# color_snr = '#798490'
-color_snr = '#A1C599'
 color_snr = '#C3E7B0'
 colors_times = {'Start': '#C07B60',
                 'Activation': '#842926',
