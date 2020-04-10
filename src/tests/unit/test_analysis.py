@@ -27,7 +27,7 @@ marker1, marker2, marker3, marker4, marker5 = [25, 20, 10, 5, 3]
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_ideal, color_raw, color_filtered = [gray_light, '#FC0352', '#03A1FC']
 color_clear = (0, 0, 0, 0)
-color_vm, color_ca = ['#FF9999', '#99FF99']
+color_vm, color_ca = ['#FF9999', '#9999FF']
 colors_times = {'Start': '#C07B60',
                 'Activation': '#842926',
                 'Peak': '#4B133D',
@@ -559,6 +559,96 @@ class TestAnalysisPoints(unittest.TestCase):
         ax_features.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
 
         fig_transient.savefig(dir_unit + '/results/analysis_TransientFeatures.png')
+        fig_transient.show()
+
+
+class TestCoupling(unittest.TestCase):
+    def setUp(self):
+        # Create data to test with
+        self.signal_t = 200
+        self.signal_t0 = 10
+        self.signal_fps = 1000
+        self.signal_noise = 3
+        self.model_coupling = 10
+
+        self.time_vm, self.signal_vm = model_transients(t=self.signal_t, t0=self.signal_t0,
+                                                        fps=self.signal_fps, noise=self.signal_noise)
+        self.signal_vm = invert_signal(self.signal_vm)
+        self.time_ca, self.signal_ca = model_transients(model_type='Ca', t=self.signal_t,
+                                                        t0=self.signal_t0 + self.model_coupling,
+                                                        fps=self.signal_fps, noise=self.signal_noise)
+
+        self.zoom_t = [0, 55]
+
+    def test_plot(self):
+        # Build a figure to plot the original signals and the analysis
+        # transients, cycle = isolate_transients(self.signal_real)
+        # transient_signal = transients[1]
+        # transient_time = self.time_real[0:len(transient_signal)]
+        self.signal_vm = normalize_signal(self.signal_vm)
+        self.signal_ca = normalize_signal(self.signal_ca)
+
+        # General layout
+        fig_transient = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        plt.rc('xtick', labelsize=fontsize2)
+        plt.rc('ytick', labelsize=fontsize2)
+        gs0 = fig_transient.add_gridspec(3, 1, height_ratios=[0.15, 0.15, 0.7], hspace=0.1)  # 3 rows, 1 column
+        ax_vm = fig_transient.add_subplot(gs0[0])
+        ax_ca = fig_transient.add_subplot(gs0[1])
+        ax_coupling = fig_transient.add_subplot(gs0[2])
+        ax_coupling.set_zorder(1)
+        ax_ca.set_zorder(2)
+        ax_vm.set_zorder(3)
+
+        for ax in [ax_vm, ax_ca, ax_coupling]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.xaxis.set_major_locator(plticker.MultipleLocator(100))
+            ax.xaxis.set_minor_locator(plticker.MultipleLocator(50))
+
+        ax_vm.set_ylabel('Amplitude\n(arb. u.)')
+        ax_vm.set_xticklabels([])
+        ax_ca.set_ylabel('Amplitude\n(arb. u.)')
+        ax_ca.set_xticklabels([])
+
+        ax_coupling.set_ylabel('Amplitude\n(Normalized)')
+        ax_coupling.yaxis.set_major_locator(plticker.MultipleLocator(1))
+        ax_coupling.set_xticks([])
+        ax_coupling.set_xticklabels([])
+        ax_coupling.set_xlabel('Time (ms)')
+        ax_coupling.set_xlim(self.zoom_t)
+
+        ax_vm.plot(self.time_vm, self.signal_vm, color=color_vm,
+                   linestyle='None', marker='.', label='Vm pixel data')
+        ax_ca.plot(self.time_ca, self.signal_ca, color=color_ca,
+                   linestyle='None', marker='.', label='Ca pixel data')
+        ax_coupling.plot(self.time_vm, self.signal_vm, color=color_vm, marker='.')
+        ax_coupling.plot(self.time_ca, self.signal_ca, color=color_ca, marker='.')
+
+        # Activation times
+        i_activation_vm = find_tran_act(self.signal_vm)
+        ax_coupling.plot(self.time_vm[i_activation_vm],
+                         self.signal_vm[i_activation_vm],
+                         ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                         color=colors_times['Activation'], label='Activation')
+        i_activation_ca = find_tran_act(self.signal_ca)
+        ax_coupling.plot(self.time_ca[i_activation_ca],
+                         self.signal_ca[i_activation_ca],
+                         ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                         color=colors_times['Activation'], label='Activation')
+
+        # Coupling timespan
+        coupling = calc_coupling(self.signal_vm, self.signal_ca)  # difference between activation times
+        ax_coupling.hlines(y=self.signal_ca[i_activation_ca],
+                           xmin=self.time_ca[i_activation_ca - coupling],
+                           xmax=self.time_ca[i_activation_ca],
+                           color=colors_times['Activation'], linewidth=marker5)
+
+        ax_coupling.legend(loc='upper right', ncol=1, prop={'size': fontsize2}, numpoints=1, frameon=True)
+
+        fig_transient.savefig(dir_unit + '/results/analysis_Coupling.png')
         fig_transient.show()
 
 

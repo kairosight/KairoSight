@@ -2,7 +2,6 @@ import sys
 import traceback
 import unittest
 
-
 from util.datamodel import *
 from util.analysis import *
 from util.preparation import *
@@ -27,6 +26,7 @@ marker1, marker2, marker3, marker4 = [25, 20, 10, 5]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
 color_vm, color_ca = ['#FF9999', '#99FF99']
+cmap_vm, cmap_ca = [plt.get_cmap('YlOrRd').reversed(), plt.get_cmap('GnBu').reversed()]
 color_snr = '#C3E7B0'
 colors_times = {'Start': '#C07B60',
                 'Activation': '#842926',
@@ -54,6 +54,17 @@ DUR_MAX_PIG = DUR_MAX
 # colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
 # colors_times = ['#003EDC', '#FB2595', '#FF6172', '#FFD067', '#FFF92', '#000000']  # redish -> purple -> blue?
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue?
+
+def image_colorbar(axis, image):
+    # add colorbar (lower right of frame)
+    ax_ins_img = inset_axes(axis, width="5%", height="100%", loc=5,
+                            bbox_to_anchor=(0.15, 0, 1, 1), bbox_transform=axis.transAxes,
+                            borderpad=0)
+    cb_img = plt.colorbar(image, cax=ax_ins_img, orientation="vertical")
+    cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+    cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+    cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+    cb_img.ax.tick_params(labelsize=fontsize3)
 
 
 def add_map_colorbar_stats(axis, img, map_data, data_range, unit='unit', bins=100, stat_color=gray_heavy):
@@ -895,6 +906,297 @@ class TestMapAnalysisPig(unittest.TestCase):
         fig_map.savefig(dir_integration + '/results/MapPig_Duration_{}_{}.png'.
                         format(self.exp_name, self.file_name))
         fig_map.show()
+
+
+class TestMapCouplingPig(unittest.TestCase):
+    def setUp(self):
+        # Load data to test with
+        fps = 500.0
+        self.exp_name = '2-wk old'
+        file_path_local = '/20200228-piga/baseline/05-400(1031-1280).tif'
+        self.scale_px_cm = 101.4362
+        self.scale_cm_px = 1 / self.scale_px_cm
+        shape_out = (770, 1048)
+        # X0Y0_Vm = (220, 200)    # bad crop: too far to the right
+        X0Y0_Vm = (190, 200)
+        X0Y0_Ca = (1140, 200)
+        file_frames = (1031, 1280)
+
+        self.file_path = dir_tests + '/data/' + file_path_local
+        study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd
+        self.file_name = file_path_local.split(sep='/')[-1].split(sep='(')[0]  # e.g. 08-228_Vm
+        self.test_name = '{}, {}, {}'.format(self.exp_name, study_name, self.file_name)
+        # #
+
+        print('Opening stack ...')
+        stack1, meta1 = open_stack(source=self.file_path)
+        print('DONE Opening stack\n')
+        self.stack1_min, self.stack1_max = stack1.min(), stack1.max()
+        self.frame1 = stack1[0, :, :]
+
+        # Generate array of timestamps
+        fpms = fps / 1000
+        t_final = floor(stack1.shape[0] / fpms)
+        self.time_real = np.linspace(start=0, stop=t_final, num=stack1.shape[0])
+
+        print('Splitting stacks ...')
+        # Crop twice for each: once from the bottom/right, once for top/left
+        shape_in = (self.frame1.shape[1], self.frame1.shape[0])
+
+        crop_vm_1 = (shape_in[0] - (shape_out[0] + X0Y0_Vm[0]), shape_in[1] - (shape_out[1] + X0Y0_Vm[1]))
+        crop_vm_2 = (-X0Y0_Vm[0], -X0Y0_Vm[1])
+
+        crop_ca_1 = (shape_in[0] - (shape_out[0] + X0Y0_Ca[0]), shape_in[1] - (shape_out[1] + X0Y0_Ca[1]))
+        crop_ca_2 = (-X0Y0_Ca[0], -X0Y0_Ca[1])
+
+        stack_vm_dirty = crop_stack(stack1, d_x=crop_vm_1[0], d_y=crop_vm_1[1])
+        self.stack_vm = crop_stack(stack_vm_dirty, d_x=crop_vm_2[0], d_y=crop_vm_2[1])
+        # self.stack_vm = self.stack_vm[file_frames[0]:file_frames[1], :, :]
+        self.frame_vm = self.stack_vm[0, :, :]
+
+        stack_ca_dirty = crop_stack(stack1, d_x=crop_ca_1[0], d_y=crop_ca_1[1])
+        self.stack_ca = crop_stack(stack_ca_dirty, d_x=crop_ca_2[0], d_y=crop_ca_2[1])
+        # self.stack_ca = self.stack_ca[file_frames[0]:file_frames[1], :, :]
+        self.frame_ca = self.stack_ca[0, :, :]
+        print('DONE Splitting stacks\n')
+
+        # Prep and Process both stacks
+        self.reduction = 7  # set to XX (to min ~200 X 200 pixels)
+        self.scale_px_cm = int(self.scale_px_cm / self.reduction)
+        self.scale_cm_px = self.scale_cm_px * self.reduction
+        mask_type = 'Random_walk'
+        self.strict_vm = (2, 5)
+        self.strict_ca = (4, 7)
+        self.prep = 'Reduced x{}, Mask'.format(self.reduction)
+
+        kernel_cm = 0.3  # set to X.X cm (~0.3)
+        self.kernel = floor(kernel_cm / self.scale_cm_px)
+        self.process = 'Gaussian: {} cm ({} px)'.format(kernel_cm, self.kernel)
+        self.stack_processed_vm, self.stack_processed_ca = None, None
+        self.mask_vm, self.mask_ca = None, None
+
+        # *** Voltage ***
+        # *** Preparation ***
+        # Reduce
+        reduction_factor = 1 / self.reduction
+        test_frame = rescale(self.stack_vm[0], reduction_factor, multichannel=False)
+        print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
+              .format(self.stack_vm.shape[2], self.stack_vm.shape[1], test_frame.shape[1], test_frame.shape[0]))
+        stack_reduced_shape = (self.stack_vm.shape[0], test_frame.shape[0], test_frame.shape[1])
+        stack_reduced = np.empty(stack_reduced_shape, dtype=self.stack_vm.dtype)  # empty stack
+        for idx, frame in enumerate(self.stack_vm):
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, self.stack_vm.shape[0]), end='', flush=True)
+            #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
+            stack_reduced[idx, :, :] = frame_reduced
+        self.stack_processed_vm = stack_reduced
+        print('\nDONE Reducing stack')
+        # Mask
+        print('Generating Masking ...')
+        self.frame_bright = np.zeros_like(self.stack_processed_vm[0])  # use brightest frame to generate mask
+        frame_bright_idx = 0
+        for idx, frame in enumerate(self.stack_processed_vm):
+            frame_brightness = np.nanmean(frame)
+            if frame_brightness > np.nanmean(self.frame_bright):
+                frame_bright_idx = idx
+                self.frame_bright = frame.copy()
+        print('Brightest frame: {}'.format(frame_bright_idx))
+        mask_type = 'Random_walk'
+        _, mask, _ = mask_generate(self.frame_bright, mask_type, self.strict_vm)
+        print('\nDONE generating Mask')
+        # *** Processing ***
+        # Invert
+        print('\t * Hello Voltage!')
+        print('Inverting stack with {} frames, size W {} X H {} ...'
+              .format(self.stack_processed_vm.shape[0],
+                      self.stack_processed_vm.shape[2], self.stack_processed_vm.shape[1]))
+        self.stack_processed_vm = invert_stack(self.stack_processed_vm)
+        print('\nDONE Inverting stack')
+        # Normalize
+        self.stack_processed_vm = normalize_stack(self.stack_processed_vm)
+        # Filter
+        # spatial
+        kernel_cm = 0.3  # set to X.X cm (~0.3)
+        self.kernel = floor(kernel_cm / self.scale_cm_px)
+        if self.kernel > 3:
+            if self.kernel % 2 == 0:
+                self.kernel = self.kernel - 1
+        self.kernel_marker_size = self.kernel
+        print('Filtering (spatial) with kernel: {} px ...'.format(self.kernel))
+        for idx, frame in enumerate(self.stack_processed_vm):
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, self.stack_processed_vm.shape[0]), end='', flush=True)
+            frame_filtered = filter_spatial(frame, kernel=self.kernel)
+            # f_filtered = np.ma.masked_where(f_filtered == 0, f_filtered)
+            self.stack_processed_vm[idx, :, :] = frame_filtered
+        print('\nDONE Filtering (spatial) stack')
+        # Re-apply mask to avoid smudged edges
+        self.stack_processed_vm = mask_apply(self.stack_processed_vm, mask)
+
+        # *** Calcium ***
+        # *** Preparation ***
+        # Reduce
+        reduction_factor = 1 / self.reduction
+        test_frame = rescale(self.stack_ca[0], reduction_factor, multichannel=False)
+        print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
+              .format(self.stack_ca.shape[2], self.stack_ca.shape[1], test_frame.shape[1], test_frame.shape[0]))
+        stack_reduced_shape = (self.stack_ca.shape[0], test_frame.shape[0], test_frame.shape[1])
+        stack_reduced = np.empty(stack_reduced_shape, dtype=self.stack_ca.dtype)  # empty stack
+        for idx, frame in enumerate(self.stack_ca):
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, self.stack_ca.shape[0]), end='', flush=True)
+            #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
+            stack_reduced[idx, :, :] = frame_reduced
+        self.stack_processed_ca = stack_reduced
+        print('\nDONE Reducing stack')
+        # Mask
+        print('Generating Masking ...')
+        self.frame_bright = np.zeros_like(self.stack_processed_ca[0])  # use brightest frame to generate mask
+        frame_bright_idx = 0
+        for idx, frame in enumerate(self.stack_processed_ca):
+            frame_brightness = np.nanmean(frame)
+            if frame_brightness > np.nanmean(self.frame_bright):
+                frame_bright_idx = idx
+                self.frame_bright = frame.copy()
+        print('Brightest frame: {}'.format(frame_bright_idx))
+        mask_type = 'Random_walk'
+        _, mask, _ = mask_generate(self.frame_bright, mask_type, self.strict_ca)
+        print('\nDONE generating Mask')
+        # *** Processing ***
+        # Normalize
+        self.stack_processed_ca = normalize_stack(self.stack_processed_ca)
+        # Filter
+        # spatial
+        kernel_cm = 0.3  # set to X.X cm (~0.3)
+        self.kernel = floor(kernel_cm / self.scale_cm_px)
+        if self.kernel > 3:
+            if self.kernel % 2 == 0:
+                self.kernel = self.kernel - 1
+        self.kernel_marker_size = self.kernel
+        print('Filtering (spatial) with kernel: {} px ...'.format(self.kernel))
+        for idx, frame in enumerate(self.stack_processed_ca):
+            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, self.stack_processed_ca.shape[0]), end='', flush=True)
+            frame_filtered = filter_spatial(frame, kernel=self.kernel)
+            # f_filtered = np.ma.masked_where(f_filtered == 0, f_filtered)
+            self.stack_processed_ca[idx, :, :] = frame_filtered
+        print('\nDONE Filtering (spatial) stack')
+        # Re-apply mask to avoid smudged edges
+        self.stack_processed_ca = mask_apply(self.stack_processed_ca, mask)
+
+        # self.x_lv_apex, self.y_lv_apex = (int(stack.shape[2] * (1/2)),int(stack.shape[1] * (2/3)))     # LV Apex
+        x_lv_base, y_lv_base = (int(self.stack_processed_vm.shape[2] * (2 / 3)),
+                                int(self.stack_processed_vm.shape[1] * (1 / 2)))  # LV Base
+
+        self.signal_x, self.signal_y = x_lv_base, y_lv_base
+
+        left, bottom, width, height = (self.signal_x - (self.kernel_marker_size / 2),
+                                       self.signal_y - (self.kernel_marker_size / 2),
+                                       self.kernel_marker_size, self.kernel_marker_size)
+        self.roi_lbwh = (left, bottom, width, height)
+
+    def test_map_coupling(self):
+        # Make sure EC coupling map looks correct
+        stack_time = self.time_real
+        # Align the Voltage stack to the Calcium stack
+        stack_vm_aligned = align_stacks(self.stack_ca, self.stack_vm)
+        frame_vm_aligned = stack_vm_aligned[0, :, :]
+        stack_processed_vm = self.stack_processed_vm
+        frame_processed_vm = stack_processed_vm[0, :, :]
+
+        stack_ca_aligned = self.stack_ca
+        frame_ca_aligned = self.frame_ca
+        stack_processed_ca = self.stack_processed_ca
+        frame_processed_ca = stack_processed_ca[0, :, :]
+
+        # Plot a frame from the stack, the map of that stack, and signals of interest
+        fig_coupling = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        gs0 = fig_coupling.add_gridspec(1, 3)  # 1 row, 3 columns
+        gs_frames = gs0[0].subgridspec(2, 1)
+        ax_vm = fig_coupling.add_subplot(gs_frames[0])
+        ax_ca = fig_coupling.add_subplot(gs_frames[1])
+
+        gs_maps = gs0[1].subgridspec(2, 1)
+        ax_map_vm = fig_coupling.add_subplot(gs_maps[0])
+        ax_map_ca = fig_coupling.add_subplot(gs_maps[1])
+
+        gs_coupling = gs0[2].subgridspec(2, 1)
+        ax_map = fig_coupling.add_subplot(gs_coupling[0])
+        ax_signals = fig_coupling.add_subplot(gs_coupling[1])
+
+        # Common between all
+        for ax in [ax_vm, ax_ca, ax_map_vm, ax_map_ca, ax_map]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+
+        ax_signals.set_yticks([])
+        ax_signals.set_yticklabels([])
+
+        # Vm frames
+        cmap_vm_norm = colors.Normalize(vmin=stack_vm_aligned.min(), vmax=stack_vm_aligned.max())
+        img_vm = ax_vm.imshow(frame_vm_aligned, norm=cmap_vm_norm, cmap=cmap_vm)
+        image_colorbar(ax_vm, img_vm)
+        img_vm = ax_map_vm.imshow(frame_ca_aligned, norm=cmap_vm_norm, cmap=cmap_vm)
+        # image_colorbar(ax_map_vm, img_vm)
+        # Ca frames
+        cmap_ca_norm = colors.Normalize(vmin=stack_ca_aligned.min(), vmax=stack_ca_aligned.max())
+        img_ca = ax_ca.imshow(frame_ca_aligned, norm=cmap_ca_norm, cmap=cmap_ca)
+        image_colorbar(ax_ca, img_ca)
+        img_ca = ax_map_ca.imshow(frame_ca_aligned, norm=cmap_ca_norm, cmap=cmap_ca)
+        # image_colorbar(ax_map_ca, img_ca)
+
+        # Activation maps
+        analysis_map_vm = map_tran_analysis(stack_processed_vm, find_tran_act, stack_time)
+        analysis_map_ca = map_tran_analysis(stack_processed_ca, find_tran_act, stack_time)
+
+        map_min = np.nanmin([analysis_map_vm, analysis_map_ca])
+        map_max = np.nanmax([analysis_map_vm, analysis_map_ca])
+        # map_n = np.count_nonzero(~np.isnan(analysis_map))
+        map_min_display = 0
+        map_max_display = ACT_MAX_PIG_WHOLE
+        print('Map min value: ', map_min)
+        print('Map max value: ', map_max)
+
+        cmap_norm_activation = colors.Normalize(vmin=map_min_display,
+                                                vmax=map_max_display)
+        img_map = ax_map_vm.imshow(analysis_map_vm, norm=cmap_norm_activation, cmap=cmap_activation)
+        img_map = ax_map_ca.imshow(analysis_map_ca, norm=cmap_norm_activation, cmap=cmap_activation)
+        # Coupling map?
+        coupling_map = analysis_map_ca - analysis_map_vm
+        for row in coupling_map:
+            for val in row:
+                if val < 0:
+                    val = np.nan
+        cmap_norm_coupling = colors.Normalize(vmin=coupling_map.min(), vmax=coupling_map.max())
+        img_map = ax_map.imshow(analysis_map_ca, norm=cmap_norm_coupling, cmap=cmap_snr)
+
+        # Signal traces and location on frame
+        # plot trace with the chosen ROI pixel
+        signal_roi_vm = stack_processed_vm[:, self.signal_x, self.signal_y]
+        ax_signals.plot(stack_time, signal_roi_vm, color=color_vm, marker='.')
+        ax_vm.plot(self.signal_x, self.signal_y, marker='s', markerfacecolor='None',
+                   markeredgecolor=colors_times['Activation'],
+                   markersize=1, transform=ax_vm.transData)
+        roi_sym_vm = plt.Rectangle((self.roi_lbwh[0], self.roi_lbwh[1]), self.roi_lbwh[2], self.roi_lbwh[3],
+                                   fc='None', ec=colors_times['Activation'], transform=ax_vm.transData)
+        ax_vm.add_patch(roi_sym_vm)
+
+        signal_roi_ca = stack_processed_ca[:, self.signal_x, self.signal_y]
+        ax_signals.plot(stack_time, signal_roi_ca, color=color_ca, marker='.')
+        ax_ca.plot(self.signal_x, self.signal_y, marker='s', markerfacecolor='None',
+                   markeredgecolor=colors_times['Activation'],
+                   markersize=1, transform=ax_ca.transData)
+        roi_sym_ca = plt.Rectangle((self.roi_lbwh[0], self.roi_lbwh[1]), self.roi_lbwh[2], self.roi_lbwh[3],
+                                   fc='None', ec=colors_times['Activation'], transform=ax_ca.transData)
+        ax_vm.add_patch(roi_sym_ca)
+
+        fig_coupling.savefig(dir_integration + '/results/MapPig_Coupling_{}_{}.png'.
+                             format(self.exp_name, self.file_name))
+        fig_coupling.show()
 
 
 if __name__ == '__main__':

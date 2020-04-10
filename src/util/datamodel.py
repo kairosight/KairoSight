@@ -95,7 +95,7 @@ def model_transients(model_type='Vm', t=100, t0=0, fps=1000, f0=150, famp=100, n
         if num <= 0:
             raise ValueError('The number of transients must be > 0')
         if num * MIN_TRAN_TOTAL_T > t - t0:
-            raise ValueError('Too many transients, {}, for total time, {} ms with start time {} ms'.format(num, t, t0))
+            raise ValueError('Too many transients: {}, for total time: {} ms, with start time: {} ms'.format(num, t, t0))
     else:
         if num is not 'full':
             raise ValueError('If not an int, number of transients must be ""full""')

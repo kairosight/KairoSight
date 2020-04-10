@@ -1026,6 +1026,283 @@ def map_snr(stack_in, noise_count=10):
     return map_out
 
 
+def calc_ensemble(time_in, signal_in, crop='center'):
+    """Convert a signal from multiple transients to an averaged signal,
+    segmented by activation times. Discards the first and last transients.
+
+        Parameters
+        ----------
+        time_in : ndarray
+            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
+        signal_in : ndarray
+            The array of fluorescent data to be converted
+        crop : str or tuple of ints
+            The type of cropping applied, default is center
+            If a tuple, begin aligned crop at crop[0] time index and end at crop[1]
+
+        Returns
+        -------
+        signal_time : ndarray
+            An array of timestamps (ms) corresponding to signal_out
+        signal_out : ndarray
+            The array of an ensembled transient signal, dtype : float
+            or zeroes if no peak was detected
+        signals : list
+            The list of signal arrays used to create the ensemble
+        i_peaks : ndarray
+            The indexes of peaks from signal_in used
+        i_acts  : ndarray
+            The indexes of activations from signal_in used
+        est_cycle : float
+            Estimated cycle length (ms) of transients in signal_in
+
+        Notes
+        -----
+            # Normalizes signal from 0-1 in the process
+        """
+    # Check parameters
+    if type(time_in) is not np.ndarray:
+        raise TypeError('Time data type must be an "ndarray"')
+    if time_in.dtype not in [int, float]:
+        raise TypeError('Time values must either be "int" or "float"')
+    if type(signal_in) is not np.ndarray:
+        raise TypeError('Signal data type must be an "ndarray"')
+    if signal_in.dtype not in [np.uint16, float]:
+        raise TypeError('Signal values must either be "uint16" or "float"')
+
+    # Calculate the number of transients in the signal
+    # Characterize the signal
+    signal_bounds = (signal_in.min(), signal_in.max())
+    unique, counts = np.unique(signal_in, return_counts=True)
+
+    if len(unique) < 10:  # signal is too flat to have a valid peak
+        return np.zeros_like(signal_in)
+
+    # Find the peaks
+    # i_peaks, _ = find_peaks(signal_in)
+    signal_bounds = (signal_in.min(), signal_in.max())
+    signal_mean = np.nanmean(signal_in)
+    if signal_in.dtype is np.uint16:
+        signal_mean = int(np.floor(np.nanmean(signal_in)))
+    signal_range = signal_bounds[1] - signal_mean
+    prominence = signal_range * 0.8
+    distance_min = 10
+    i_peaks, properties = find_peaks(signal_in,
+                                     height=signal_mean, prominence=prominence,
+                                     distance=distance_min)
+
+    if len(i_peaks) == 0:
+        raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+    if len(i_peaks) > 3:
+        print('* {} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+    else:
+        raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+
+    # do not use the first and last peaks
+    i_peaks = i_peaks[1:-1]
+    # Split up the signal using peaks and estimated cycle length
+    est_cycle_array = np.diff(i_peaks).astype(float)
+    est_cycle_i = np.nanmean(est_cycle_array)
+    est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
+    est_cycle_i = np.floor(est_cycle_i).astype(int)
+    cycle_shift = np.floor(est_cycle_i / 2).astype(int)
+
+    signal_time = time_in[0: est_cycle_i]
+    signals_trans_peak = []
+    i_baselines_full = []
+    i_acts_full = []
+    signals_trans_act = []
+
+    # roughly isolate all transients centered on their peaks
+    # and cropped with a cycle-length-wide window
+    # TODO ensembles are too wide due to bad activation times
+    # TODO ensembles distorted by early peaks (late activation times?)
+    for peak_num, peak in enumerate(i_peaks):
+        sig = signal_in[i_peaks[peak_num] - cycle_shift:
+                        i_peaks[peak_num] + cycle_shift]
+        signals_trans_peak.append(sig)
+        # signal = normalize_signal(signal)
+
+        i_baselines = find_tran_baselines(sig)
+        i_baselines_full.append((i_peaks[peak_num] - cycle_shift) + i_baselines)
+        i_act_signal = find_tran_act(sig)
+        i_act_full = (i_peaks[peak_num] - cycle_shift) + i_act_signal
+        i_acts_full.append(i_act_full)
+
+    # TODO exclude those with abnormal rise times?
+
+    # With that peak detection, find activation times and align transient
+    for act_num, i_act_full in enumerate(i_acts_full):
+        if crop is 'center':
+            # center : crop transients using the cycle length
+            # cropped to center at the alignment points
+
+            # align along activation times, and crop to include ensuing diastolic intervals
+            # i_baseline = int(np.median(i_baselines_full[0]))
+            i_baseline = int(np.median(i_baselines_full[0]))
+            # i_align = i_act_full - (i_acts_full[0] - i_baseline)
+            i_start = i_act_full - (i_acts_full[0] - i_baselines_full[0][0])
+            i_end = i_act_full + (i_peaks[1] - i_acts_full[0])
+
+            signal_align = signal_in[i_start:i_end]
+        elif type(crop) is tuple:
+            # stack : crop transients using the cycle length
+            # cropped to allow for an ensemble stack with propagating transients
+
+            # Use the earliest end of SNR in the frame
+
+            # stacked to capture the second full transient
+            # at the edge of a propagating wave and avoid sliced transients
+            # align starting with provided crop times,
+            i_align = i_act_full - (i_acts_full[0] - crop[0])
+            signal_align = signal_in[i_align:i_align + (crop[1] - crop[0])]
+
+        signal_align = normalize_signal(signal_align)
+        # Use correlation to tighten alignment
+        shift_max = 0
+        if act_num > 0:
+            signal_align, shift = align_signals(signals_trans_act[0], signal_align)
+            shift_max = np.nanmax([shift_max, abs(shift)])
+        signals_trans_act.append(signal_align)
+
+    signals_trans_act = [sig[:-shift_max] for sig in signals_trans_act]
+    # use the lowest activation time
+    # cycle_shift = min(min(i_acts), cycle_shift)
+    # for act_num, act in enumerate(i_acts):
+    #     cycle_shift = max(cycle_shift, act)
+    #     signals_trans_act.append(signal_in[i_acts[act_num] - cycle_shift:
+    #                                        i_acts[act_num] + est_cycle_i - cycle_shift])
+
+    # use the mean of all signals (except the last)
+    # TODO try a rms calculation instead of a mean
+    signal_out = np.nanmean(signals_trans_act, axis=0)
+    signals = signals_trans_act
+    i_acts = i_acts_full
+    # signal_out = np.nanmean(signals_trans_act, axis=0)
+    # signals = signals_trans_act
+
+    return signal_time, signal_out, signals, i_peaks, i_acts, est_cycle
+
+
+def calc_ensemble_stack(time_in, stack_in):
+    """Convert a stack from pixels with multiple transients to those with an averaged signal,
+    segmented by activation times. Discards the first and last transients.
+
+        # 1) Confirm the brightest pixel has enough peaks
+        # 2) Find pixel(s) with earliest second peak
+        # 3) Use the cycle time and end time of that peak's left baseline to align all ensembled signals
+
+        Parameters
+        ----------
+        time_in : ndarray
+            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
+        stack_in : ndarray
+            A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
+
+        Returns
+        -------
+        stack_out : ndarray
+             A spatially isolated 3-D array (T, Y, X) of optical data, dtype : float
+
+        Notes
+        -----
+            Should not be applied to signal data containing at least one transient.
+            Pixels with incalculable ensembles are assigned an array of zeros
+        """
+
+    print('Ensembling a stack ...')
+    map_shape = stack_in.shape[1:]
+    i_peak_0_min = stack_in.shape[0]
+    yx_peak_1_min = (0, 0)
+    i_peak_1_min = stack_in.shape[0]
+
+    # for each pixel ...
+    for iy, ix in np.ndindex(map_shape):
+        print('\r\tPeak Search of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(
+            iy + 1, map_shape[0], ix + 1, map_shape[1]), end='', flush=True)
+        # Get first half of signal to save time
+        pixel_data = stack_in[:int(stack_in.shape[0]), iy, ix]
+        # Characterize the signal
+        signal_bounds = (pixel_data.min(), pixel_data.max())
+        signal_range = signal_bounds[1] - signal_bounds[0]
+        unique, counts = np.unique(pixel_data, return_counts=True)
+
+        if len(unique) < 10:  # signal is too flat to have a valid peak
+            continue
+
+        # Find the peaks
+        # i_peaks, _ = find_peaks(pixel_data, prominence=signal_range / 4,
+        #                         distance=20)
+        i_peaks, _ = find_tran_peak(pixel_data, props=True)
+
+        if i_peaks is np.nan:
+            continue
+        if len(i_peaks) < 4:
+            # raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+            # np.zeros_like(pixel_data)
+            continue
+        # if len(i_peaks) > 3:
+        #     print('* {} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+        # else:
+        #     raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+
+        # 2) Find pixel(s) with earliest second peak
+        # find the first peak and preserve the minimum among all pixels
+        if i_peaks[0] < i_peak_0_min:
+            i_peak_0_min = i_peaks[0]
+            i_peak_1_min = i_peaks[1]
+            yx_peak_1_min = (iy, ix)
+        # i_peak_1_min = max(i_peaks[1], i_peak_1_min)
+
+    # calculating alignment crop needed to preserve activation propagation
+    pixel_data = stack_in[:, yx_peak_1_min[0], yx_peak_1_min[1]]
+
+    i_peaks, _ = find_tran_peak(pixel_data, props=True)
+
+    # Split up the signal using peaks and estimated cycle length
+    est_cycle = np.diff(i_peaks).astype(float)
+    est_cycle_i = np.nanmean(est_cycle)
+    est_cycle_i = np.floor(est_cycle_i).astype(int)
+    # est_cycle = est_cycle_i * np.nanmean(np.diff(time_in))
+    # cycle_shift = np.floor(est_cycle_i / 2).astype(int)
+
+    peak_1_min_crop = (i_peak_1_min - est_cycle_i, i_peak_1_min + est_cycle_i)
+    pixel_data_peak_1_min = pixel_data[peak_1_min_crop[0]: peak_1_min_crop[1]]
+
+    # i_peak_1_min_baselines_l = find_tran_baselines(pixel_data_peak_1_min, peak_side='left')
+    # i_peak_1_min_baselines_r = find_tran_baselines(pixel_data_peak_1_min, peak_side='right')
+
+    # ensemble_crop = (i_peak_1_min_baselines_l[-1], i_peak_1_min_baselines_r[1])
+    # ensemble_crop = (i_peak_1_min_baselines_l[1] + peak_1_min_crop[0],
+    #                  i_peak_1_min_baselines_r[-1] + peak_1_min_crop[0])
+    ensemble_crop = peak_1_min_crop
+    ensemble_crop_len = ensemble_crop[1] - ensemble_crop[0]
+
+    # 3) Use the cycle time and time of that peak to align all ensembled signals
+    # for each pixel ...
+    stack_out = np.empty_like(stack_in[:ensemble_crop_len, :, :], dtype=float)
+
+    for iy, ix in np.ndindex(map_shape):
+        print('\r\tEnsemble of Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
+              end='', flush=True)
+        # get signal
+        pixel_data = stack_in[:, iy, ix]
+        unique, counts = np.unique(pixel_data, return_counts=True)
+        if len(unique) < 10:  # signal is too flat to have a valid peak
+            signal_ensemble = np.zeros_like(pixel_data[:ensemble_crop_len])
+        else:
+            # calculate the ensemble of it
+            time_ensemble, signal_ensemble, signals, signal_peaks, signal_acts, est_cycle_length \
+                = calc_ensemble(time_in, pixel_data, crop=ensemble_crop)
+
+        stack_out[:, iy, ix] = signal_ensemble
+
+    ensemble_yx = yx_peak_1_min
+    print('\nDONE Ensembling stack')
+
+    return stack_out, ensemble_crop, ensemble_yx
+
+
 def calculate_error(ideal, modified):
     """Calculate the amount of error created by signal modulation or filtering,
     defined as (Modified - Ideal) / Ideal X 100%.

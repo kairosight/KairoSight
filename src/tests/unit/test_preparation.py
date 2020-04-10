@@ -614,6 +614,9 @@ class TestAlignStacks(unittest.TestCase):
 
     def test_plot(self):
         # Make sure dual-image files are aligned correctly
+        # Align the Voltage stack to the Calcium stack
+        stack_vm_aligned = align_stacks(self.stack_ca, self.stack_vm)
+        frame_vm_aligned = stack_vm_aligned[0, :, :]
 
         # Plot a frame from the input stack and cropped stacks
         fig_crop = plt.figure(figsize=(6, 8))  # _ x _ inch page
@@ -660,12 +663,8 @@ class TestAlignStacks(unittest.TestCase):
         img_ca = ax_ca.imshow(self.frame_ca, norm=cmap_ca_norm, cmap=cmap_ca)
         image_colorbar(ax_ca, img_ca)
 
-        # Align the Voltage stack to the Calcium stack
-        stack_vm_aligned = align_stacks(self.stack_ca, self.stack_vm)
-        frame_vm_aligned = stack_vm_aligned[0, :, :]
-
-        alpha_overlap = 0.5
         # Misaligned frames
+        alpha_overlap = 0.5
         # cmap_aligned_norm = colors.Normalize(vmin=stack_vm_aligned.min(), vmax=stack_vm_aligned.max())
         img_align_vm = ax_misalign.imshow(self.frame_vm, norm=cmap_vm_norm, cmap=cmap_vm)
         img_align_ca = ax_misalign.imshow(self.frame_ca, norm=cmap_ca_norm, cmap=cmap_ca, alpha=alpha_overlap)
