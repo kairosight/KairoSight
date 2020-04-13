@@ -19,4 +19,4 @@ Please use Python 3. We're not cavemen.
 # Use
 * From /src/ start the GUI with:  
 
-    ```python kairosight.py
+    ```python kairosight.py```
