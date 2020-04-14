@@ -14,6 +14,8 @@ ACT_MAX = 150
 # Colormap and normalization limits for Duration maps (ms)
 DUR_MIN = 20
 DUR_MAX = 300
+# Colormap and normalization limits for EC Coupling maps (ms)
+EC_MAX = 50
 
 
 # TODO finish remaining analysis point algorithms
@@ -265,7 +267,7 @@ def calc_tran_di(signal_in):
         raise TypeError('Signal values must either be "int" or "float"')
 
 
-def map_tran_analysis(stack_in, analysis_type, time_in=None, **kwargs):
+def map_tran_analysis(stack_in, analysis_type, time_in=None, raw_data=False, **kwargs):
     """Map an analysis point's values for a stack of transient fluorescent data
         i.e.
 
@@ -273,9 +275,12 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, **kwargs):
         ----------
         stack_in : ndarray
             A 3-D array (T, Y, X) of an optical transient, dtype : uint16 or float
-        analysis_type : method
+        analysis_type : function
             The type of analysis to be mapped
         time_in : ndarray, optional
+            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
+            If used, map values are timestamps
+        raw_data : ndarray, optional
             The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
             If used, map values are timestamps
 
@@ -331,7 +336,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, **kwargs):
                 map_out[iy, ix] = pixel_analysis_value
 
     # If mapping activation, align times with the "first" aka lowest activation time
-    if analysis_type is find_tran_act:
+    if analysis_type is find_tran_act and raw_data is False:
         map_out = map_out - np.nanmin(map_out)
 
     print('\nDONE Generating map')
@@ -425,3 +430,51 @@ def calc_coupling(signal_vm, signal_ca):
     coupling = ca_activation - vm_activation
 
     return coupling
+
+
+def map_coupling(map_vm, map_ca):
+    """Find the Excitation-Contraction (EC) coupling time,
+    defined as the difference between voltage and calcium activation times
+
+        Parameters
+        ----------
+        map_vm : ndarray
+            The array of optical voltage data to be evaluated, dtype : uint16 or float
+        map_ca : ndarray
+            The array of optical calcium data to be evaluated, dtype : uint16 or float
+
+        Returns
+        -------
+        map_coupling : ndarray
+            A 2-D array of analysis values, dtype : uint16 or float
+        """
+    # Check parameters
+
+    if type(map_vm) is not np.ndarray or type(map_ca) is not np.ndarray:
+        raise TypeError('Map data type must be an "ndarray"')
+    if len(map_vm.shape) is not 2 or len(map_ca.shape) is not 2:
+        raise TypeError('Maps must be a 2-D ndarray (Y, X)')
+    if map_vm.shape != map_ca.shape:
+        raise ValueError('Maps must be a 2-D ndarray (Y, X)')
+    if map_vm.dtype not in [np.uint16, np.float32, np.float64]\
+            or map_ca.dtype not in [np.uint16, np.float32, np.float64]:
+        raise TypeError('Map values must either be "int" or "float"')
+
+    map_ec = np.empty_like(map_ca)
+
+    for x, row in enumerate(map_vm):
+        for y, val_vm in enumerate(row):
+            val_ca = map_ca[x][y]
+
+            if val_vm == np.nan or val_ca == np.nan or val_vm > val_ca:
+                map_ec[x][y] = np.nan
+                continue
+
+            val_ec = val_ca - val_vm
+            if val_ec < 0 or val_ec > EC_MAX:
+                map_ec[x][y] = np.nan
+                continue
+
+            map_ec[x][y] = val_ec
+
+    return map_ec

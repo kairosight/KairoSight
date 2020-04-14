@@ -241,9 +241,6 @@ def find_tran_act(signal_in):
     # if signal_in.dtype not in [np.uint16, float]:
     #     raise TypeError('Signal values must either be "int" or "float"')
 
-    # if any(v < 0 for v in signal_in):
-    #     raise ValueError('All signal values must be >= 0')
-
     # Limit the search to be well before
     # and well after the peak (depends on which side of the peak the baselines are)
     i_peak = find_tran_peak(signal_in)

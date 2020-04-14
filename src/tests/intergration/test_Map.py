@@ -22,10 +22,10 @@ dir_tests = str(Path.cwd().parent)
 dir_integration = str(Path.cwd())
 
 fontsize1, fontsize2, fontsize3, fontsize4 = [14, 10, 8, 6]
-marker1, marker2, marker3, marker4 = [25, 20, 10, 5]
+marker1, marker2, marker3, marker4, marker5 = [25, 20, 10, 5, 3]
 
 gray_light, gray_med, gray_heavy = ['#D0D0D0', '#808080', '#606060']
-color_vm, color_ca = ['#FF9999', '#99FF99']
+color_vm, color_ca, color_ec = ['#FF8888', '#8888FF', '#842926']
 cmap_vm, cmap_ca = [plt.get_cmap('YlOrRd').reversed(), plt.get_cmap('GnBu').reversed()]
 color_snr = '#C3E7B0'
 colors_times = {'Start': '#C07B60',
@@ -42,6 +42,7 @@ cmap_snr.set_bad(color=gray_light, alpha=0)
 cmap_activation = SCMaps.lajolla
 cmap_activation.set_bad(color=gray_light, alpha=0)
 ACT_MAX_PIG_WHOLE = 250
+# ACT_RAW_MAX_PIG_WHOLE = 250
 ACT_MAX_PIG_LV = 100
 cmap_duration = SCMaps.oslo.reversed()
 cmap_duration.set_bad(color=gray_light, alpha=0)
@@ -49,11 +50,15 @@ DUR_MIN_PIG_WHOLE = 60
 DUR_MIN_PIG_LV = 120
 DUR_MAX_PIG = DUR_MAX
 
+cmap_ec = SCMaps.bilbao
+cmap_ec.set_bad(color=gray_light, alpha=0)
+
 
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # yellow -> orange -> purple
 # colors_times = [SCMaps.vik0, ..., ..., ..., ..., ...]  # redish -> purple -> blue
 # colors_times = ['#003EDC', '#FB2595', '#FF6172', '#FFD067', '#FFF92', '#000000']  # redish -> purple -> blue?
 # colors_times = ['#FFD649', '#FFA253', '#F6756B', '#CB587F', '#8E4B84', '#4C4076']  # redish -> purple -> blue?
+
 
 def image_colorbar(axis, image):
     # add colorbar (lower right of frame)
@@ -67,15 +72,15 @@ def image_colorbar(axis, image):
     cb_img.ax.tick_params(labelsize=fontsize3)
 
 
-def add_map_colorbar_stats(axis, img, map_data, data_range, unit='unit', bins=100, stat_color=gray_heavy):
+def add_map_colorbar_stats(axis, img, map_data, map_range, unit='unit', stat_color=gray_heavy):
     ax_ins_cbar = inset_axes(axis, width="5%", height="100%", loc='center left',
                              bbox_to_anchor=(1.3, 0, 1, 1), bbox_transform=axis.transAxes,
                              borderpad=0)
     cbar = plt.colorbar(img, cax=ax_ins_cbar, orientation="vertical")
     cbar.ax.set_xlabel(unit, fontsize=fontsize3)
     # cbar.ax.yaxis.set_major_locator(plticker.LinearLocator(6))
-    if data_range[1] < 50:
-        maj_tics = data_range[1]
+    if map_range[1] <= 100:
+        maj_tics = map_range[1] // 2
     else:
         maj_tics = 50
     min_tics = int(maj_tics / 5)
@@ -105,7 +110,7 @@ def add_map_colorbar_stats(axis, img, map_data, data_range, unit='unit', bins=10
     sns.violinplot(ax=ax_map_hist_l, data=map_flat, cut=0,
                    color=stat_color, inner="stick")
     for ax in [ax_map_hist_l]:
-        ax.set_ylim([data_range[0], data_range[1]])
+        ax.set_ylim([map_range[0], map_range[1]])
         ax.set_yticks([])
         ax.set_yticklabels([])
         ax.set_xticks([])
@@ -126,16 +131,16 @@ class TestMapAnalysisPig(unittest.TestCase):
         # file_path_local = '/20200228-piga/baseline/04-450_Ca(941-1190).tif'
         # strict = (4, 7)
         file_frames = (941, 1190)
-        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        # strict = (2, 5)
+        file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        strict = (2, 5)
         # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
         # strict = (4, 7)
         # file_frames = (1031, 1280)
 
         # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
         # strict = (2, 5)
-        file_path_local = '/20200228-piga/baseline/06-350_Ca(941-1190).tif'
-        strict = (4, 7)
+        # file_path_local = '/20200228-piga/baseline/06-350_Ca(941-1190).tif'
+        # strict = (4, 7)
         # file_frames = (941, 1190)
         # file_X0Y0_Vm = (190, 200)
         # file_X0Y0_Ca = (1140, 200)
@@ -204,7 +209,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 7  # set to XX (to min ~200 X 200 pixels)
+        self.reduction = 9  # set to XX (to min ~200 X 200 pixels)
         self.scale_px_cm = int(self.scale_px_cm / self.reduction)
         self.scale_cm_px = self.scale_cm_px * self.reduction
         reduction_factor = 1 / self.reduction
@@ -268,7 +273,7 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Filter
         # spatial
-        kernel_cm = 0.3  # set to X.X cm (~0.3)
+        kernel_cm = 0.5  # set to X.X cm (~0.3)
         self.kernel = floor(kernel_cm / self.scale_cm_px)
         if self.kernel > 3:
             if self.kernel % 2 == 0:
@@ -901,7 +906,7 @@ class TestMapAnalysisPig(unittest.TestCase):
         hist_bins = map_max_display
         map_range = (map_min_display, map_max_display)
         add_map_colorbar_stats(ax_map, img_map, analysis_map, map_range,
-                               unit='ms', bins=hist_bins, stat_color=colors_times['Downstroke'])
+                               unit='ms', stat_color=colors_times['Downstroke'])
 
         fig_map.savefig(dir_integration + '/results/MapPig_Duration_{}_{}.png'.
                         format(self.exp_name, self.file_name))
@@ -917,10 +922,10 @@ class TestMapCouplingPig(unittest.TestCase):
         self.scale_px_cm = 101.4362
         self.scale_cm_px = 1 / self.scale_px_cm
         shape_out = (770, 1048)
-        # X0Y0_Vm = (220, 200)    # bad crop: too far to the right
-        X0Y0_Vm = (190, 200)
-        X0Y0_Ca = (1140, 200)
-        file_frames = (1031, 1280)
+        x0y0_Vm = (190, 200)
+        x0y0_Ca = (1140, 200)
+        strict_vm = (2, 5)
+        strict_ca = (4, 7)
 
         self.file_path = dir_tests + '/data/' + file_path_local
         study_name = file_path_local.split(sep='/')[1]  # e.g. 20200828-pigd
@@ -943,43 +948,46 @@ class TestMapCouplingPig(unittest.TestCase):
         # Crop twice for each: once from the bottom/right, once for top/left
         shape_in = (self.frame1.shape[1], self.frame1.shape[0])
 
-        crop_vm_1 = (shape_in[0] - (shape_out[0] + X0Y0_Vm[0]), shape_in[1] - (shape_out[1] + X0Y0_Vm[1]))
-        crop_vm_2 = (-X0Y0_Vm[0], -X0Y0_Vm[1])
+        crop_vm_1 = (shape_in[0] - (shape_out[0] + x0y0_Vm[0]), shape_in[1] - (shape_out[1] + x0y0_Vm[1]))
+        crop_vm_2 = (-x0y0_Vm[0], -x0y0_Vm[1])
 
-        crop_ca_1 = (shape_in[0] - (shape_out[0] + X0Y0_Ca[0]), shape_in[1] - (shape_out[1] + X0Y0_Ca[1]))
-        crop_ca_2 = (-X0Y0_Ca[0], -X0Y0_Ca[1])
+        crop_ca_1 = (shape_in[0] - (shape_out[0] + x0y0_Ca[0]), shape_in[1] - (shape_out[1] + x0y0_Ca[1]))
+        crop_ca_2 = (-x0y0_Ca[0], -x0y0_Ca[1])
 
         stack_vm_dirty = crop_stack(stack1, d_x=crop_vm_1[0], d_y=crop_vm_1[1])
         self.stack_vm = crop_stack(stack_vm_dirty, d_x=crop_vm_2[0], d_y=crop_vm_2[1])
         # self.stack_vm = self.stack_vm[file_frames[0]:file_frames[1], :, :]
-        self.frame_vm = self.stack_vm[0, :, :]
 
         stack_ca_dirty = crop_stack(stack1, d_x=crop_ca_1[0], d_y=crop_ca_1[1])
         self.stack_ca = crop_stack(stack_ca_dirty, d_x=crop_ca_2[0], d_y=crop_ca_2[1])
         # self.stack_ca = self.stack_ca[file_frames[0]:file_frames[1], :, :]
-        self.frame_ca = self.stack_ca[0, :, :]
         print('DONE Splitting stacks\n')
 
+        print('Aligning stacks ...')
+        # Align the Voltage stack to the Calcium stack
+        self.stack_vm = align_stacks(self.stack_ca, self.stack_vm)
+        print('DONE Aligning stacks\n')
+        self.frame_vm = self.stack_vm[0, :, :]
+        self.frame_ca = self.stack_ca[0, :, :]
+
         # Prep and Process both stacks
-        self.reduction = 7  # set to XX (to min ~200 X 200 pixels)
+        self.reduction = 9  # set to XX (to min ~200 X 200 pixels)
+        self.reduction_factor = 1 / self.reduction
         self.scale_px_cm = int(self.scale_px_cm / self.reduction)
         self.scale_cm_px = self.scale_cm_px * self.reduction
-        mask_type = 'Random_walk'
-        self.strict_vm = (2, 5)
-        self.strict_ca = (4, 7)
+        # mask_type = 'Random_walk'
         self.prep = 'Reduced x{}, Mask'.format(self.reduction)
 
-        kernel_cm = 0.3  # set to X.X cm (~0.3)
-        self.kernel = floor(kernel_cm / self.scale_cm_px)
-        self.process = 'Gaussian: {} cm ({} px)'.format(kernel_cm, self.kernel)
+        self.kernel_cm = 0.5  # set to X.X cm (~0.3)
+        self.kernel = floor(self.kernel_cm / self.scale_cm_px)
+        self.process = 'Gaussian: {} cm ({} px)'.format(self.kernel_cm, self.kernel)
         self.stack_processed_vm, self.stack_processed_ca = None, None
         self.mask_vm, self.mask_ca = None, None
 
         # *** Voltage ***
         # *** Preparation ***
         # Reduce
-        reduction_factor = 1 / self.reduction
-        test_frame = rescale(self.stack_vm[0], reduction_factor, multichannel=False)
+        test_frame = rescale(self.stack_vm[0], self.reduction_factor, multichannel=False)
         print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
               .format(self.stack_vm.shape[2], self.stack_vm.shape[1], test_frame.shape[1], test_frame.shape[0]))
         stack_reduced_shape = (self.stack_vm.shape[0], test_frame.shape[0], test_frame.shape[1])
@@ -987,7 +995,7 @@ class TestMapCouplingPig(unittest.TestCase):
         for idx, frame in enumerate(self.stack_vm):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, self.stack_vm.shape[0]), end='', flush=True)
             #     f_filtered = filter_spatial(frame, kernel=self.kernel)
-            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
+            frame_reduced = img_as_uint(rescale(frame, self.reduction_factor, anti_aliasing=True, multichannel=False))
             stack_reduced[idx, :, :] = frame_reduced
         self.stack_processed_vm = stack_reduced
         print('\nDONE Reducing stack')
@@ -1002,7 +1010,7 @@ class TestMapCouplingPig(unittest.TestCase):
                 self.frame_bright = frame.copy()
         print('Brightest frame: {}'.format(frame_bright_idx))
         mask_type = 'Random_walk'
-        _, mask, _ = mask_generate(self.frame_bright, mask_type, self.strict_vm)
+        _, mask, _ = mask_generate(self.frame_bright, mask_type, strict_vm)
         print('\nDONE generating Mask')
         # *** Processing ***
         # Invert
@@ -1016,8 +1024,7 @@ class TestMapCouplingPig(unittest.TestCase):
         self.stack_processed_vm = normalize_stack(self.stack_processed_vm)
         # Filter
         # spatial
-        kernel_cm = 0.3  # set to X.X cm (~0.3)
-        self.kernel = floor(kernel_cm / self.scale_cm_px)
+        self.kernel = floor(self.kernel_cm / self.scale_cm_px)
         if self.kernel > 3:
             if self.kernel % 2 == 0:
                 self.kernel = self.kernel - 1
@@ -1035,8 +1042,7 @@ class TestMapCouplingPig(unittest.TestCase):
         # *** Calcium ***
         # *** Preparation ***
         # Reduce
-        reduction_factor = 1 / self.reduction
-        test_frame = rescale(self.stack_ca[0], reduction_factor, multichannel=False)
+        test_frame = rescale(self.stack_ca[0], self.reduction_factor, multichannel=False)
         print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
               .format(self.stack_ca.shape[2], self.stack_ca.shape[1], test_frame.shape[1], test_frame.shape[0]))
         stack_reduced_shape = (self.stack_ca.shape[0], test_frame.shape[0], test_frame.shape[1])
@@ -1044,7 +1050,7 @@ class TestMapCouplingPig(unittest.TestCase):
         for idx, frame in enumerate(self.stack_ca):
             print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, self.stack_ca.shape[0]), end='', flush=True)
             #     f_filtered = filter_spatial(frame, kernel=self.kernel)
-            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
+            frame_reduced = img_as_uint(rescale(frame, self.reduction_factor, anti_aliasing=True, multichannel=False))
             stack_reduced[idx, :, :] = frame_reduced
         self.stack_processed_ca = stack_reduced
         print('\nDONE Reducing stack')
@@ -1059,7 +1065,7 @@ class TestMapCouplingPig(unittest.TestCase):
                 self.frame_bright = frame.copy()
         print('Brightest frame: {}'.format(frame_bright_idx))
         mask_type = 'Random_walk'
-        _, mask, _ = mask_generate(self.frame_bright, mask_type, self.strict_ca)
+        _, mask, _ = mask_generate(self.frame_bright, mask_type, strict_ca)
         print('\nDONE generating Mask')
         # *** Processing ***
         # Normalize
@@ -1082,37 +1088,37 @@ class TestMapCouplingPig(unittest.TestCase):
         # Re-apply mask to avoid smudged edges
         self.stack_processed_ca = mask_apply(self.stack_processed_ca, mask)
 
-        # self.x_lv_apex, self.y_lv_apex = (int(stack.shape[2] * (1/2)),int(stack.shape[1] * (2/3)))     # LV Apex
-        x_lv_base, y_lv_base = (int(self.stack_processed_vm.shape[2] * (2 / 3)),
-                                int(self.stack_processed_vm.shape[1] * (1 / 2)))  # LV Base
+        # Regions of Interest: pixels from the LV Apex and LV Base
+        self.lv_apex_x, self.lv_apex_y = (int(self.stack_processed_vm.shape[2] * (1 / 2)),
+                                          int(self.stack_processed_vm.shape[1] * (2 / 3)))  # LV Apex
+        self.apex_lbwh = (self.lv_apex_x - (self.kernel_marker_size / 2),
+                          self.lv_apex_y - (self.kernel_marker_size / 2),
+                          self.kernel_marker_size, self.kernel_marker_size)
 
-        self.signal_x, self.signal_y = x_lv_base, y_lv_base
-
-        left, bottom, width, height = (self.signal_x - (self.kernel_marker_size / 2),
-                                       self.signal_y - (self.kernel_marker_size / 2),
-                                       self.kernel_marker_size, self.kernel_marker_size)
-        self.roi_lbwh = (left, bottom, width, height)
+        self.lv_base_x, self.lv_base_y = (int(self.stack_processed_vm.shape[2] * (2 / 3)),
+                                          int(self.stack_processed_vm.shape[1] * (1 / 2)))  # LV Base
+        self.base_lbwh = (self.lv_base_x - (self.kernel_marker_size / 2),
+                          self.lv_base_y - (self.kernel_marker_size / 2),
+                          self.kernel_marker_size, self.kernel_marker_size)
 
     def test_map_coupling(self):
         # Make sure EC coupling map looks correct
         stack_time = self.time_real
-        # Align the Voltage stack to the Calcium stack
-        stack_vm_aligned = align_stacks(self.stack_ca, self.stack_vm)
-        frame_vm_aligned = stack_vm_aligned[0, :, :]
         stack_processed_vm = self.stack_processed_vm
-        frame_processed_vm = stack_processed_vm[0, :, :]
-
-        stack_ca_aligned = self.stack_ca
-        frame_ca_aligned = self.frame_ca
+        # frame_processed_vm = stack_processed_vm[0, :, :]
         stack_processed_ca = self.stack_processed_ca
-        frame_processed_ca = stack_processed_ca[0, :, :]
+        # frame_processed_ca = stack_processed_ca[0, :, :]
 
         # Plot a frame from the stack, the map of that stack, and signals of interest
-        fig_coupling = plt.figure(figsize=(12, 8))  # _ x _ inch page
-        gs0 = fig_coupling.add_gridspec(1, 3)  # 1 row, 3 columns
+        fig_coupling = plt.figure(figsize=(16, 8))  # _ x _ inch page
+        gs0 = fig_coupling.add_gridspec(1, 3, width_ratios=[0.25, 0.25, 0.5])  # 1 row, 3 columns
         gs_frames = gs0[0].subgridspec(2, 1)
         ax_vm = fig_coupling.add_subplot(gs_frames[0])
         ax_ca = fig_coupling.add_subplot(gs_frames[1])
+        ax_vm.set_title('{}, Vm\n{}, {}'
+                        .format(self.test_name, self.prep, self.process))
+        ax_ca.set_title('{}, Ca\n{}, {}'
+                        .format(self.test_name, self.prep, self.process))
 
         gs_maps = gs0[1].subgridspec(2, 1)
         ax_map_vm = fig_coupling.add_subplot(gs_maps[0])
@@ -1120,9 +1126,11 @@ class TestMapCouplingPig(unittest.TestCase):
 
         gs_coupling = gs0[2].subgridspec(2, 1)
         ax_map = fig_coupling.add_subplot(gs_coupling[0])
-        ax_signals = fig_coupling.add_subplot(gs_coupling[1])
+        gs_signals = gs_coupling[1].subgridspec(1, 2)
+        ax_signals = fig_coupling.add_subplot(gs_signals[0])
+        ax_signal_rises = fig_coupling.add_subplot(gs_signals[1])
 
-        # Common between all
+        # Common between axes
         for ax in [ax_vm, ax_ca, ax_map_vm, ax_map_ca, ax_map]:
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
@@ -1133,66 +1141,139 @@ class TestMapCouplingPig(unittest.TestCase):
             ax.set_xticks([])
             ax.set_xticklabels([])
 
-        ax_signals.set_yticks([])
-        ax_signals.set_yticklabels([])
+        for ax in [ax_signals, ax_signal_rises]:
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.set_xlabel('Time (ms)')
+
+        # ax_signals.set_ylabel('Amplitude\n(Normalized)')
+        ax_signals.xaxis.set_major_locator(plticker.MultipleLocator(100))
+        ax_signals.xaxis.set_minor_locator(plticker.MultipleLocator(50))
+        ax_signal_rises.xaxis.set_major_locator(plticker.MultipleLocator(50))
+        ax_signal_rises.xaxis.set_minor_locator(plticker.MultipleLocator(10))
 
         # Vm frames
-        cmap_vm_norm = colors.Normalize(vmin=stack_vm_aligned.min(), vmax=stack_vm_aligned.max())
-        img_vm = ax_vm.imshow(frame_vm_aligned, norm=cmap_vm_norm, cmap=cmap_vm)
+        cmap_vm_norm = colors.Normalize(vmin=self.stack_vm.min(), vmax=self.stack_vm.max())
+        img_vm = ax_vm.imshow(self.frame_vm, norm=cmap_vm_norm, cmap=cmap_vm)
         image_colorbar(ax_vm, img_vm)
-        img_vm = ax_map_vm.imshow(frame_ca_aligned, norm=cmap_vm_norm, cmap=cmap_vm)
+        ax_map_vm.imshow(self.frame_vm, norm=cmap_vm_norm, cmap=cmap_vm)
         # image_colorbar(ax_map_vm, img_vm)
         # Ca frames
-        cmap_ca_norm = colors.Normalize(vmin=stack_ca_aligned.min(), vmax=stack_ca_aligned.max())
-        img_ca = ax_ca.imshow(frame_ca_aligned, norm=cmap_ca_norm, cmap=cmap_ca)
+        cmap_ca_norm = colors.Normalize(vmin=self.stack_ca.min(), vmax=self.stack_ca.max())
+        img_ca = ax_ca.imshow(self.frame_ca, norm=cmap_ca_norm, cmap=cmap_ca)
         image_colorbar(ax_ca, img_ca)
-        img_ca = ax_map_ca.imshow(frame_ca_aligned, norm=cmap_ca_norm, cmap=cmap_ca)
+        ax_map_ca.imshow(self.frame_ca, norm=cmap_ca_norm, cmap=cmap_ca)
         # image_colorbar(ax_map_ca, img_ca)
 
         # Activation maps
-        analysis_map_vm = map_tran_analysis(stack_processed_vm, find_tran_act, stack_time)
-        analysis_map_ca = map_tran_analysis(stack_processed_ca, find_tran_act, stack_time)
+        map_act_vm = map_tran_analysis(stack_processed_vm, find_tran_act, stack_time,
+                                       raw_data=True)
+        map_act_ca = map_tran_analysis(stack_processed_ca, find_tran_act, stack_time,
+                                       raw_data=True)
 
-        map_min = np.nanmin([analysis_map_vm, analysis_map_ca])
-        map_max = np.nanmax([analysis_map_vm, analysis_map_ca])
-        # map_n = np.count_nonzero(~np.isnan(analysis_map))
-        map_min_display = 0
-        map_max_display = ACT_MAX_PIG_WHOLE
-        print('Map min value: ', map_min)
-        print('Map max value: ', map_max)
+        act_map_min = np.nanmin([map_act_vm, map_act_ca])
+        act_map_max = np.nanmax([map_act_vm, map_act_ca])
+        map_n_vm = np.count_nonzero(~np.isnan(map_act_vm))
+        map_n_ca = np.count_nonzero(~np.isnan(map_act_ca))
+        map_act_min_display = (act_map_min // 50) * 50
+        map_act_max_display = map_act_min_display + ACT_MAX_PIG_WHOLE
+        print('Activation Map MIN value: ', act_map_min)
+        print('Activation Map MAX value: ', act_map_max)
+        # hist_bins = map_act_max_display
+        map_range = (map_act_min_display, map_act_max_display)
+        cmap_norm_activation = colors.Normalize(vmin=map_act_min_display,
+                                                vmax=map_act_max_display)
+        ax_map_vm.set_title('Vm Activation Map\n{} - {} ms ({} pixels)'
+                            .format(round(np.nanmin(map_act_vm), 2), round(np.nanmax(map_act_vm), 2), map_n_vm))
+        ax_map_ca.set_title('Ca Activation Map\n{} - {} ms ({} pixels)'
+                            .format(round(np.nanmin(map_act_ca), 2), round(np.nanmax(map_act_ca), 2), map_n_ca))
+        # Vm activation map
+        cmap_frame = SCMaps.grayC.reversed()
+        cmap_norm_frame = colors.Normalize(vmin=self.frame_bright.min(), vmax=self.frame_bright.max())
+        ax_map_vm.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        img_act_vm = ax_map_vm.imshow(map_act_vm, norm=cmap_norm_activation, cmap=cmap_activation)
+        add_map_colorbar_stats(ax_map_vm, img_act_vm, map_act_vm, map_range,
+                               unit='ms', stat_color=colors_times['Activation'])
+        # Ca activation map
+        ax_map_ca.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        img_act_ca = ax_map_ca.imshow(map_act_ca, norm=cmap_norm_activation, cmap=cmap_activation)
+        add_map_colorbar_stats(ax_map_ca, img_act_ca, map_act_ca, map_range,
+                               unit='ms', stat_color=colors_times['Activation'])
 
-        cmap_norm_activation = colors.Normalize(vmin=map_min_display,
-                                                vmax=map_max_display)
-        img_map = ax_map_vm.imshow(analysis_map_vm, norm=cmap_norm_activation, cmap=cmap_activation)
-        img_map = ax_map_ca.imshow(analysis_map_ca, norm=cmap_norm_activation, cmap=cmap_activation)
-        # Coupling map?
-        coupling_map = analysis_map_ca - analysis_map_vm
-        for row in coupling_map:
-            for val in row:
-                if val < 0:
-                    val = np.nan
-        cmap_norm_coupling = colors.Normalize(vmin=coupling_map.min(), vmax=coupling_map.max())
-        img_map = ax_map.imshow(analysis_map_ca, norm=cmap_norm_coupling, cmap=cmap_snr)
+        # Coupling map
+        map_ec = map_coupling(map_vm=map_act_vm, map_ca=map_act_ca)
+        map_ec_min = np.nanmin(map_ec)
+        map_ec_max = np.nanmax(map_ec)
+        map_n_ec = np.count_nonzero(~np.isnan(map_ec))
+        map_coup_min_display = 0
+        map_coup_max_display = EC_MAX
+        print('Coupling Map MIN value: ', map_ec_min)
+        print('Coupling Map MAX value: ', map_ec_max)
+        map_range = (map_coup_min_display, map_coup_max_display)
+        cmap_norm_coupling = colors.Normalize(vmin=map_coup_min_display, vmax=map_coup_max_display)
+        ax_map.set_title('EC Coupling Map\n{} - {} ms ({} pixels)'
+                         .format(round(map_ec_min, 2), round(map_ec_max, 2), map_n_ec))
+        ax_map.imshow(self.frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+        img_ec_map = ax_map.imshow(map_ec, norm=cmap_norm_coupling, cmap=cmap_ec)
+        # Add colorbar (right of map)
+        add_map_colorbar_stats(ax_map, img_ec_map, map_ec, map_range,
+                               unit='ms', stat_color=color_snr)
 
-        # Signal traces and location on frame
-        # plot trace with the chosen ROI pixel
-        signal_roi_vm = stack_processed_vm[:, self.signal_x, self.signal_y]
-        ax_signals.plot(stack_time, signal_roi_vm, color=color_vm, marker='.')
-        ax_vm.plot(self.signal_x, self.signal_y, marker='s', markerfacecolor='None',
-                   markeredgecolor=colors_times['Activation'],
-                   markersize=1, transform=ax_vm.transData)
-        roi_sym_vm = plt.Rectangle((self.roi_lbwh[0], self.roi_lbwh[1]), self.roi_lbwh[2], self.roi_lbwh[3],
-                                   fc='None', ec=colors_times['Activation'], transform=ax_vm.transData)
-        ax_vm.add_patch(roi_sym_vm)
+        # Signal traces and locations on frame
+        # Apex
+        signal_apex_vm = stack_processed_vm[:, self.lv_apex_y, self.lv_apex_x]
+        ax_signals.plot(stack_time, signal_apex_vm, color=color_vm, linestyle='dashed')
+        signal_apex_ca = stack_processed_ca[:, self.lv_apex_y, self.lv_apex_x]
+        ax_signals.plot(stack_time, signal_apex_ca, color=color_ca, linestyle='dashed')
+        ax_map.plot(self.lv_apex_x, self.lv_apex_y, marker='s', markerfacecolor='None',
+                    markeredgecolor=color_ec,
+                    markersize=1, transform=ax_map.transData)
+        roi_sym_coupling = plt.Rectangle((self.apex_lbwh[0], self.apex_lbwh[1]), self.apex_lbwh[2], self.apex_lbwh[3],
+                                         linestyle='dashed', fc='None', ec=color_ec, transform=ax_map.transData)
+        ax_map.add_patch(roi_sym_coupling)
+        # Base
+        signal_base_vm = stack_processed_vm[:, self.lv_base_y, self.lv_base_x]
+        ax_signals.plot(stack_time, signal_base_vm, color=color_vm)
+        signal_base_ca = stack_processed_ca[:, self.lv_base_y, self.lv_base_y]
+        ax_signals.plot(stack_time, signal_base_ca, color=color_ca)
+        ax_map.plot(self.lv_base_x, self.lv_base_y, marker='s', markerfacecolor='None',
+                    markeredgecolor=color_ec,
+                    markersize=1, transform=ax_map.transData)
+        roi_sym_coupling = plt.Rectangle((self.base_lbwh[0], self.base_lbwh[1]), self.base_lbwh[2], self.base_lbwh[3],
+                                         fc='None', ec=color_ec, transform=ax_map.transData)
+        ax_map.add_patch(roi_sym_coupling)
 
-        signal_roi_ca = stack_processed_ca[:, self.signal_x, self.signal_y]
-        ax_signals.plot(stack_time, signal_roi_ca, color=color_ca, marker='.')
-        ax_ca.plot(self.signal_x, self.signal_y, marker='s', markerfacecolor='None',
-                   markeredgecolor=colors_times['Activation'],
-                   markersize=1, transform=ax_ca.transData)
-        roi_sym_ca = plt.Rectangle((self.roi_lbwh[0], self.roi_lbwh[1]), self.roi_lbwh[2], self.roi_lbwh[3],
-                                   fc='None', ec=colors_times['Activation'], transform=ax_ca.transData)
-        ax_vm.add_patch(roi_sym_ca)
+        # Signal traces zoomed in to show rises, activations, and EC coupling variation
+        ax_signal_rises.plot(stack_time, signal_apex_vm, color=color_vm, linestyle='dashed')
+        ax_signal_rises.plot(stack_time, signal_apex_ca, color=color_ca, linestyle='dashed')
+        ax_signal_rises.plot(stack_time, signal_base_vm, color=color_vm)
+        ax_signal_rises.plot(stack_time, signal_base_ca, color=color_ca)
+        ax_signal_rises.set_xlim(75, 170)
+        # Activation timepoints
+        for sig in [signal_apex_vm, signal_apex_ca, signal_base_vm, signal_base_ca]:
+            i_activation = find_tran_act(sig)  # 1st df max, Activation
+            ax_signal_rises.plot(stack_time[i_activation],
+                                 sig[i_activation],
+                                 ".", fillstyle='none', markersize=marker2, markeredgewidth=marker5,
+                                 color=colors_times['Activation'], label='Activation')
+
+        # EC Coupling timespans
+        i_act_apex_ca = find_tran_act(signal_apex_ca)
+        ec_coupling_apex = calc_coupling(signal_vm=signal_apex_vm, signal_ca=signal_apex_ca)
+        ax_signal_rises.hlines(y=signal_apex_ca[i_act_apex_ca],
+                               xmin=stack_time[i_act_apex_ca - ec_coupling_apex],
+                               xmax=stack_time[i_act_apex_ca],
+                               color=cmap_ec(ec_coupling_apex), linewidth=marker5)
+        i_act_base_ca = find_tran_act(signal_base_ca)
+        ec_coupling_base = calc_coupling(signal_vm=signal_base_vm, signal_ca=signal_base_ca)
+        ax_signal_rises.hlines(y=signal_base_ca[i_act_base_ca],
+                               xmin=stack_time[i_act_base_ca - ec_coupling_apex],
+                               xmax=stack_time[i_act_base_ca],
+                               color=cmap_ec(ec_coupling_base), linewidth=marker5)
 
         fig_coupling.savefig(dir_integration + '/results/MapPig_Coupling_{}_{}.png'.
                              format(self.exp_name, self.file_name))
