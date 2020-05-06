@@ -185,7 +185,7 @@ def calc_tran_duration(signal_in, percent=80):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, np.float32]:
+    if signal_in.dtype not in [np.uint16, np.float32, np.float64]:
         raise TypeError('Signal values must either be "int" or "float"')
     if type(percent) is not int:
         raise TypeError('Percent data type must be an "int"')
