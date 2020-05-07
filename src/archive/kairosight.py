@@ -14,7 +14,7 @@ from PyQt5.QtGui import QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QFileSystemModel, QDialogButtonBox, \
     QTableWidgetItem, QLabel, QComboBox, QCheckBox
 import pyqtgraph as pg
-from ui.KairoSightMainMDI import Ui_MDIMainWindow
+from archive.ui.KairoSightMainMDI import Ui_MDIMainWindow
 from ui.KairoSightWidgetTIFFpyqtgraph import Ui_WidgetTiff
 from ui.KairoSightWidgetFolderTree import Ui_WidgetFolderTree
 from ui.KairoSightWidgetSplit import Ui_WidgetSplit

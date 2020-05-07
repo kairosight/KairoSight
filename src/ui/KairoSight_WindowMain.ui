@@ -155,14 +155,14 @@
            </size>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="pageProps">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>136</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -195,7 +195,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext">
+               <widget class="QCommandLinkButton" name="buttonNextPrep_Props">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -213,6 +213,9 @@
                   <width>80</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="accessibleName">
+                 <string>Properties</string>
                 </property>
                 <property name="text">
                  <string>Next</string>
@@ -288,7 +291,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>174</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -328,7 +331,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_2">
+               <widget class="QCommandLinkButton" name="buttonNextPrep_Crop">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -349,6 +352,9 @@
                   <width>80</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="accessibleName">
+                 <string>Crop</string>
                 </property>
                 <property name="text">
                  <string>Next</string>
@@ -417,14 +423,14 @@
            </size>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="pageMask">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>174</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -464,7 +470,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_3">
+               <widget class="QCommandLinkButton" name="buttonNextPrep_Mask">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -485,6 +491,9 @@
                   <width>80</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="accessibleName">
+                 <string>Mask</string>
                 </property>
                 <property name="text">
                  <string>Next</string>
@@ -531,10 +540,10 @@
         <number>0</number>
        </property>
        <property name="maximum">
-        <number>4</number>
+        <number>3</number>
        </property>
        <property name="value">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="textVisible">
         <bool>false</bool>
@@ -613,7 +622,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>136</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -646,7 +655,10 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_9">
+               <widget class="QCommandLinkButton" name="buttonNextProc_Norm">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -739,7 +751,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>174</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -779,7 +791,10 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_8">
+               <widget class="QCommandLinkButton" name="buttonNextProc_Filter">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -872,7 +887,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>174</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -912,7 +927,10 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_7">
+               <widget class="QCommandLinkButton" name="buttonNextProc_SNR">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -971,6 +989,9 @@
          <width>16777215</width>
          <height>5</height>
         </size>
+       </property>
+       <property name="maximum">
+        <number>3</number>
        </property>
        <property name="value">
         <number>0</number>
@@ -1052,7 +1073,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>194</width>
+             <width>180</width>
              <height>66</height>
             </rect>
            </property>
@@ -1092,7 +1113,10 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_10">
+               <widget class="QCommandLinkButton" name="buttonNextAnalysis_Isolate">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -1218,7 +1242,10 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCommandLinkButton" name="buttonNext_11">
+               <widget class="QCommandLinkButton" name="buttonNextAnalysis_Analyze">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -1278,6 +1305,9 @@
          <height>5</height>
         </size>
        </property>
+       <property name="maximum">
+        <number>2</number>
+       </property>
        <property name="value">
         <number>0</number>
        </property>
@@ -1309,7 +1339,7 @@
      <item>
       <widget class="QTextBrowser" name="textBrowser_Feedback">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -1325,6 +1355,9 @@
          <width>16777215</width>
          <height>75</height>
         </size>
+       </property>
+       <property name="autoFormatting">
+        <set>QTextEdit::AutoBulletList</set>
        </property>
       </widget>
      </item>
