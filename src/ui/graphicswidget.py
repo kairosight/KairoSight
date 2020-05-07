@@ -43,6 +43,7 @@ class GraphicsWidget(QWidget):
         self.histograms = []
         # Levels/color control with a histogram
         hist = HistogramLUTItem()
+        # TODO Halve histogram width
         hist.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
         hist.setImageItem(img)
         self.widget.addItem(hist)
