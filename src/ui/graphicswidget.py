@@ -19,11 +19,10 @@ class GraphicsWidget(QWidget):
 
         # A plot area (ViewBox + axes) for displaying the image
         self.p1 = self.widget.addPlot()
-        # Item for displaying an array of image data stacks
-        self.stacks = []
-        img = ImageItem()
-        self.p1.addItem(img)
-        self.stacks.append(img)
+        # Item for displaying image data
+        self.img_item = ImageItem()
+        self.img_item.axisOrder = 'row-major'
+        self.p1.addItem(self.img_item)
 
         # create a vertical box layout
         self.vbl = QVBoxLayout()
@@ -39,12 +38,10 @@ class GraphicsWidget(QWidget):
         # # self.widget.addWidget(self.hist, 0, 1)
         # self.hist.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
 
-        # Create an array of histograms
-        self.histograms = []
+        # Create histogram
         # Levels/color control with a histogram
-        hist = HistogramLUTItem()
+        self.histogram = HistogramLUTItem()
         # TODO Halve histogram width
-        hist.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
-        hist.setImageItem(img)
-        self.widget.addItem(hist)
-        self.histograms.append(hist)
+        self.histogram.vb.setMouseEnabled(y=False)  # makes user interaction a little easier
+        self.histogram.setImageItem(self.img_item)
+        self.widget.addItem(self.histogram)

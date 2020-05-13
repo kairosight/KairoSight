@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
-    <height>641</height>
+    <width>886</width>
+    <height>610</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1000</width>
+    <width>0</width>
     <height>0</height>
    </size>
   </property>
@@ -42,7 +42,7 @@
        <item>
         <widget class="GraphicsWidget" name="graphicsView">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -81,26 +81,69 @@
           <enum>Qt::Horizontal</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::Fixed</enum>
+          <enum>QSizePolicy::Preferred</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>40</width>
+           <width>10</width>
            <height>20</height>
           </size>
          </property>
         </spacer>
        </item>
        <item>
-        <widget class="QLCDNumber" name="lcdNumber">
+        <widget class="QLCDNumber" name="lcdNumber_frame">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>30</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
+         <property name="minimumSize">
+          <size>
+           <width>40</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>30</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <property name="smallDecimalPoint">
+          <bool>false</bool>
+         </property>
          <property name="segmentStyle">
           <enum>QLCDNumber::Flat</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLCDNumber" name="lcdNumber_frame_n">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>30</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>40</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>30</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="layoutDirection">
+          <enum>Qt::LeftToRight</enum>
          </property>
         </widget>
        </item>
@@ -124,13 +167,13 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>150</height>
+         <height>170</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>600</width>
-         <height>150</height>
+         <height>170</height>
         </size>
        </property>
        <property name="title">
@@ -143,7 +186,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxPrep_Props">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -162,8 +205,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -231,8 +274,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>186</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -244,6 +287,71 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_5">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_2">
+              <item row="0" column="0">
+               <widget class="QLabel" name="frameRateLabel">
+                <property name="text">
+                 <string>Frame Rate (fps)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLineEdit" name="frameRateLineEdit"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="scaleLabel">
+                <property name="text">
+                 <string>Scale (cm/px)</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="scaleLineEdit"/>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_9">
+              <item>
+               <widget class="QPushButton" name="pushButton_2">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_7">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -263,7 +371,7 @@
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>20</width>
+            <width>5</width>
             <height>20</height>
            </size>
           </property>
@@ -272,7 +380,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxPrep_Crop">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -291,8 +399,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -304,32 +412,25 @@
            <attribute name="label">
             <string>Crop</string>
            </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout">
+           <layout class="QHBoxLayout" name="horizontalLayout_16">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_6">
-              <item>
-               <widget class="QCheckBox" name="checkBox_2">
-                <property name="text">
-                 <string>Skip</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_4">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Expanding</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+             <spacer name="horizontalSpacer_4">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>73</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout">
               <item>
                <widget class="QCommandLinkButton" name="buttonNextPrep_Crop">
                 <property name="enabled">
@@ -350,7 +451,7 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
                 </property>
                 <property name="accessibleName">
@@ -361,6 +462,43 @@
                 </property>
                </widget>
               </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_6">
+                <item>
+                 <spacer name="horizontalSpacer_21">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_2">
+                  <property name="text">
+                   <string>Skip</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_19">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
              </layout>
             </item>
            </layout>
@@ -370,8 +508,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -402,7 +540,7 @@
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>20</width>
+            <width>5</width>
             <height>20</height>
            </size>
           </property>
@@ -411,7 +549,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxPrep_Mask">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -430,8 +568,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -443,32 +581,25 @@
            <attribute name="label">
             <string>Mask</string>
            </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_3">
+           <layout class="QHBoxLayout" name="horizontalLayout_17">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_7">
-              <item>
-               <widget class="QCheckBox" name="checkBox_3">
-                <property name="text">
-                 <string>Skip</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_6">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Expanding</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+             <spacer name="horizontalSpacer_6">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>73</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_10">
               <item>
                <widget class="QCommandLinkButton" name="buttonNextPrep_Mask">
                 <property name="enabled">
@@ -489,7 +620,7 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
                 </property>
                 <property name="accessibleName">
@@ -500,6 +631,43 @@
                 </property>
                </widget>
               </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_7">
+                <item>
+                 <spacer name="horizontalSpacer_23">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_3">
+                  <property name="text">
+                   <string>Skip</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_22">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
              </layout>
             </item>
            </layout>
@@ -509,8 +677,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -529,46 +697,17 @@
       </widget>
      </item>
      <item>
-      <widget class="QProgressBar" name="progressBar_Preparation">
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>5</height>
-        </size>
-       </property>
-       <property name="minimum">
-        <number>0</number>
-       </property>
-       <property name="maximum">
-        <number>3</number>
-       </property>
-       <property name="value">
-        <number>0</number>
-       </property>
-       <property name="textVisible">
-        <bool>false</bool>
-       </property>
-       <property name="invertedAppearance">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="Line" name="line_2">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Preferred</enum>
+       </property>
        <property name="sizeHint" stdset="0">
         <size>
          <width>20</width>
-         <height>40</height>
+         <height>10</height>
         </size>
        </property>
       </spacer>
@@ -584,13 +723,13 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>150</height>
+         <height>170</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>600</width>
-         <height>150</height>
+         <height>170</height>
         </size>
        </property>
        <property name="title">
@@ -603,7 +742,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxProc_Normalize">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -622,8 +761,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -677,6 +816,9 @@
                   <height>16777215</height>
                  </size>
                 </property>
+                <property name="accessibleName">
+                 <string>Normalize</string>
+                </property>
                 <property name="text">
                  <string>Next</string>
                 </property>
@@ -691,8 +833,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -723,7 +865,7 @@
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>20</width>
+            <width>5</width>
             <height>20</height>
            </size>
           </property>
@@ -732,7 +874,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxProc_Filter">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -751,8 +893,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -764,32 +906,25 @@
            <attribute name="label">
             <string>Filter</string>
            </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_8">
+           <layout class="QHBoxLayout" name="horizontalLayout_15">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_12">
-              <item>
-               <widget class="QCheckBox" name="checkBox_7">
-                <property name="text">
-                 <string>Skip</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_14">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Expanding</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+             <spacer name="horizontalSpacer_14">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>73</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_8">
               <item>
                <widget class="QCommandLinkButton" name="buttonNextProc_Filter">
                 <property name="enabled">
@@ -810,13 +945,53 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
+                </property>
+                <property name="accessibleName">
+                 <string>Filter</string>
                 </property>
                 <property name="text">
                  <string>Next</string>
                 </property>
                </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_12">
+                <item>
+                 <spacer name="horizontalSpacer_11">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_7">
+                  <property name="text">
+                   <string>Skip</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_17">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
               </item>
              </layout>
             </item>
@@ -827,8 +1002,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -859,7 +1034,7 @@
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>20</width>
+            <width>5</width>
             <height>20</height>
            </size>
           </property>
@@ -868,7 +1043,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxProc_SNR">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -887,8 +1062,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -900,32 +1075,25 @@
            <attribute name="label">
             <string>Signal-to-Noise Ratio (SNR)</string>
            </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_7">
+           <layout class="QHBoxLayout" name="horizontalLayout_18">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_11">
-              <item>
-               <widget class="QCheckBox" name="checkBox_6">
-                <property name="text">
-                 <string>Skip</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_13">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Expanding</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+             <spacer name="horizontalSpacer_13">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>73</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_7">
               <item>
                <widget class="QCommandLinkButton" name="buttonNextProc_SNR">
                 <property name="enabled">
@@ -946,13 +1114,53 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
+                </property>
+                <property name="accessibleName">
+                 <string>SNR</string>
                 </property>
                 <property name="text">
                  <string>Next</string>
                 </property>
                </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_11">
+                <item>
+                 <spacer name="horizontalSpacer_25">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_6">
+                  <property name="text">
+                   <string>Skip</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_24">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
               </item>
              </layout>
             </item>
@@ -963,8 +1171,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>66</height>
+             <width>182</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -983,40 +1191,17 @@
       </widget>
      </item>
      <item>
-      <widget class="QProgressBar" name="progressBar_Processing">
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>5</height>
-        </size>
-       </property>
-       <property name="maximum">
-        <number>3</number>
-       </property>
-       <property name="value">
-        <number>0</number>
-       </property>
-       <property name="textVisible">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="Line" name="line">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
       <spacer name="verticalSpacer_2">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Preferred</enum>
+       </property>
        <property name="sizeHint" stdset="0">
         <size>
          <width>20</width>
-         <height>40</height>
+         <height>10</height>
         </size>
        </property>
       </spacer>
@@ -1032,13 +1217,13 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>150</height>
+         <height>170</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>600</width>
-         <height>150</height>
+         <height>170</height>
         </size>
        </property>
        <property name="title">
@@ -1054,7 +1239,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxAnalysis_Isolate">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1074,7 +1259,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>66</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1086,32 +1271,22 @@
            <attribute name="label">
             <string>Isolate</string>
            </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_10">
+           <layout class="QHBoxLayout" name="horizontalLayout_10">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_15">
-              <item>
-               <widget class="QCheckBox" name="checkBox_8">
-                <property name="text">
-                 <string>Skip</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_19">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Expanding</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+             <spacer name="horizontalSpacer_10">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>71</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_4">
               <item>
                <widget class="QCommandLinkButton" name="buttonNextAnalysis_Isolate">
                 <property name="enabled">
@@ -1132,13 +1307,53 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
+                </property>
+                <property name="accessibleName">
+                 <string>Isolate</string>
                 </property>
                 <property name="text">
                  <string>Next</string>
                 </property>
                </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_4">
+                <item>
+                 <spacer name="horizontalSpacer_8">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_8">
+                  <property name="text">
+                   <string>Skip</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_9">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
               </item>
              </layout>
             </item>
@@ -1150,7 +1365,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>66</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1190,7 +1405,7 @@
         <item>
          <widget class="QToolBox" name="toolBoxAnalysis_Analyze">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1210,7 +1425,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>66</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1222,54 +1437,53 @@
            <attribute name="label">
             <string>Analyze</string>
            </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_11">
+           <layout class="QHBoxLayout" name="horizontalLayout_8">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_16">
-              <item>
-               <spacer name="horizontalSpacer_20">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Expanding</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item>
-               <widget class="QCommandLinkButton" name="buttonNextAnalysis_Analyze">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>80</width>
-                  <height>0</height>
-                 </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>80</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Next</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
+             <spacer name="horizontalSpacer_20">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>73</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QCommandLinkButton" name="buttonNextAnalysis_Analyze">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>80</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>80</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="accessibleName">
+               <string>Analyze</string>
+              </property>
+              <property name="text">
+               <string>Next</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -1279,7 +1493,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>66</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1298,48 +1512,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QProgressBar" name="progressBar_Analysis">
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>5</height>
-        </size>
-       </property>
-       <property name="maximum">
-        <number>2</number>
-       </property>
-       <property name="value">
-        <number>0</number>
-       </property>
-       <property name="textVisible">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="Line" name="line_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="verticalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
       <widget class="QTextBrowser" name="textBrowser_Feedback">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+        <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -1347,13 +1522,13 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>75</height>
+         <height>50</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>75</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="autoFormatting">
@@ -1377,7 +1552,7 @@
   <connection>
    <sender>horizontalScrollBar</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>lcdNumber</receiver>
+   <receiver>lcdNumber_frame</receiver>
    <slot>display(int)</slot>
    <hints>
     <hint type="sourcelabel">
