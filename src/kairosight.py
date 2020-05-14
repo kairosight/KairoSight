@@ -61,7 +61,7 @@ class WindowMDI(QMainWindow, Ui_WindowMDI):
                 self.mdiArea.addSubWindow(sub)
                 sub.show()
                 self.statusBar().showMessage('Opened ' + file)
-            except Exception:
+            except:
                 exc_type, exc_value = sys.exc_info()[:2]
                 self.status_print(' ! ' + str(exc_type) + ' : ' + str(exc_value))
         else:
@@ -80,6 +80,9 @@ class WindowMain(QWidget, Ui_WindowMain):
         self.setupUi(self)  # setup the UI
         self.next_buttons = []
         self.setup_next_buttons()
+        self.skip_checkboxes = []
+        self.setup_skip_buttons()
+        self.properties = {'fps': 0.0, 'scale': 0.0, 'type': None, 'subject': None}
 
         # Customize Feedback Text
         self.textBrowser_Feedback.setStyleSheet('background: rgb(10, 10, 10)')
@@ -112,22 +115,37 @@ class WindowMain(QWidget, Ui_WindowMain):
         # Notify histogram items of image change
         self.graphicsView.histogram.regionChanged()
 
+    def update_properties(self, step_name):
+        try:
+            self.properties['fps'] = float(self.frameRateLineEdit.text())
+        except ValueError:
+            self.feedback_action('Preparation step {} ERROR : Bad entry in "Frame Rate (fps)",'
+                                 ' must be a number (e.g 505.5)'.format(step_name), success=False)
+            raise ValueError
+        try:
+            self.properties['scale'] = float(self.scaleLineEdit.text())
+        except ValueError:
+            self.feedback_action('Preparation step {} ERROR : Bad entry in "Scale (px/cm)",'
+                                 ' must be a number (e.g 101.4362)'.format(step_name), success=False)
+            raise ValueError
+
     def apply_prep_step(self, step_button):
-        # step_success = True and (random() > 0.5)
         step_name = step_button.accessibleName()
         try:
-            fps = int(self.frameRateLineEdit.text())
+            if step_button is self.buttonNextPrep_Props:
+                self.update_properties(step_name)
+        except ValueError:
+            self.reset_progress(step_button)
+        except:
+            self.reset_progress(step_button)
+            exc_type, exc_value = sys.exc_info()[:2]
+            real_error = str(exc_type) + ' : ' + str(exc_value)
+            self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
+        else:
             self.step_proceed(step_button)
             self.feedback_action('Preparation step {} PASSED'.format(step_name), success=True)
             if step_button is self.buttonNextPrep_Mask:
                 self.feedback_action('Preparation STAGE PASSED', success=True)
-        except:
-            self.reset_progress(step_button)
-            # test_error = ' random chance'
-            exc_type, exc_value = sys.exc_info()[:2]
-            real_error = str(exc_type) + ' : ' + str(exc_value)
-            self.feedback_action('Preparation step {} ERROR : {}'
-                                 .format(step_name, real_error), success=False)
 
     def apply_proc_step(self, step_button):
         step_success = True and (random() > 0.5)
@@ -135,7 +153,7 @@ class WindowMain(QWidget, Ui_WindowMain):
         if step_success:
             self.step_proceed(step_button)
             self.feedback_action('Processing step {} PASSED'.format(step_name), success=step_success)
-            if step_button is self.buttonNextPrep_Mask:
+            if step_button is self.buttonNextProc_SNR:
                 self.feedback_action('Processing STAGE PASSED', success=step_success)
         else:
             self.reset_progress(step_button)
@@ -149,13 +167,44 @@ class WindowMain(QWidget, Ui_WindowMain):
         if step_success:
             self.step_proceed(step_button)
             self.feedback_action('Analysis step {} PASSED'.format(step_name), success=step_success)
-            if step_button is self.buttonNextPrep_Mask:
+            if step_button is self.buttonNextAnalysis_Analyze:
                 self.feedback_action('Analysis STAGE PASSED', success=step_success)
         else:
             self.reset_progress(step_button)
             test_error = ' random chance'
             self.feedback_action('Analysis step {} ERROR : {}'
                                  .format(step_name, test_error), success=step_success)
+
+    def skip_prep_step(self, step_checkbox, step_button):
+        step_name = step_button.accessibleName()
+        if step_checkbox.checkState():
+            self.step_proceed(step_button)
+            step_button.setEnabled(False)
+            self.feedback_action('Preparation step {} SKIPPED'.format(step_name), success=True)
+            if step_button is self.buttonNextPrep_Mask:
+                self.feedback_action('Preparation STAGE PASSED', success=True)
+        else:
+            self.reset_progress(step_button)
+
+    def skip_proc_step(self, step_checkbox, step_button):
+        step_name = step_button.accessibleName()
+        if step_checkbox.checkState():
+            self.step_proceed(step_button)
+            step_button.setEnabled(False)
+            self.feedback_action('Processing step {} SKIPPED'.format(step_name), success=True)
+            if step_button is self.buttonNextProc_SNR:
+                self.feedback_action('Processing STAGE PASSED', success=True)
+        else:
+            self.reset_progress(step_button)
+
+    def skip_analysis_step(self, step_checkbox, step_button):
+        step_name = step_button.accessibleName()
+        if step_checkbox.checkState():
+            self.step_proceed(step_button)
+            step_button.setEnabled(False)
+            self.feedback_action('Analysis step {} SKIPPED'.format(step_name), success=True)
+        else:
+            self.reset_progress(step_button)
 
     def feedback_action(self, action_text, success=False):
         time_tuple = time.localtime()
@@ -187,6 +236,22 @@ class WindowMain(QWidget, Ui_WindowMain):
         self.buttonNextAnalysis_Analyze.released \
             .connect(lambda: self.apply_analysis_step(self.buttonNextAnalysis_Analyze))
 
+    def setup_skip_buttons(self):
+        self.skip_checkboxes = [self.checkBoxSkipPrep_Crop.stateChanged, self.checkBoxSkipPrep_Mask.stateChanged,
+                                self.checkBoxSkipProc_Filter.stateChanged, self.checkBoxSkipProc_SNR.stateChanged,
+                                self.checkBoxSkipAnalysis_Isolate.stateChanged]
+        self.checkBoxSkipPrep_Crop.stateChanged\
+            .connect(lambda: self.skip_prep_step(self.checkBoxSkipPrep_Crop, self.buttonNextPrep_Crop))
+        self.checkBoxSkipPrep_Mask.stateChanged\
+            .connect(lambda: self.skip_prep_step(self.checkBoxSkipPrep_Mask, self.buttonNextPrep_Mask))
+        self.checkBoxSkipProc_Filter.stateChanged\
+            .connect(lambda: self.skip_proc_step(self.checkBoxSkipProc_Filter, self.buttonNextProc_Filter))
+        self.checkBoxSkipProc_SNR.stateChanged\
+            .connect(lambda: self.skip_proc_step(self.checkBoxSkipProc_SNR, self.buttonNextProc_SNR))
+        self.checkBoxSkipAnalysis_Isolate.stateChanged\
+            .connect(lambda: self.skip_analysis_step(self.checkBoxSkipAnalysis_Isolate,
+                                                     self.buttonNextAnalysis_Isolate))
+
     def step_proceed(self, step_button):
         i = 1
         while self.next_buttons[i - 1] is not step_button:
@@ -197,12 +262,38 @@ class WindowMain(QWidget, Ui_WindowMain):
     def reset_progress(self, step_button):
         i = 1
         step_button.setEnabled(True)
+        if step_button is self.buttonNextPrep_Crop:
+            self.checkBoxSkipPrep_Crop.setEnabled(True)
+            self.checkBoxSkipPrep_Crop.setChecked(False)
+        elif step_button is self.buttonNextPrep_Mask:
+            self.checkBoxSkipPrep_Mask.setEnabled(True)
+            self.checkBoxSkipPrep_Mask.setChecked(False)
+        elif step_button is self.buttonNextProc_Filter:
+            self.checkBoxSkipProc_Filter.setEnabled(True)
+            self.checkBoxSkipProc_Filter.setChecked(False)
+        elif step_button is self.buttonNextProc_SNR:
+            self.checkBoxSkipProc_SNR.setEnabled(True)
+            self.checkBoxSkipProc_SNR.setChecked(False)
+        elif step_button is self.buttonNextAnalysis_Isolate:
+            self.checkBoxSkipAnalysis_Isolate.setEnabled(True)
+            self.checkBoxSkipAnalysis_Isolate.setChecked(False)
         while self.next_buttons[i - 1] is not step_button:
             i += 1
         while i < len(self.next_buttons):
-            if not self.next_buttons[i].isEnabled():
+            cur_button = self.next_buttons[i]
+            if not cur_button.isEnabled():
                 break
-            self.next_buttons[i].setEnabled(False)
+            if cur_button is self.buttonNextPrep_Crop:
+                self.checkBoxSkipPrep_Crop.setEnabled(False)
+            elif cur_button is self.buttonNextPrep_Mask:
+                self.checkBoxSkipPrep_Mask.setEnabled(False)
+            elif cur_button is self.buttonNextProc_Filter:
+                self.checkBoxSkipProc_Filter.setEnabled(False)
+            elif cur_button is self.buttonNextProc_SNR:
+                self.checkBoxSkipProc_SNR.setEnabled(False)
+            elif cur_button is self.buttonNextAnalysis_Isolate:
+                self.checkBoxSkipAnalysis_Isolate.setEnabled(False)
+            cur_button.setEnabled(False)
             i += 1
 
 
