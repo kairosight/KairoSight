@@ -212,6 +212,37 @@ def crop_stack(stack_in, d_x=False, d_y=False):
     return stack_out
 
 
+def reduce_stack(stack_in, reduction=1):
+    """Rescale the X,Y dimensions of a stack (3-D array, TYX) of optical data,
+    using linear interpolation and gaussian anti-aliasing to effectively bin pixels together.
+
+       Parameters
+       ----------
+       stack_in : ndarray
+            A 3-D array (T, Y, X) of optical data, dtype : uint16 or float
+       reduction : int, float
+            Factor by which to reduce both dimensions, typically in the range 2-10
+
+       Returns
+       -------
+       stack_out : ndarray
+            A reduced 3-D array (T, Y, X) of optical data, dtype : stack_in.dtype
+       """
+    reduction_factor = 1 / reduction
+    test_frame_reduced = rescale(stack_in[0], reduction_factor, multichannel=False)
+    stack_reduced_shape = (stack_in.shape[0], test_frame_reduced.shape[0], test_frame_reduced.shape[1])
+    stack_out = np.empty(stack_reduced_shape, dtype=stack_in.dtype)  # empty stack
+    print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
+          .format(stack_out.shape[2], stack_out.shape[1], test_frame_reduced.shape[1], test_frame_reduced.shape[0]))
+    for idx, frame in enumerate(stack_in):
+        print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_in.shape[0]), end='', flush=True)
+        #     f_filtered = filter_spatial(frame, kernel=self.kernel)
+        frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
+        stack_out[idx, :, :] = frame_reduced
+
+    return stack_out
+
+
 def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
     """Generate a mask for a frame 2-D array (Y, X) of grayscale optical data
     using binary threshold (histogram-based or local) or segmentation algorithms.

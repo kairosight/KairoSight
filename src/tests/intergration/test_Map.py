@@ -72,7 +72,7 @@ def image_colorbar(axis, image):
     cb_img.ax.tick_params(labelsize=fontsize3)
 
 
-def add_map_colorbar_stats(axis, img, map_data, map_range, unit='unit', stat_color=gray_heavy):
+def add_map_colorbar_stats(axis, img, map_data, map_range, bins=100, unit='unit', stat_color=gray_heavy):
     ax_ins_cbar = inset_axes(axis, width="5%", height="100%", loc='center left',
                              bbox_to_anchor=(1.3, 0, 1, 1), bbox_transform=axis.transAxes,
                              borderpad=0)
@@ -209,21 +209,10 @@ class TestMapAnalysisPig(unittest.TestCase):
         #               stack_out.shape[1], stack_out.shape[2]))
 
         # Reduce
-        self.reduction = 9  # set to XX (to min ~200 X 200 pixels)
+        self.reduction = 7  # set to XX (to min ~200 X 200 pixels)
         self.scale_px_cm = int(self.scale_px_cm / self.reduction)
         self.scale_cm_px = self.scale_cm_px * self.reduction
-        reduction_factor = 1 / self.reduction
-        test_frame = rescale(stack_out[0], reduction_factor, multichannel=False)
-        print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
-              .format(stack_out.shape[2], stack_out.shape[1], test_frame.shape[1], test_frame.shape[0]))
-        stack_reduced_shape = (stack_out.shape[0], test_frame.shape[0], test_frame.shape[1])
-        stack_reduced = np.empty(stack_reduced_shape, dtype=stack_out.dtype)  # empty stack
-        for idx, frame in enumerate(stack_out):
-            print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
-            #     f_filtered = filter_spatial(frame, kernel=self.kernel)
-            frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
-            stack_reduced[idx, :, :] = frame_reduced
-        stack_out = stack_reduced
+        stack_out = reduce_stack(stack_out, self.reduction)
         print('\nDONE Reducing stack')
         # Mask
         print('Generating Masking ...')
@@ -273,7 +262,7 @@ class TestMapAnalysisPig(unittest.TestCase):
 
         # Filter
         # spatial
-        kernel_cm = 0.5  # set to X.X cm (~0.3)
+        kernel_cm = 0.3  # set to X.X cm (~0.3)
         self.kernel = floor(kernel_cm / self.scale_cm_px)
         if self.kernel > 3:
             if self.kernel % 2 == 0:
