@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>886</width>
-    <height>610</height>
+    <height>615</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -184,6 +184,9 @@
    </item>
    <item>
     <layout class="QVBoxLayout" name="LayoutSteps">
+     <property name="spacing">
+      <number>4</number>
+     </property>
      <property name="sizeConstraint">
       <enum>QLayout::SetFixedSize</enum>
      </property>
@@ -198,17 +201,30 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>175</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>175</height>
         </size>
+       </property>
+       <property name="font">
+        <font>
+         <weight>50</weight>
+         <bold>false</bold>
+         <underline>false</underline>
+        </font>
        </property>
        <property name="title">
         <string>Preparation</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
        </property>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <property name="sizeConstraint">
@@ -237,7 +253,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -305,8 +321,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>186</width>
-             <height>83</height>
+             <width>158</width>
+             <height>73</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -431,7 +447,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -545,8 +561,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>83</height>
+             <width>170</width>
+             <height>47</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -558,6 +574,68 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_3">
+              <item row="0" column="0">
+               <widget class="QLabel" name="rescaleLabel">
+                <property name="text">
+                 <string>Rescale                    1/</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QSpinBox" name="rescaleSpinBox">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_19">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_2">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_26">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -606,7 +684,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -717,8 +795,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>83</height>
+             <width>152</width>
+             <height>87</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -730,6 +808,104 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_6">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_4">
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="typeLabel">
+                <property name="text">
+                 <string>Type</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="typeComboBox"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="darkCutoffLabel">
+                <property name="text">
+                 <string>Dark Cutoff</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="darkCutoffSpinBox">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>9</number>
+                </property>
+                <property name="value">
+                 <number>3</number>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="lightCutoffLabel">
+                <property name="text">
+                 <string>Light Cutoff</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QSpinBox" name="lightCutoffSpinBox">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>9</number>
+                </property>
+                <property name="value">
+                 <number>5</number>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_20">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_3">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_27">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -763,17 +939,30 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>175</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>175</height>
         </size>
+       </property>
+       <property name="font">
+        <font>
+         <weight>50</weight>
+         <bold>false</bold>
+         <underline>false</underline>
+        </font>
        </property>
        <property name="title">
         <string>Processing</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
        </property>
        <layout class="QHBoxLayout" name="horizontalLayout_14">
         <property name="sizeConstraint">
@@ -802,7 +991,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -873,8 +1062,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>83</height>
+             <width>147</width>
+             <height>67</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -886,6 +1075,81 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_11">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_5">
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="1" column="0">
+               <widget class="QLabel" name="driftOrderLabel">
+                <property name="text">
+                 <string>Drift Order</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="driftOrderSpinBox">
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>5</number>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="0">
+               <widget class="QLabel" name="typeLabel_2">
+                <property name="text">
+                 <string>Type</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="typeComboBox_2"/>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_21">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_4">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_28">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -934,7 +1198,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1045,8 +1309,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>83</height>
+             <width>174</width>
+             <height>67</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1058,6 +1322,74 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_12">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_7">
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="kernelTypeLabel">
+                <property name="text">
+                 <string>Kernel Size Type</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="kernelTypeComboBox"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="kernelSizeLabel">
+                <property name="text">
+                 <string>Kernel Size</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="kernelSizeLineEdit"/>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_23">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_6">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_30">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -1106,7 +1438,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1217,8 +1549,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>83</height>
+             <width>149</width>
+             <height>87</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1230,6 +1562,84 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_13">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_8">
+              <property name="verticalSpacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="sNRRangeLabel">
+                <property name="text">
+                 <string>SNR Range</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="sNRRangeComboBox"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="sNRMaxLabel">
+                <property name="text">
+                 <string>SNR Max</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QDoubleSpinBox" name="sNRMaxDoubleSpinBox"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="sNRMinLabel">
+                <property name="text">
+                 <string>SNR Min</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QDoubleSpinBox" name="sNRMinDoubleSpinBox"/>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_24">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_7">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_31">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -1263,17 +1673,30 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>175</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>175</height>
         </size>
+       </property>
+       <property name="font">
+        <font>
+         <weight>50</weight>
+         <bold>false</bold>
+         <underline>false</underline>
+        </font>
        </property>
        <property name="title">
         <string>Analysis</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
        </property>
        <property name="checkable">
         <bool>false</bool>
@@ -1305,7 +1728,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1413,8 +1836,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>83</height>
+             <width>98</width>
+             <height>28</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1474,7 +1897,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>83</height>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1541,8 +1964,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>83</height>
+             <width>98</width>
+             <height>28</height>
             </rect>
            </property>
            <property name="sizePolicy">
