@@ -321,8 +321,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>158</width>
-             <height>73</height>
+             <width>186</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -561,8 +561,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>170</width>
-             <height>47</height>
+             <width>182</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -599,7 +599,7 @@
                  <number>1</number>
                 </property>
                 <property name="singleStep">
-                 <number>2</number>
+                 <number>1</number>
                 </property>
                </widget>
               </item>
@@ -795,8 +795,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>152</width>
-             <height>87</height>
+             <width>182</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1062,8 +1062,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>147</width>
-             <height>67</height>
+             <width>182</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1116,6 +1116,16 @@
               </item>
               <item row="0" column="1">
                <widget class="QComboBox" name="typeComboBox_2"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="invertLabel">
+                <property name="text">
+                 <string>Invert</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QCheckBox" name="invertCheckBox"/>
               </item>
              </layout>
             </item>
@@ -1309,8 +1319,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>174</width>
-             <height>67</height>
+             <width>186</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1549,8 +1559,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>149</width>
-             <height>87</height>
+             <width>182</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1836,8 +1846,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>98</width>
-             <height>28</height>
+             <width>180</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1964,8 +1974,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>98</width>
-             <height>28</height>
+             <width>180</width>
+             <height>88</height>
             </rect>
            </property>
            <property name="sizePolicy">

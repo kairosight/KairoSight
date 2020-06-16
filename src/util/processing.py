@@ -906,7 +906,7 @@ def calculate_snr(signal_in, noise_count=10):
 
         Notes
         -----
-            Must be applied to signals with upward deflections (Peak > noise).  TODO expand to use on negative signals
+            Must be applied to signals with upward deflections (Peak > noise).
             Assumes noise SD > 1, otherwise set to 0.5
             Assumes max noise value < (peak / 5)
             Auto-detects noise section as the last noise_count values before the final noisy peak.
@@ -914,13 +914,8 @@ def calculate_snr(signal_in, noise_count=10):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    # if signal_in.dtype not in [np.uint16, float]:
-    #     raise TypeError('Signal values must either be "uint16" or "float"')
     if type(noise_count) is not int:
         raise TypeError('Number of noise values to use must be an "int"')
-
-    # if any(v < 0 for v in signal_in):
-    #     raise ValueError('All signal values must be >= 0')
     if noise_count < 0:
         raise ValueError('Noise count must be >= 0')
     if noise_count >= len(signal_in):
@@ -969,6 +964,7 @@ def calculate_snr(signal_in, noise_count=10):
     rms_bounds = (noise_rms.astype(signal_in.dtype), peak_value.astype(signal_in.dtype))
     sd_noise = noise_sd
     ir_noise = i_noise_calc
+
     return snr, rms_bounds, peak_peak, sd_noise, ir_noise, ir_peak
 
 

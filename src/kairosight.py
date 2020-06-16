@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import math
+import json
 import os
 import sys
 import time
 import numpy
 from pathlib import Path, PurePath
 from random import random
-from util.preparation import open_stack
+from util.preparation import open_stack, reduce_stack
 from ui.KairoSight_WindowMDI import Ui_WindowMDI
 from ui.KairoSight_WindowMain import Ui_WindowMain
+from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog
 from PyQt5.QtGui import QColor
 
@@ -51,7 +52,6 @@ class WindowMDI(QMainWindow, Ui_WindowMDI):
                 self.status_print('Opening ' + file + ' ...')
                 f_purepath = PurePath(file)
 
-            f_string = str(f_purepath)
             f_display = str(f_purepath.parent) + '\\' + '\t' + f_purepath.stem + ' ' + f_purepath.suffix
             print('file (path name ext): ' + f_display)
             try:
@@ -65,7 +65,7 @@ class WindowMDI(QMainWindow, Ui_WindowMDI):
                 self.statusBar().showMessage('Opened ' + file)
             except:
                 exc_type, exc_value = sys.exc_info()[:2]
-                self.status_print(' ! ' + str(exc_type) + ' : ' + str(exc_value))
+                self.status_print('Error ' + str(exc_type) + ' : ' + str(exc_value))
         else:
             print('path is None')
             self.statusBar().showMessage('Open cancelled')
@@ -74,38 +74,50 @@ class WindowMDI(QMainWindow, Ui_WindowMDI):
         self.statusBar().showMessage(text)
 
 
+class Stream(QObject):
+    newText = pyqtSignal(str)
+
+    def write(self, text):
+        self.newText.emit(str(text))
+
+
 class WindowMain(QWidget, Ui_WindowMain):
     """Customization for Ui_WindowMain"""
 
     def __init__(self, parent=None, file_purepath=None):
         super(WindowMain, self).__init__(parent)  # initialization of the superclass
         self.setupUi(self)  # setup the UI
+        sys.stdout = Stream(newText=self.feedback_action)
         self.next_buttons = []
         self.setup_next_buttons()
         self.skip_checkboxes = []
         self.setup_skip_buttons()
-        self.properties = {'fps': 0.0, 'scale': 0.0, 'type': None, 'subject': None}
 
         # Customize Feedback Text
         self.textBrowser_Feedback.setStyleSheet('background: rgb(10, 10, 10)')
 
         # Import file for this window
         self.file_purepath = file_purepath
-        self.file_path_string = str(file_purepath)
-        self.project_purepath = str(file_purepath.parent) + '\\' + str(file_purepath.stem) + '_ks_project'
-        self.video_data, self.stack_real_meta = open_stack(source=self.file_path_string)
+        self.file_path_str = str(self.file_purepath)
+        self.project_path_str = str(self.file_purepath.parent) + '\\' + str(self.file_purepath.stem) + '_ks_project'
+        self.video_data_raw, self.stack_real_meta = open_stack(source=self.file_path_str)
+
         # Flip each frame along the Y-axis (up/down)
-        self.frame_n = self.video_data.shape[0]
+        self.frame_n = self.video_data_raw.shape[0]
         for i in range(self.frame_n):
-            self.video_data[i] = numpy.flipud(self.video_data[i])
+            self.video_data_raw[i] = numpy.flipud(self.video_data_raw[i])
+        self.width_raw, self.height_raw = self.video_data_raw.shape[2], self.video_data_raw.shape[1]
+
+        # Copy imported video to preserve it
+        self.video_data = self.video_data_raw.copy()
         self.width, self.height = self.video_data.shape[2], self.video_data.shape[1]
 
-        # If needed, create KairoSight project folder
-        try:
-            os.mkdir(self.project_purepath)
-        except FileExistsError:
-            self.feedback_action('Project folder already exists : \\' +
-                                 str(file_purepath.stem) + '_ks_project\\', success=True)
+        # Setup project directory and files
+        self.project_props_prp = {'fps': None, 'scale': None, 'type': None, 'subject': None,
+                                  'rescale': 1}
+        self.project_props_prc = {'norm': None, 'invert': None, 'filter': None, 'snr': None}
+        self.project_props_ans = {'d_time': None, 'results': None}
+        self.setup_project()
 
         # Setup and connect UI components
         self.horizontalScrollBar.valueChanged['int'].connect(self.update_video)
@@ -118,6 +130,45 @@ class WindowMain(QWidget, Ui_WindowMain):
         self.graphicsView.histogram.setLevels(self.video_data.min(), self.video_data.max())
         self.graphicsView.histogram.setHistogramRange(self.video_data.min(), self.video_data.max())
 
+    def __del__(self):
+        sys.stdout = sys.__stdout__
+
+    def setup_project(self):
+        """Create a new or load an existing project folder"""
+        try:
+            os.mkdir(self.project_path_str)
+        except FileExistsError:
+            self.feedback_action('Project folder already exists : \\' +
+                                 str(self.file_purepath.stem) + '_ks_project\\', success=True)
+            # If the project folder already exists, load/create the properties
+            try:    # Preparation
+                with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', 'r') as openfile:
+                    self.project_props_prp = json.load(openfile)
+                    self.feedback_action('Loaded Preparation properties : ' +
+                                         str(self.file_purepath.stem) + '.ks_prep', success=True)
+                self.update_inputs()
+            except FileNotFoundError:
+                with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
+                    json.dump(self.project_props_prp, outfile)
+            try:    # Processing
+                with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', 'r') as openfile:
+                    self.project_props_prc = json.load(openfile)
+                    self.feedback_action('Loaded Processing properties : ' +
+                                         str(self.file_purepath.stem) + '.ks_proc', success=True)
+                self.update_inputs()
+            except FileNotFoundError:
+                with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', "w") as outfile:
+                    json.dump(self.project_props_ans, outfile)
+            try:    # Analysis
+                with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_anys', 'r') as openfile:
+                    self.project_props_ans = json.load(openfile)
+                    self.feedback_action('Loaded Analysis properties : ' +
+                                         str(self.file_purepath.stem) + '.ks_anys', success=True)
+                self.update_inputs()
+            except FileNotFoundError:
+                with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_anys', "w") as outfile:
+                    json.dump(self.project_props_ans, outfile)
+
     def update_video(self, frame=0):
         """Updates the video frame drawn to the canvas"""
         # Update ImageItem(s) with a frame in a stack
@@ -125,25 +176,56 @@ class WindowMain(QWidget, Ui_WindowMain):
         # Notify histogram items of image change
         self.graphicsView.histogram.regionChanged()
 
-    def update_properties(self, step_name):
-        try:
-            self.properties['fps'] = float(self.frameRateLineEdit.text())
-        except ValueError:
-            self.feedback_action('Preparation step {} ERROR : Bad entry in "Frame Rate (fps)",'
-                                 ' must be a number (e.g 505.5)'.format(step_name), success=False)
-            raise ValueError
-        try:
-            self.properties['scale'] = float(self.scaleLineEdit.text())
-        except ValueError:
-            self.feedback_action('Preparation step {} ERROR : Bad entry in "Scale (px/cm)",'
-                                 ' must be a number (e.g 101.4362)'.format(step_name), success=False)
-            raise ValueError
+    def update_parameters(self, step_name):
+        """Update user input fields with imported values"""
+        if step_name == 'Properties':
+            try:
+                self.project_props_prp['fps'] = float(self.frameRateLineEdit.text())
+            except ValueError:
+                self.feedback_action('Preparation step {} ERROR : Bad entry in "Frame Rate (fps)",'
+                                     ' must be a number (e.g 505.5)'.format(step_name), success=False)
+                raise ValueError
+            try:
+                self.project_props_prp['scale'] = float(self.scaleLineEdit.text())
+            except ValueError:
+                self.feedback_action('Preparation step {} ERROR : Bad entry in "Scale (px/cm)",'
+                                     ' must be a number (e.g 101.4362)'.format(step_name), success=False)
+                raise ValueError
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prp', "w") as outfile:
+                json.dump(self.project_props_prp, outfile)
+        elif step_name == 'Crop':
+            try:
+                self.project_props_prp['rescale'] = int(self.rescaleSpinBox.value())
+            except ValueError:
+                self.feedback_action('Preparation step {} ERROR : Bad entry in "Frame Rate (fps)",'
+                                     ' must be a number (e.g 505.5)'.format(step_name), success=False)
+                raise ValueError
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prp', "w") as outfile:
+                json.dump(self.project_props_prp, outfile)
+
+    def update_inputs(self):
+        """Populate user input fields with imported values"""
+        if self.project_props_prp['fps']:
+            self.frameRateLineEdit.setText(str(self.project_props_prp['fps']))
+        if self.project_props_prp['scale']:
+            self.scaleLineEdit.setText(str(self.project_props_prp['scale']))
 
     def apply_prep_step(self, step_button):
         step_name = step_button.accessibleName()
         try:
-            if step_button is self.buttonNextPrep_Props:
-                self.update_properties(step_name)
+            if step_name == 'Properties':
+                # Attempt Props actions
+                self.update_parameters(step_name)
+            elif step_name == 'Crop':
+                # Attempt Crop actions
+                self.update_parameters(step_name)
+                if self.project_props_prp['rescale'] == 1:
+                    self.video_data = self.video_data_raw
+                else:
+                    self.video_data = reduce_stack(self.video_data_raw, self.project_props_prp['rescale'])
+            elif step_button is self.buttonNextPrep_Mask:
+                # Attempt Mask actions
+                self.update_parameters(step_name)
         except ValueError:
             self.reset_progress(step_button)
         except:
@@ -153,6 +235,7 @@ class WindowMain(QWidget, Ui_WindowMain):
             self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
         else:
             self.step_proceed(step_button)
+            self.update_video(frame=self.frame_n)
             self.feedback_action('Preparation step {} PASSED'.format(step_name), success=True)
             if step_button is self.buttonNextPrep_Mask:
                 self.feedback_action('Preparation STAGE PASSED', success=True)
