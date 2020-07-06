@@ -359,7 +359,7 @@
               <item row="1" column="0">
                <widget class="QLabel" name="scaleLabel">
                 <property name="text">
-                 <string>Scale (px/cm)</string>
+                 <string>Original Scale (px/cm)</string>
                 </property>
                </widget>
               </item>
@@ -831,7 +831,13 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QComboBox" name="typeComboBox"/>
+               <widget class="QComboBox" name="typeComboBox">
+                <item>
+                 <property name="text">
+                  <string>Random Walk</string>
+                 </property>
+                </item>
+               </widget>
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="darkCutoffLabel">
@@ -1062,7 +1068,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
+             <width>180</width>
              <height>88</height>
             </rect>
            </property>
@@ -1108,14 +1114,25 @@
                </widget>
               </item>
               <item row="0" column="0">
-               <widget class="QLabel" name="typeLabel_2">
+               <widget class="QLabel" name="normTypeLabel">
                 <property name="text">
                  <string>Type</string>
                 </property>
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QComboBox" name="typeComboBox_2"/>
+               <widget class="QComboBox" name="normTypeComboBox">
+                <item>
+                 <property name="text">
+                  <string>0 - 1</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>F / F0</string>
+                 </property>
+                </item>
+               </widget>
               </item>
               <item row="2" column="0">
                <widget class="QLabel" name="invertLabel">
@@ -1348,24 +1365,44 @@
                <number>0</number>
               </property>
               <item row="0" column="0">
-               <widget class="QLabel" name="kernelTypeLabel">
+               <widget class="QLabel" name="kernelPixelsLabel">
                 <property name="text">
-                 <string>Kernel Size Type</string>
+                 <string>Kernel Size (px)</string>
                 </property>
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QComboBox" name="kernelTypeComboBox"/>
+               <widget class="QSpinBox" name="kernelPixelsSpinBox">
+                <property name="enabled">
+                 <bool>true</bool>
+                </property>
+                <property name="minimum">
+                 <number>3</number>
+                </property>
+                <property name="maximum">
+                 <number>999999999</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+               </widget>
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="kernelSizeLabel">
                 <property name="text">
-                 <string>Kernel Size</string>
+                 <string>kernel Size (cm)</string>
                 </property>
                </widget>
               </item>
               <item row="1" column="1">
-               <widget class="QLineEdit" name="kernelSizeLineEdit"/>
+               <widget class="QLineEdit" name="kernelSizeLineEdit">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+               </widget>
               </item>
              </layout>
             </item>
@@ -1559,7 +1596,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
+             <width>180</width>
              <height>88</height>
             </rect>
            </property>
@@ -1595,7 +1632,18 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QComboBox" name="sNRRangeComboBox"/>
+               <widget class="QComboBox" name="sNRRangeComboBox">
+                <item>
+                 <property name="text">
+                  <string>Auto</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Manual</string>
+                 </property>
+                </item>
+               </widget>
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="sNRMaxLabel">
@@ -1605,7 +1653,11 @@
                </widget>
               </item>
               <item row="1" column="1">
-               <widget class="QDoubleSpinBox" name="sNRMaxDoubleSpinBox"/>
+               <widget class="QDoubleSpinBox" name="sNRMaxDoubleSpinBox">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+               </widget>
               </item>
               <item row="2" column="0">
                <widget class="QLabel" name="sNRMinLabel">
@@ -1615,7 +1667,11 @@
                </widget>
               </item>
               <item row="2" column="1">
-               <widget class="QDoubleSpinBox" name="sNRMinDoubleSpinBox"/>
+               <widget class="QDoubleSpinBox" name="sNRMinDoubleSpinBox">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+               </widget>
               </item>
              </layout>
             </item>

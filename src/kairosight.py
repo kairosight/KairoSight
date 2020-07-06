@@ -4,15 +4,21 @@ import json
 import os
 import sys
 import time
-import numpy
+import math
+import numpy as np
 from pathlib import Path, PurePath
 from random import random
-from util.preparation import open_stack, reduce_stack
+from util.preparation import open_stack, reduce_stack, mask_generate, mask_apply
 from ui.KairoSight_WindowMDI import Ui_WindowMDI
 from ui.KairoSight_WindowMain import Ui_WindowMain
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog
 from PyQt5.QtGui import QColor
+import matplotlib.pyplot as plt
+import util.ScientificColourMaps5 as SCMaps
+from PIL import Image
+
+from util.processing import normalize_stack, filter_spatial
 
 
 class WindowMDI(QMainWindow, Ui_WindowMDI):
@@ -62,13 +68,13 @@ class WindowMDI(QMainWindow, Ui_WindowMDI):
                 # Add and connect QMdiSubWindow to MDI
                 self.mdiArea.addSubWindow(sub)
                 sub.show()
-                self.statusBar().showMessage('Opened ' + file)
+                self.status_print('Opened ' + file)
             except:
                 exc_type, exc_value = sys.exc_info()[:2]
                 self.status_print('Error ' + str(exc_type) + ' : ' + str(exc_value))
         else:
             print('path is None')
-            self.statusBar().showMessage('Open cancelled')
+            self.status_print('Open cancelled')
 
     def status_print(self, text):
         self.statusBar().showMessage(text)
@@ -86,6 +92,7 @@ class WindowMain(QWidget, Ui_WindowMain):
 
     def __init__(self, parent=None, file_purepath=None):
         super(WindowMain, self).__init__(parent)  # initialization of the superclass
+        self.WindowMDI = parent
         self.setupUi(self)  # setup the UI
         sys.stdout = Stream(newText=self.feedback_action)
         self.next_buttons = []
@@ -104,8 +111,8 @@ class WindowMain(QWidget, Ui_WindowMain):
 
         # Flip each frame along the Y-axis (up/down)
         self.frame_n = self.video_data_raw.shape[0]
-        for i in range(self.frame_n):
-            self.video_data_raw[i] = numpy.flipud(self.video_data_raw[i])
+        # for i in range(self.frame_n):
+        #     self.video_data_raw[i] = np.flipud(self.video_data_raw[i])
         self.width_raw, self.height_raw = self.video_data_raw.shape[2], self.video_data_raw.shape[1]
 
         # Copy imported video to preserve it
@@ -114,12 +121,14 @@ class WindowMain(QWidget, Ui_WindowMain):
 
         # Setup project directory and files
         self.project_props_prp = {'fps': None, 'scale': None, 'type': None, 'subject': None,
-                                  'rescale': 1}
+                                  'rescale': 1, 'mask': (None, None)}
         self.project_props_prc = {'norm': None, 'invert': None, 'filter': None, 'snr': None}
         self.project_props_ans = {'d_time': None, 'results': None}
+        self.mask = None
         self.setup_project()
 
         # Setup and connect UI components
+        self.kernelPixelsSpinBox.valueChanged.connect(lambda: self.update_inputs(self.kernelPixelsSpinBox))
         self.horizontalScrollBar.valueChanged['int'].connect(self.update_video)
         self.horizontalScrollBar.setMinimum(1)
         self.horizontalScrollBar.setMaximum(self.frame_n)
@@ -129,6 +138,7 @@ class WindowMain(QWidget, Ui_WindowMain):
         # Set histogram to image levels and use a manual range
         self.graphicsView.histogram.setLevels(self.video_data.min(), self.video_data.max())
         self.graphicsView.histogram.setHistogramRange(self.video_data.min(), self.video_data.max())
+        self.WindowMDI.status_print('- - -')
 
     def __del__(self):
         sys.stdout = sys.__stdout__
@@ -137,34 +147,36 @@ class WindowMain(QWidget, Ui_WindowMain):
         """Create a new or load an existing project folder"""
         try:
             os.mkdir(self.project_path_str)
+            self.feedback_action('Project folder created : \\' +
+                                 str(self.file_purepath.stem) + '_ks_project\\', success=True)
         except FileExistsError:
             self.feedback_action('Project folder already exists : \\' +
                                  str(self.file_purepath.stem) + '_ks_project\\', success=True)
             # If the project folder already exists, load/create the properties
-            try:    # Preparation
+            try:  # Preparation
                 with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', 'r') as openfile:
                     self.project_props_prp = json.load(openfile)
                     self.feedback_action('Loaded Preparation properties : ' +
                                          str(self.file_purepath.stem) + '.ks_prep', success=True)
-                self.update_inputs()
+                self.import_parameters()
             except FileNotFoundError:
                 with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
                     json.dump(self.project_props_prp, outfile)
-            try:    # Processing
+            try:  # Processing
                 with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', 'r') as openfile:
                     self.project_props_prc = json.load(openfile)
                     self.feedback_action('Loaded Processing properties : ' +
                                          str(self.file_purepath.stem) + '.ks_proc', success=True)
-                self.update_inputs()
+                self.import_parameters()
             except FileNotFoundError:
                 with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', "w") as outfile:
-                    json.dump(self.project_props_ans, outfile)
-            try:    # Analysis
+                    json.dump(self.project_props_prc, outfile)
+            try:  # Analysis
                 with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_anys', 'r') as openfile:
                     self.project_props_ans = json.load(openfile)
                     self.feedback_action('Loaded Analysis properties : ' +
                                          str(self.file_purepath.stem) + '.ks_anys', success=True)
-                self.update_inputs()
+                self.import_parameters()
             except FileNotFoundError:
                 with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_anys', "w") as outfile:
                     json.dump(self.project_props_ans, outfile)
@@ -177,7 +189,7 @@ class WindowMain(QWidget, Ui_WindowMain):
         self.graphicsView.histogram.regionChanged()
 
     def update_parameters(self, step_name):
-        """Update user input fields with imported values"""
+        """Update user parameters with input fields"""
         if step_name == 'Properties':
             try:
                 self.project_props_prp['fps'] = float(self.frameRateLineEdit.text())
@@ -191,27 +203,77 @@ class WindowMain(QWidget, Ui_WindowMain):
                 self.feedback_action('Preparation step {} ERROR : Bad entry in "Scale (px/cm)",'
                                      ' must be a number (e.g 101.4362)'.format(step_name), success=False)
                 raise ValueError
-            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prp', "w") as outfile:
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
                 json.dump(self.project_props_prp, outfile)
         elif step_name == 'Crop':
             try:
                 self.project_props_prp['rescale'] = int(self.rescaleSpinBox.value())
-            except ValueError:
-                self.feedback_action('Preparation step {} ERROR : Bad entry in "Frame Rate (fps)",'
-                                     ' must be a number (e.g 505.5)'.format(step_name), success=False)
-                raise ValueError
-            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prp', "w") as outfile:
+            except:
+                exc_type, exc_value = sys.exc_info()[:2]
+                real_error = str(exc_type) + ' : ' + str(exc_value)
+                self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
                 json.dump(self.project_props_prp, outfile)
+        elif step_name == 'Mask':
+            try:
+                self.project_props_prp['mask'] = (int(self.darkCutoffSpinBox.value()),
+                                                  int(self.lightCutoffSpinBox.value()))
+            except:
+                exc_type, exc_value = sys.exc_info()[:2]
+                real_error = str(exc_type) + ' : ' + str(exc_value)
+                self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
+                json.dump(self.project_props_prp, outfile)
+        elif step_name == 'Normalize':
+            try:
+                self.project_props_prc['norm'] = self.normTypeComboBox.currentText()
+            except:
+                exc_type, exc_value = sys.exc_info()[:2]
+                real_error = str(exc_type) + ' : ' + str(exc_value)
+                self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', "w") as outfile:
+                json.dump(self.project_props_prc, outfile)
+        elif step_name == 'Filter':
+            try:
+                self.project_props_prc['filter'] = int(self.kernelPixelsSpinBox.value())
+            except:
+                exc_type, exc_value = sys.exc_info()[:2]
+                real_error = str(exc_type) + ' : ' + str(exc_value)
+                self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', "w") as outfile:
+                json.dump(self.project_props_prc, outfile)
 
-    def update_inputs(self):
-        """Populate user input fields with imported values"""
+    def update_inputs(self, field):
+        """Update connected user input fields"""
+        try:
+            if field is self.kernelPixelsSpinBox:
+                self.kernelSizeLineEdit.setEnabled(True)
+                scale_sig_figfs = len(str(self.project_props_prp['scale']).split(sep='.')[-1])
+                kernel_size_cm = np.round(float(self.kernelPixelsSpinBox.value()) / self.project_props_prp['scale'],
+                                          scale_sig_figfs)
+                self.kernelSizeLineEdit.setText(str(kernel_size_cm))
+                self.kernelSizeLineEdit.setEnabled(False)
+        except:
+            exc_type, exc_value = sys.exc_info()[:2]
+            real_error = str(exc_type) + ' : ' + str(exc_value)
+            self.feedback_action('Update Input ERROR : {}'.format(real_error), success=False)
+
+    def import_parameters(self):
+        """Populate user input fields with imported parameters"""
         if self.project_props_prp['fps']:
             self.frameRateLineEdit.setText(str(self.project_props_prp['fps']))
         if self.project_props_prp['scale']:
             self.scaleLineEdit.setText(str(self.project_props_prp['scale']))
+        if self.project_props_prp['mask'][0]:
+            self.darkCutoffSpinBox.setValue(int(self.project_props_prp['mask'][0]))
+            self.lightCutoffSpinBox.setValue(int(self.project_props_prp['mask'][1]))
+        if self.project_props_prc['filter']:
+            self.filter.setValue(int(self.project_props_prp['mask'][0]))
+        # TODO add prep input fields
 
     def apply_prep_step(self, step_button):
         step_name = step_button.accessibleName()
+        self.feedback_action('Preparation step {} RUNNING ...'.format(step_name), success=True)
         try:
             if step_name == 'Properties':
                 # Attempt Props actions
@@ -223,9 +285,41 @@ class WindowMain(QWidget, Ui_WindowMain):
                     self.video_data = self.video_data_raw
                 else:
                     self.video_data = reduce_stack(self.video_data_raw, self.project_props_prp['rescale'])
-            elif step_button is self.buttonNextPrep_Mask:
+                self.graphicsView.histogram.setLevels(self.video_data.min(), self.video_data.max())
+                self.graphicsView.histogram.setHistogramRange(self.video_data.min(), self.video_data.max())
+            elif step_name == 'Mask':
                 # Attempt Mask actions
                 self.update_parameters(step_name)
+                strict = (self.project_props_prp['mask'][0], self.project_props_prp['mask'][1])
+
+                fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
+                axis_in = fig_mask.add_subplot(131)
+                axis_mask = fig_mask.add_subplot(132)
+                axis_masked = fig_mask.add_subplot(133)
+                # Common between the two
+                for ax in [axis_in, axis_mask, axis_masked]:
+                    ax.spines['right'].set_visible(False)
+                    ax.spines['left'].set_visible(False)
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['bottom'].set_visible(False)
+                    ax.set_yticks([])
+                    ax.set_yticklabels([])
+                    ax.set_xticks([])
+                    ax.set_xticklabels([])
+                fig_mask.suptitle(
+                    'Masking: {}, strictness:{}\n({})'.format('Random_walk', strict, str(self.file_purepath.stem)))
+                axis_in.set_title('Input frame')
+                axis_mask.set_title('Markers for\nMask')
+                axis_masked.set_title('Masked frame')
+
+                frame_masked, self.mask, markers = mask_generate(self.video_data[0], 'Random_walk', strict)
+                cmap_frame = SCMaps.grayC.reversed()
+                img_in = axis_in.imshow(self.video_data[0], cmap=cmap_frame)
+                img_mask = axis_mask.imshow(markers, cmap='magma')
+                img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
+                fig_mask.savefig(self.project_path_str + '\\' + 'prep_mask.png')
+                self.video_data = mask_apply(self.video_data, self.mask)
+
         except ValueError:
             self.reset_progress(step_button)
         except:
@@ -243,16 +337,43 @@ class WindowMain(QWidget, Ui_WindowMain):
     def apply_proc_step(self, step_button):
         step_success = True and (random() > 0.5)
         step_name = step_button.accessibleName()
-        if step_success:
-            self.step_proceed(step_button)
-            self.feedback_action('Processing step {} PASSED'.format(step_name), success=step_success)
-            if step_button is self.buttonNextProc_SNR:
-                self.feedback_action('Processing STAGE PASSED', success=step_success)
-        else:
+        self.feedback_action('Processing step {} RUNNING ...'.format(step_name), success=True)
+        try:
+            if step_name == 'Normalize':
+                # Attempt Normalize actions
+                self.update_parameters(step_name)
+                if self.normTypeComboBox.currentText() == '0 - 1':
+                    self.video_data = normalize_stack(self.video_data)
+                    self.graphicsView.histogram.setLevels(0, 1)
+                    self.graphicsView.histogram.setHistogramRange(-0.5, 1.5)
+                    self.update_video()
+            elif step_name == 'Filter':
+                # Attempt Filter actions
+                self.update_parameters(step_name)
+                for idx, frame in enumerate(self.video_data):
+                    # print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
+                    frame_filtered = filter_spatial(frame, kernel=self.project_props_prc['filter'])
+                    # f_filtered = np.ma.masked_where(f_filtered == 0, f_filtered)
+                    self.video_data[idx, :, :] = frame_filtered
+                if self.mask is not None:
+                    self.video_data = mask_apply(self.video_data, self.mask)
+            elif step_name == 'SNR':
+                # Attempt SNR actions
+                self.update_parameters(step_name)
+
+        except ValueError:
             self.reset_progress(step_button)
-            test_error = ' random chance'
-            self.feedback_action('Processing step {} ERROR : {}'
-                                 .format(step_name, test_error), success=step_success)
+        except:
+            self.reset_progress(step_button)
+            exc_type, exc_value = sys.exc_info()[:2]
+            real_error = str(exc_type) + ' : ' + str(exc_value)
+            self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
+        else:
+            self.update_video()
+            self.step_proceed(step_button)
+            self.feedback_action('Processing step {} PASSED'.format(step_name), success=True)
+            if step_button is self.buttonNextProc_SNR:
+                self.feedback_action('Processing STAGE PASSED', success=True)
 
     def apply_analysis_step(self, step_button):
         step_success = True and (random() > 0.5)
@@ -268,6 +389,7 @@ class WindowMain(QWidget, Ui_WindowMain):
             self.feedback_action('Analysis step {} ERROR : {}'
                                  .format(step_name, test_error), success=step_success)
 
+    # TODO set parameters to None when skipped
     def skip_prep_step(self, step_checkbox, step_button):
         step_name = step_button.accessibleName()
         if step_checkbox.checkState():
@@ -307,6 +429,7 @@ class WindowMain(QWidget, Ui_WindowMain):
         else:
             self.textBrowser_Feedback.setTextColor(QColor(230, 5, 5))  # red text
         self.textBrowser_Feedback.append(time_string + action_text)
+        self.textBrowser_Feedback.repaint()
 
     def setup_next_buttons(self):
         self.next_buttons = [self.buttonNextPrep_Props, self.buttonNextPrep_Crop, self.buttonNextPrep_Mask,

@@ -11,6 +11,7 @@ import matplotlib.colors as colors
 from matplotlib.patches import Circle, Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import util.ScientificColourMaps5 as SCMaps
+from PIL import Image
 
 # File paths needed for tests
 dir_tests = str(Path.cwd().parent)
@@ -383,10 +384,10 @@ class TestMaskGenerate(unittest.TestCase):
         # file_name_pig = '2020/02/28 piga-06 Vm, ' + exp_name + ', PCL: 350ms'
         # file_path_local = '/20190322-pigb/01-350_Ca_transient.tif'
         # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
-        file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        self.strict = (2, 5)
-        # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # self.strict = (4, 7)
+        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        # self.strict = (2, 5)
+        file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        self.strict = (4, 7)
         # file_path_local = '/20190517-piga/02-400_Ca(501-700).tif'
 
         # self.exp_name = '6-wk old'
@@ -510,6 +511,14 @@ class TestMaskGenerate(unittest.TestCase):
         img_mask = axis_mask.imshow(markers, cmap='magma')
         img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
 
+        markers_colormap = plt.get_cmap('magma', lut=3)
+
+        # markers = np.flipud(markers)
+        # markers = np.fliplr(markers)
+        colored_image = markers_colormap(np.uint8(markers))
+        Image.fromarray((colored_image[:, :, :3] * 255).astype(np.uint8)) \
+            .save(dir_unit + '/results/prep_Mask_markers_{}_{}.png'.
+                         format(self.exp_name, self.file_name))
         # fig_mask.savefig(dir_unit + '/results/prep_Mask_Pig2wk.png')
         fig_mask.savefig(dir_unit + '/results/prep_Mask_{}_{}.png'.
                          format(self.exp_name, self.file_name))

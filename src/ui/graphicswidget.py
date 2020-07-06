@@ -23,6 +23,7 @@ class GraphicsWidget(QWidget):
         self.img_item = ImageItem()
         self.img_item.axisOrder = 'row-major'
         self.p1.addItem(self.img_item)
+        self.p1.getViewBox().invertY(True)
 
         # create a vertical box layout
         self.vbl = QVBoxLayout()

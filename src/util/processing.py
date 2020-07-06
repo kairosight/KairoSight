@@ -835,8 +835,8 @@ def normalize_stack(stack_in):
     map_shape = stack_in.shape[1:]
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tNormalizing Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
-              end='', flush=True)
+        # print('\r\tNormalizing Row:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix, map_shape[1]),
+        #       end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         pixel_data_norm = normalize_signal(pixel_data)
         stack_out[:, iy, ix] = pixel_data_norm

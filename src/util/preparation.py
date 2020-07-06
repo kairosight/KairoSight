@@ -345,8 +345,8 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
             # for prop in region_prop:
             #     print(prop, region_prop[prop])
             # use the second-largest region
-            print('* Region #{}\t:\tint: _\tarea: {}'
-                  .format(idx + 1, region_prop.area))
+            # print('* Region #{}\t:\tint: _\tarea: {}'
+            #       .format(idx + 1, region_prop.area))
             if region_prop.area < 2:
                 pass
             if region_prop.area > largest_region_area and region_prop.label > 1:
