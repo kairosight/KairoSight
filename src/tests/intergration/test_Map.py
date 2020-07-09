@@ -130,12 +130,12 @@ class TestMapAnalysisPig(unittest.TestCase):
         # strict = (2, 5)
         # file_path_local = '/20200228-piga/baseline/04-450_Ca(941-1190).tif'
         # strict = (4, 7)
-        file_frames = (941, 1190)
-        file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
-        strict = (2, 5)
-        # file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
-        # strict = (4, 7)
-        # file_frames = (1031, 1280)
+        # file_frames = (941, 1190)
+        # file_path_local = '/20200228-piga/baseline/05-400_Vm(1031-1280).tif'
+        # strict = (2, 5)
+        file_path_local = '/20200228-piga/baseline/05-400_Ca(1031-1280).tif'
+        strict = (4, 7)
+        file_frames = (1031, 1280)
 
         # file_path_local = '/20200228-piga/baseline/06-350_Vm(941-1190).tif'
         # strict = (2, 5)

@@ -233,9 +233,9 @@ def reduce_stack(stack_in, reduction=1):
     stack_reduced_shape = (stack_in.shape[0], test_frame_reduced.shape[0], test_frame_reduced.shape[1])
     stack_out = np.empty(stack_reduced_shape, dtype=stack_in.dtype)  # empty stack
     print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
-          .format(stack_out.shape[2], stack_out.shape[1], test_frame_reduced.shape[1], test_frame_reduced.shape[0]))
+          .format(stack_in.shape[2], stack_in.shape[1], test_frame_reduced.shape[1], test_frame_reduced.shape[0]))
     for idx, frame in enumerate(stack_in):
-        print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_in.shape[0]), end='', flush=True)
+        # print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_in.shape[0]), end='', flush=True)
         #     f_filtered = filter_spatial(frame, kernel=self.kernel)
         frame_reduced = img_as_uint(rescale(frame, reduction_factor, anti_aliasing=True, multichannel=False))
         stack_out[idx, :, :] = frame_reduced

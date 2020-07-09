@@ -8,17 +8,22 @@ import math
 import numpy as np
 from pathlib import Path, PurePath
 from random import random
+
 from util.preparation import open_stack, reduce_stack, mask_generate, mask_apply
+from util.processing import normalize_stack, filter_spatial, map_snr
 from ui.KairoSight_WindowMDI import Ui_WindowMDI
 from ui.KairoSight_WindowMain import Ui_WindowMain
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog
 from PyQt5.QtGui import QColor
+import pyqtgraph as pg
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
+import matplotlib.colors as colors
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import util.ScientificColourMaps5 as SCMaps
-from PIL import Image
-
-from util.processing import normalize_stack, filter_spatial
+from tests.intergration.test_Map import fontsize3, fontsize4, color_snr, cmap_snr, add_map_colorbar_stats
 
 
 class WindowMDI(QMainWindow, Ui_WindowMDI):
@@ -108,26 +113,41 @@ class WindowMain(QWidget, Ui_WindowMain):
         self.file_path_str = str(self.file_purepath)
         self.project_path_str = str(self.file_purepath.parent) + '\\' + str(self.file_purepath.stem) + '_ks_project'
         self.video_data_raw, self.stack_real_meta = open_stack(source=self.file_path_str)
-
-        # Flip each frame along the Y-axis (up/down)
         self.frame_n = self.video_data_raw.shape[0]
-        # for i in range(self.frame_n):
-        #     self.video_data_raw[i] = np.flipud(self.video_data_raw[i])
         self.width_raw, self.height_raw = self.video_data_raw.shape[2], self.video_data_raw.shape[1]
 
         # Copy imported video to preserve it
         self.video_data = self.video_data_raw.copy()
-        self.width, self.height = self.video_data.shape[2], self.video_data.shape[1]
 
         # Setup project directory and files
         self.project_props_prp = {'fps': None, 'scale': None, 'type': None, 'subject': None,
                                   'rescale': 1, 'mask': (None, None)}
-        self.project_props_prc = {'norm': None, 'invert': None, 'filter': None, 'snr': None}
+        self.project_props_prc = {'norm': '0 - 1', 'invert': None, 'filter': None, 'snr': None}
         self.project_props_ans = {'d_time': None, 'results': None}
+        self.frame_current = 0
+        self.trace_xy = (0, 0)
         self.mask = None
+        self.kernel_cm = None
+        self.video_data_unmasked = np.empty_like(self.video_data)
         self.setup_project()
 
-        # Setup and connect UI components
+        # Setup trace preview UI
+        self.plot_preview = self.widgetPreviewPlot.addPlot()
+        self.traceXSpinBox.valueChanged.connect(lambda: self.update_inputs(self.traceXSpinBox))
+        self.traceYSpinBox.valueChanged.connect(lambda: self.update_inputs(self.traceYSpinBox))
+        self.pushButtonTraceCenter.clicked.connect(lambda: self.update_inputs(self.pushButtonTraceCenter))
+        self.trace_crosshair = pg.CrosshairROI(self.trace_xy,
+                                               [self.video_data.shape[2] // 20, self.video_data.shape[1] // 20],
+                                               pen=(2, 9))
+        self.trace_crosshair.sigRegionChanged.connect(lambda: self.update_trace(live=True))
+        self.trace_crosshair.setPen(color='54FF00')
+        self.graphicsView.p1.addItem(self.trace_crosshair)
+        # self.trace_frameline = pg.LinearRegionItem([self.frame_current, self.frame_current], movable=False)
+        self.trace_frameline = pg.InfiniteLine(pg.QtCore.QPointF(self.frame_current, 0), 90, movable=False)
+        self.trace_frameline.setZValue(1)
+        self.plot_preview.addItem(self.trace_frameline)
+
+        # Setup and connect input UI components
         self.kernelPixelsSpinBox.valueChanged.connect(lambda: self.update_inputs(self.kernelPixelsSpinBox))
         self.horizontalScrollBar.valueChanged['int'].connect(self.update_video)
         self.horizontalScrollBar.setMinimum(1)
@@ -182,11 +202,31 @@ class WindowMain(QWidget, Ui_WindowMain):
                     json.dump(self.project_props_ans, outfile)
 
     def update_video(self, frame=0):
-        """Updates the video frame drawn to the canvas"""
+        """Updates the video frame drawn to its canvas"""
+        self.frame_current = frame
+        self.trace_frameline.setValue(self.frame_current)
         # Update ImageItem(s) with a frame in a stack
         self.graphicsView.img_item.setImage(self.video_data[frame - 1, ...])
         # Notify histogram items of image change
         self.graphicsView.histogram.regionChanged()
+        self.traceXSpinBox.setMaximum(self.video_data.shape[2] - 1)
+        self.traceYSpinBox.setMaximum(self.video_data.shape[1] - 1)
+
+    def update_trace(self, live=False):
+        """Updates the trace drawn to its canvas"""
+        if not live:
+            self.trace_crosshair.setPos(self.trace_xy)
+        else:
+            self.trace_xy = (int(self.trace_crosshair.pos().x()), int(self.trace_crosshair.pos().y()))
+        signal_stack = self.video_data[:, min(self.trace_xy[1], self.video_data.shape[1] - 1),
+                       min(self.trace_xy[0], self.video_data.shape[2] - 1)]
+        self.plot_preview.plot(signal_stack, pen=pg.mkPen(color='54FF00'), clear=True)  # TODO update x-axis to time
+        # self.trace_frameline.(self.frame_current)
+        # y = np.arange(start=signal_stack.min(), stop=signal_stack.min())
+        # self.plot_preview.plot(x=self.frame_n, y=y, brush=pg.mkPen(color='FF5400'), clear=True)
+        # self.update_video(self.frame_current)
+        # self.plot_preview.plot(self.trace_xy[0], self.trace_xy[1], pen=None,
+        #                        symbol='t1', symbolPen=None, symbolSize=10, symbolBrush=(255, 5, 5, 200))
 
     def update_parameters(self, step_name):
         """Update user parameters with input fields"""
@@ -249,27 +289,46 @@ class WindowMain(QWidget, Ui_WindowMain):
             if field is self.kernelPixelsSpinBox:
                 self.kernelSizeLineEdit.setEnabled(True)
                 scale_sig_figfs = len(str(self.project_props_prp['scale']).split(sep='.')[-1])
-                kernel_size_cm = np.round(float(self.kernelPixelsSpinBox.value()) / self.project_props_prp['scale'],
+                self.kernel_cm = np.round(float(self.kernelPixelsSpinBox.value()) /
+                                          (self.project_props_prp['scale'] / self.project_props_prp['rescale']),
                                           scale_sig_figfs)
-                self.kernelSizeLineEdit.setText(str(kernel_size_cm))
+                self.kernelSizeLineEdit.setText(str(self.kernel_cm))
                 self.kernelSizeLineEdit.setEnabled(False)
+            elif (field is self.traceXSpinBox) or (field is self.traceYSpinBox):
+                self.trace_xy = (self.traceXSpinBox.value(), self.traceYSpinBox.value())
+                self.update_trace()
+            elif field is self.pushButtonTraceCenter:
+                self.trace_xy = (int(self.video_data.shape[2] / 2),
+                                 int(self.video_data.shape[1] / 2))
+                self.traceXSpinBox.setValue(self.trace_xy[0])
+                self.traceYSpinBox.setValue(self.trace_xy[1])
+                self.update_trace()
         except:
             exc_type, exc_value = sys.exc_info()[:2]
             real_error = str(exc_type) + ' : ' + str(exc_value)
             self.feedback_action('Update Input ERROR : {}'.format(real_error), success=False)
 
     def import_parameters(self):
-        """Populate user input fields with imported parameters"""
+        """Populate user input fields with imported parameters"""  # TODO skip if None loaded
         if self.project_props_prp['fps']:
             self.frameRateLineEdit.setText(str(self.project_props_prp['fps']))
         if self.project_props_prp['scale']:
             self.scaleLineEdit.setText(str(self.project_props_prp['scale']))
+        if self.project_props_prp['subject']:
+            pass  # TODO create 'subject' UI
+        else:
+            self.project_props_prp['subject'] = str(self.file_purepath.stem)
+        if self.project_props_prp['rescale']:
+            self.rescaleSpinBox.setValue(int(self.project_props_prp['rescale']))
         if self.project_props_prp['mask'][0]:
             self.darkCutoffSpinBox.setValue(int(self.project_props_prp['mask'][0]))
             self.lightCutoffSpinBox.setValue(int(self.project_props_prp['mask'][1]))
+        # TODO add norm field
         if self.project_props_prc['filter']:
-            self.filter.setValue(int(self.project_props_prp['mask'][0]))
-        # TODO add prep input fields
+            self.kernelPixelsSpinBox.setValue(int(self.project_props_prc['filter']))
+            self.update_inputs(self.kernelPixelsSpinBox)
+        # TODO add snr field
+        # TODO add anys fields
 
     def apply_prep_step(self, step_button):
         step_name = step_button.accessibleName()
@@ -287,27 +346,25 @@ class WindowMain(QWidget, Ui_WindowMain):
                     self.video_data = reduce_stack(self.video_data_raw, self.project_props_prp['rescale'])
                 self.graphicsView.histogram.setLevels(self.video_data.min(), self.video_data.max())
                 self.graphicsView.histogram.setHistogramRange(self.video_data.min(), self.video_data.max())
+                self.trace_crosshair.setSize([self.video_data.shape[2] // 20, self.video_data.shape[1] // 20])
+                self.update_inputs(self.pushButtonTraceCenter)
+                self.update_inputs(self.kernelPixelsSpinBox)
             elif step_name == 'Mask':
                 # Attempt Mask actions
                 self.update_parameters(step_name)
                 strict = (self.project_props_prp['mask'][0], self.project_props_prp['mask'][1])
 
-                fig_mask = plt.figure(figsize=(8, 5))  # _ x _ inch page
+                fig_mask = plt.figure(figsize=(12, 8))  # _ x _ inch page
                 axis_in = fig_mask.add_subplot(131)
                 axis_mask = fig_mask.add_subplot(132)
                 axis_masked = fig_mask.add_subplot(133)
                 # Common between the two
                 for ax in [axis_in, axis_mask, axis_masked]:
-                    ax.spines['right'].set_visible(False)
-                    ax.spines['left'].set_visible(False)
-                    ax.spines['top'].set_visible(False)
-                    ax.spines['bottom'].set_visible(False)
-                    ax.set_yticks([])
-                    ax.set_yticklabels([])
-                    ax.set_xticks([])
-                    ax.set_xticklabels([])
-                fig_mask.suptitle(
-                    'Masking: {}, strictness:{}\n({})'.format('Random_walk', strict, str(self.file_purepath.stem)))
+                    ax.tick_params(axis='x', labelsize=fontsize4)
+                    ax.tick_params(axis='y', labelsize=fontsize4)
+
+                fig_mask.suptitle('Masking: {}, strictness:{}\n({})'
+                                  .format('Random_walk', strict, str(self.file_purepath.stem)))
                 axis_in.set_title('Input frame')
                 axis_mask.set_title('Markers for\nMask')
                 axis_masked.set_title('Masked frame')
@@ -318,6 +375,7 @@ class WindowMain(QWidget, Ui_WindowMain):
                 img_mask = axis_mask.imshow(markers, cmap='magma')
                 img_masked = axis_masked.imshow(frame_masked, cmap=cmap_frame)
                 fig_mask.savefig(self.project_path_str + '\\' + 'prep_mask.png')
+                self.video_data_unmasked = self.video_data.copy()
                 self.video_data = mask_apply(self.video_data, self.mask)
 
         except ValueError:
@@ -329,10 +387,11 @@ class WindowMain(QWidget, Ui_WindowMain):
             self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
         else:
             self.step_proceed(step_button)
-            self.update_video(frame=self.frame_n)
+            self.update_video(frame=self.frame_current)
+            self.update_trace()
             self.feedback_action('Preparation step {} PASSED'.format(step_name), success=True)
             if step_button is self.buttonNextPrep_Mask:
-                self.feedback_action('Preparation STAGE PASSED', success=True)
+                self.feedback_action('Preparation stage PASSED', success=True)
 
     def apply_proc_step(self, step_button):
         step_success = True and (random() > 0.5)
@@ -343,23 +402,84 @@ class WindowMain(QWidget, Ui_WindowMain):
                 # Attempt Normalize actions
                 self.update_parameters(step_name)
                 if self.normTypeComboBox.currentText() == '0 - 1':
-                    self.video_data = normalize_stack(self.video_data)
+                    self.video_data_unmasked = normalize_stack(self.video_data_unmasked)
+                    self.video_data = mask_apply(self.video_data_unmasked, self.mask)
                     self.graphicsView.histogram.setLevels(0, 1)
                     self.graphicsView.histogram.setHistogramRange(-0.5, 1.5)
                     self.update_video()
+                    self.update_trace()
             elif step_name == 'Filter':
-                # Attempt Filter actions
+                # Attempt Filter actions    TODO apply to un-masked stack (prevent darkened edges)
                 self.update_parameters(step_name)
-                for idx, frame in enumerate(self.video_data):
+                for idx, frame in enumerate(self.video_data_unmasked):
                     # print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_out.shape[0]), end='', flush=True)
                     frame_filtered = filter_spatial(frame, kernel=self.project_props_prc['filter'])
                     # f_filtered = np.ma.masked_where(f_filtered == 0, f_filtered)
-                    self.video_data[idx, :, :] = frame_filtered
+                    self.video_data_unmasked[idx, :, :] = frame_filtered
                 if self.mask is not None:
-                    self.video_data = mask_apply(self.video_data, self.mask)
+                    self.video_data = mask_apply(self.video_data_unmasked, self.mask)
             elif step_name == 'SNR':
                 # Attempt SNR actions
                 self.update_parameters(step_name)
+                snr_map = map_snr(self.video_data)
+
+                map_min = np.nanmin(snr_map)
+                map_max = np.nanmax(snr_map)
+                map_n = np.count_nonzero(~np.isnan(snr_map))
+                map_min_display, map_max_display = 0, 100
+
+                fig_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
+                gs_frames = fig_snr.add_gridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)
+                axis_prep = fig_snr.add_subplot(gs_frames[0])
+                axis_snr = fig_snr.add_subplot(gs_frames[1])
+                # Common between the two
+                for ax in [axis_prep, axis_snr]:
+                    ax.tick_params(axis='x', labelsize=fontsize4)
+                    ax.tick_params(axis='y', labelsize=fontsize4)
+
+                fig_snr.suptitle('{}\nSignal-to-Noise Ratio (SNR)'.format(self.project_props_prp['subject']))
+                prep = 'Reduced x{}, Mask'.format(self.project_props_prp['rescale'])
+                process = 'Gaussian: {} cm ({} px)'.format(self.kernel_cm, self.project_props_prc['filter'])
+                axis_prep.set_title('{}\n{}'.format(prep, process))
+                axis_snr.set_title('SNR Map\n{} - {} ({} pixels)'
+                                   .format(round(map_min, 2), round(map_max, 2), map_n))
+
+                # Frame from prepped
+                cmap_frame = SCMaps.grayC.reversed()
+                # cmap_norm_frame = colors.Normalize(vmin=self.video_data_raw[0].min(),
+                #                                    vmax=self.video_data_raw[0].max())
+                # axis_prep.imshow(self.video_data_raw[0], norm=cmap_norm_frame, cmap=cmap_frame)
+                frame_bright = np.zeros_like(self.video_data[0])  # use brightest frame to generate mask
+                # frame_bright_idx = 0
+                for idx, frame in enumerate(self.video_data):
+                    frame_brightness = np.nanmean(frame)
+                    if frame_brightness > np.nanmean(frame_bright):
+                        # frame_bright_idx = idx
+                        frame_bright = frame.copy()
+                mask_frame = np.ma.masked_where(frame_bright == 0, frame_bright)
+                cmap_norm_bright = colors.Normalize(vmin=frame_bright.min(),
+                                                    vmax=frame_bright.max())
+                img_prep = axis_prep.imshow(mask_frame, norm=cmap_norm_bright, cmap=cmap_frame)
+                # add colorbar (lower right of frame)
+                ax_ins_img = inset_axes(axis_prep, width="5%", height="100%", loc=5,
+                                        bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=axis_prep.transAxes,
+                                        borderpad=0)
+                cb_img = plt.colorbar(img_prep, cax=ax_ins_img, orientation="vertical")
+                cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+                cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+                cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+                cb_img.ax.tick_params(labelsize=fontsize3)
+
+                # SNR Map
+                cmap_norm_snr = colors.Normalize(vmin=map_min_display, vmax=map_max_display)
+                # axis_snr.imshow(frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
+                img_map = axis_snr.imshow(snr_map, norm=cmap_norm_snr, cmap=cmap_snr)
+                # Add colorbar (right of map)
+                hist_bins = map_max_display
+                map_range = (map_min_display, map_max_display)
+                add_map_colorbar_stats(axis_snr, img_map, snr_map, map_range,
+                                       unit='SNR', bins=hist_bins, stat_color=color_snr)
+                fig_snr.savefig(self.project_path_str + '\\' + 'proc_snr.png')
 
         except ValueError:
             self.reset_progress(step_button)
@@ -370,10 +490,11 @@ class WindowMain(QWidget, Ui_WindowMain):
             self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
         else:
             self.update_video()
+            self.update_trace()
             self.step_proceed(step_button)
             self.feedback_action('Processing step {} PASSED'.format(step_name), success=True)
             if step_button is self.buttonNextProc_SNR:
-                self.feedback_action('Processing STAGE PASSED', success=True)
+                self.feedback_action('Processing stage PASSED', success=True)
 
     def apply_analysis_step(self, step_button):
         step_success = True and (random() > 0.5)
@@ -382,7 +503,7 @@ class WindowMain(QWidget, Ui_WindowMain):
             self.step_proceed(step_button)
             self.feedback_action('Analysis step {} PASSED'.format(step_name), success=step_success)
             if step_button is self.buttonNextAnalysis_Analyze:
-                self.feedback_action('Analysis STAGE PASSED', success=step_success)
+                self.feedback_action('Analysis stage PASSED', success=step_success)
         else:
             self.reset_progress(step_button)
             test_error = ' random chance'
@@ -397,7 +518,7 @@ class WindowMain(QWidget, Ui_WindowMain):
             step_button.setEnabled(False)
             self.feedback_action('Preparation step {} SKIPPED'.format(step_name), success=True)
             if step_button is self.buttonNextPrep_Mask:
-                self.feedback_action('Preparation STAGE PASSED', success=True)
+                self.feedback_action('Preparation stage PASSED', success=True)
         else:
             self.reset_progress(step_button)
 
@@ -408,7 +529,7 @@ class WindowMain(QWidget, Ui_WindowMain):
             step_button.setEnabled(False)
             self.feedback_action('Processing step {} SKIPPED'.format(step_name), success=True)
             if step_button is self.buttonNextProc_SNR:
-                self.feedback_action('Processing STAGE PASSED', success=True)
+                self.feedback_action('Processing stage PASSED', success=True)
         else:
             self.reset_progress(step_button)
 

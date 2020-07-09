@@ -1004,8 +1004,8 @@ def map_snr(stack_in, noise_count=10):
     map_out = np.empty(map_shape)
     # Assign an SNR to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
-              end='', flush=True)
+        # print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]),
+        #       end='', flush=True)
         pixel_data = stack_in[:, iy, ix]
         # # Characterize the signal
         # signal_bounds = (pixel_data.min(), pixel_data.max())
