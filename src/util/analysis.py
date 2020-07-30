@@ -301,7 +301,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, raw_data=False, **k
     # if type(analysis_type) is not classmethod:
     #     raise TypeError('Analysis type must be a "classmethod"')
 
-    print('Generating map with {} ...'.format(analysis_type))
+    # print('Generating map with {} ...'.format(analysis_type))
     map_shape = stack_in.shape[1:]
     map_out = np.empty(map_shape)
 
@@ -311,8 +311,8 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, raw_data=False, **k
 
     # Assign a value to each pixel
     for iy, ix in np.ndindex(map_shape):
-        print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]), end='',
-              flush=True)
+        # print('\r\tRow:\t{}\t/ {}\tx\tCol:\t{}\t/ {}'.format(iy + 1, map_shape[0], ix + 1, map_shape[1]), end='',
+        #       flush=True)
         pixel_data = stack_in[:, iy, ix]
         # Check if pixel has been masked (0 at every frame)
         # # or was masked and spatially filtered (constant at every frame)

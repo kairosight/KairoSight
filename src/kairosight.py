@@ -9,21 +9,25 @@ import numpy as np
 from pathlib import Path, PurePath
 from random import random
 
-from util.preparation import open_stack, reduce_stack, mask_generate, mask_apply
-from util.processing import normalize_stack, filter_spatial, map_snr
+from util.preparation import open_stack, reduce_stack, mask_generate, mask_apply, img_as_uint, rescale
+from util.processing import normalize_stack, filter_spatial, map_snr, find_tran_act
+from util.analysis import calc_tran_duration, map_tran_analysis, DUR_MAX
 from ui.KairoSight_WindowMDI import Ui_WindowMDI
 from ui.KairoSight_WindowMain import Ui_WindowMain
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog
 from PyQt5.QtGui import QColor
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import matplotlib.colors as colors
+import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import util.ScientificColourMaps5 as SCMaps
-from tests.intergration.test_Map import fontsize3, fontsize4, color_snr, cmap_snr, add_map_colorbar_stats
+from tests.intergration.test_Map import fontsize3, fontsize4, marker1, marker3, gray_heavy, \
+    color_snr, cmap_snr, cmap_activation, ACT_MAX_PIG_LV, ACT_MAX_PIG_WHOLE, cmap_duration, \
+    add_map_colorbar_stats
 
 
 class WindowMDI(QMainWindow, Ui_WindowMDI):
@@ -75,8 +79,9 @@ class WindowMDI(QMainWindow, Ui_WindowMDI):
                 sub.show()
                 self.status_print('Opened ' + file)
             except:
-                exc_type, exc_value = sys.exc_info()[:2]
-                self.status_print('Error ' + str(exc_type) + ' : ' + str(exc_value))
+                exc_type, exc_value, tb = sys.exc_info()
+                exc_lineno = tb.tb_lineno
+                self.status_print('ERROR at line {}' + str(exc_type) + ' : ' + str(exc_value))
         else:
             print('path is None')
             self.status_print('Open cancelled')
@@ -118,12 +123,13 @@ class WindowMain(QWidget, Ui_WindowMain):
 
         # Copy imported video to preserve it
         self.video_data = self.video_data_raw.copy()
+        self.video_time = None
 
         # Setup project directory and files
         self.project_props_prp = {'fps': None, 'scale': None, 'type': None, 'subject': None,
                                   'rescale': 1, 'mask': (None, None)}
         self.project_props_prc = {'norm': '0 - 1', 'invert': None, 'filter': None, 'snr': None}
-        self.project_props_ans = {'d_time': None, 'results': None}
+        self.project_props_ans = {'d_time': None, 'type': None}
         self.frame_current = 0
         self.trace_xy = (0, 0)
         self.mask = None
@@ -249,9 +255,11 @@ class WindowMain(QWidget, Ui_WindowMain):
             try:
                 self.project_props_prp['rescale'] = int(self.rescaleSpinBox.value())
             except:
-                exc_type, exc_value = sys.exc_info()[:2]
+                exc_type, exc_value, tb = sys.exc_info()
+                exc_lineno = tb.tb_lineno
                 real_error = str(exc_type) + ' : ' + str(exc_value)
-                self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
+                self.feedback_action('Preparation step {} ERROR at line {}: {}'
+                                     .format(exc_lineno, step_name, real_error), success=False)
             with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
                 json.dump(self.project_props_prp, outfile)
         elif step_name == 'Mask':
@@ -259,29 +267,48 @@ class WindowMain(QWidget, Ui_WindowMain):
                 self.project_props_prp['mask'] = (int(self.darkCutoffSpinBox.value()),
                                                   int(self.lightCutoffSpinBox.value()))
             except:
-                exc_type, exc_value = sys.exc_info()[:2]
+                exc_type, exc_value, tb = sys.exc_info()
+                exc_lineno = tb.tb_lineno
                 real_error = str(exc_type) + ' : ' + str(exc_value)
-                self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
+                self.feedback_action('Preparation step {} ERROR at line {} : {}'
+                                     .format(exc_lineno, step_name, real_error), success=False)
             with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_prep', "w") as outfile:
                 json.dump(self.project_props_prp, outfile)
         elif step_name == 'Normalize':
             try:
                 self.project_props_prc['norm'] = self.normTypeComboBox.currentText()
             except:
-                exc_type, exc_value = sys.exc_info()[:2]
+                exc_type, exc_value, tb = sys.exc_info()
+                exc_lineno = tb.tb_lineno
                 real_error = str(exc_type) + ' : ' + str(exc_value)
-                self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
+                self.feedback_action('Processing step {} ERROR at line {} : {}'
+                                     .format(exc_lineno, step_name, real_error), success=False)
             with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', "w") as outfile:
                 json.dump(self.project_props_prc, outfile)
         elif step_name == 'Filter':
             try:
                 self.project_props_prc['filter'] = int(self.kernelPixelsSpinBox.value())
             except:
-                exc_type, exc_value = sys.exc_info()[:2]
+                exc_type, exc_value, tb = sys.exc_info()
+                exc_lineno = tb.tb_lineno
                 real_error = str(exc_type) + ' : ' + str(exc_value)
-                self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
+                self.feedback_action('Processing step {} ERROR at line {} : {}'
+                                     .format(exc_lineno, step_name, real_error), success=False)
             with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_proc', "w") as outfile:
                 json.dump(self.project_props_prc, outfile)
+        # TODO add snr fields
+        # TODO add isolation fields
+        elif step_name == 'Analyze':
+            try:
+                self.project_props_ans['type'] = str(self.analyzeTypeComboBox.currentText())
+            except:
+                exc_type, exc_value, tb = sys.exc_info()
+                exc_lineno = tb.tb_lineno
+                real_error = str(exc_type) + ' : ' + str(exc_value)
+                self.feedback_action('Analysis step {} ERROR at line {} : {}'
+                                     .format(exc_lineno, step_name, real_error), success=False)
+            with open(self.project_path_str + '\\' + str(self.file_purepath.stem) + '.ks_anys', "w") as outfile:
+                json.dump(self.project_props_ans, outfile)
 
     def update_inputs(self, field):
         """Update connected user input fields"""
@@ -304,9 +331,10 @@ class WindowMain(QWidget, Ui_WindowMain):
                 self.traceYSpinBox.setValue(self.trace_xy[1])
                 self.update_trace()
         except:
-            exc_type, exc_value = sys.exc_info()[:2]
+            exc_type, exc_value, tb = sys.exc_info()
+            exc_lineno = tb.tb_lineno
             real_error = str(exc_type) + ' : ' + str(exc_value)
-            self.feedback_action('Update Input ERROR : {}'.format(real_error), success=False)
+            self.feedback_action('Update Input ERROR at line {} : {}'.format(exc_lineno, real_error), success=False)
 
     def import_parameters(self):
         """Populate user input fields with imported parameters"""  # TODO skip if None loaded
@@ -323,12 +351,175 @@ class WindowMain(QWidget, Ui_WindowMain):
         if self.project_props_prp['mask'][0]:
             self.darkCutoffSpinBox.setValue(int(self.project_props_prp['mask'][0]))
             self.lightCutoffSpinBox.setValue(int(self.project_props_prp['mask'][1]))
-        # TODO add norm field
+        # TODO add norm fields
         if self.project_props_prc['filter']:
             self.kernelPixelsSpinBox.setValue(int(self.project_props_prc['filter']))
             self.update_inputs(self.kernelPixelsSpinBox)
-        # TODO add snr field
+        # TODO add snr fields
+        # TODO add isolation fields
         # TODO add anys fields
+        # if self.project_props_ans['d_time']:
+        #     self.kernelPixelsSpinBox.setValue(int(self.project_props_prc['filter']))
+        #     self.update_inputs(self.kernelPixelsSpinBox)
+        if self.project_props_ans['type']:
+            text = str(self.project_props_ans['type'])
+            index = self.analyzeTypeComboBox.findText(text, Qt.MatchFixedString)
+            if index >= 0:
+                self.analyzeTypeComboBox.setCurrentIndex(index)
+
+    def export_map(self, map_data, map_type):
+        if map_type == 'SNR':
+            map_title = 'Signal-to-Noise Ratio (SNR)'
+            map_cmap = cmap_snr
+            map_unit = 'SNR'
+            map_file_name = 'proc_snr'
+            map_min_display, map_max_display = 0, 100
+        elif map_type == 'Activation':
+            map_title = map_type
+            map_cmap = cmap_activation
+            map_unit = 'ms'
+            map_file_name = 'anys_activation'
+            map_min_display, map_max_display = 0, ACT_MAX_PIG_WHOLE
+        elif map_type == 'Duration-80%':
+            map_title = map_type
+            map_cmap = cmap_duration
+            map_unit = 'ms'
+            map_file_name = 'anys_duration80'
+            map_min_display, map_max_display = 0, DUR_MAX
+        elif map_type == 'Duration-90%':
+            map_title = map_type
+            map_cmap = cmap_duration
+            map_unit = 'ms'
+            map_file_name = 'anys_duration90'
+            map_min_display, map_max_display = 0, DUR_MAX
+        else:
+            map_title = 'map_title'
+            map_cmap = SCMaps.grayC.reversed()
+            map_unit = 'map_unit'
+            map_file_name = 'map_file_name'
+            map_min_display, map_max_display = 0, 100
+
+        map_data = np.round(map_data, 2)
+        map_min = np.nanmin(map_data)
+        map_max = np.nanmax(map_data)
+        map_n = np.count_nonzero(~np.isnan(map_data))
+
+        fig_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
+        gs0 = fig_snr.add_gridspec(2, 1, height_ratios=[0.7, 0.3])  # 2 rows, 1 column
+        gs_frames = gs0[0].subgridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)
+        axis_prep = fig_snr.add_subplot(gs_frames[0])
+        axis_map = fig_snr.add_subplot(gs_frames[1])
+        # Common between the two
+        for ax in [axis_prep, axis_map]:
+            ax.tick_params(axis='x', labelsize=fontsize4)
+            ax.tick_params(axis='y', labelsize=fontsize4)
+
+        gs_signals = gs0[1].subgridspec(1, 3, width_ratios=[0.3, 0.3, 0.3], wspace=0.1)
+        axis_min = fig_snr.add_subplot(gs_signals[0])
+        axis_xy = fig_snr.add_subplot(gs_signals[1])
+        axis_max = fig_snr.add_subplot(gs_signals[2])
+        for ax in [axis_min, axis_xy, axis_max]:
+            ax.tick_params(axis='x', labelsize=fontsize4)
+            # ax.set_xlim(right=150)
+            [s.set_visible(False) for s in ax.spines.values()]
+            ax.tick_params(axis='x', labelsize=fontsize3, which='minor', length=3)
+            ax.tick_params(axis='x', labelsize=fontsize3, which='major', length=8)
+            ax.xaxis.set_major_locator(plticker.MultipleLocator(100))
+            ax.xaxis.set_minor_locator(plticker.MultipleLocator(50))
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+        axis_min.set_ylabel('F (arb. u.)')
+        axis_xy.set_xlabel('Time (ms)')
+
+        # fig_snr.suptitle('{}\n{} Map'.format(self.project_props_prp['subject'], map_title))
+        crop = 'Reduced x{}'.format(self.project_props_prp['rescale'])
+        process = 'Mask {}, Gaussian: {} cm ({} px)'.format(self.project_props_prp['mask'],
+                                                            self.kernel_cm, self.project_props_prc['filter'])
+        axis_prep.set_title('{}\n{}'.format(self.project_props_prp['subject'], crop))
+        axis_map.set_title('{} Map\n{}\n{} - {} ({} pixels)'
+                           .format(map_type,
+                                   process,
+                                   round(map_min, 2), round(map_max, 2), map_n))
+
+        # Frame from video (Prepped w/o mask)
+        frame_cmap = SCMaps.grayC.reversed()
+        frame_brightest = np.zeros_like(self.video_data_unmasked[0])  # use brightest frame to generate mask
+        frame_bright = np.zeros_like(self.video_data_unmasked[0])
+        frame_bright_idx = 0
+        for idx, frame in enumerate(self.video_data_unmasked):
+            frame_brightness = np.nanmean(frame)
+            if frame_brightness > np.nanmean(frame_brightest):
+                frame_bright_idx = idx
+                frame_brightest = frame.copy()
+
+        frame_bright = self.video_data_raw[frame_bright_idx]
+        frame_scale = self.project_props_prp['scale']
+        if self.project_props_prp['rescale'] != 1:
+            # frame_bright = reduce_stack(self.video_data_raw[frame_bright_idx], self.project_props_prp['rescale'])
+            reduction_factor = 1 / self.project_props_prp['rescale']
+            frame_bright = img_as_uint(rescale(frame_bright, reduction_factor, anti_aliasing=True, multichannel=False))
+            frame_scale = frame_scale / self.project_props_prp['rescale']
+
+        frame_cmap_norm = colors.Normalize(vmin=frame_bright.min(),
+                                           vmax=frame_bright.max())
+        img_prep = axis_prep.imshow(frame_bright, norm=frame_cmap_norm, cmap=frame_cmap)
+        prep_scale_bar = AnchoredSizeBar(axis_prep.transData, frame_scale, size_vertical=0.2,
+                                         label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
+                                         fontproperties=fm.FontProperties(size=7, weight='semibold'))
+        axis_prep.add_artist(prep_scale_bar)
+        # add colorbar (lower right of frame)
+        ax_ins_img = inset_axes(axis_prep, width="5%", height="100%", loc=5,
+                                bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=axis_prep.transAxes,
+                                borderpad=0)
+        cb_img = plt.colorbar(img_prep, cax=ax_ins_img, orientation="vertical")
+        cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
+        cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
+        cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
+        cb_img.ax.tick_params(labelsize=fontsize3)
+
+        # Map
+        axis_map.imshow(frame_bright, norm=frame_cmap_norm, cmap=frame_cmap)
+        map_cmap_norm = colors.Normalize(vmin=map_min_display, vmax=map_max_display)
+        img_map = axis_map.imshow(map_data, norm=map_cmap_norm, cmap=map_cmap)
+        map_scale_bar = AnchoredSizeBar(axis_map.transData, frame_scale, size_vertical=0.2,
+                                        label='1 cm', loc=4, pad=0.2, color='w', frameon=False,
+                                        fontproperties=fm.FontProperties(size=7, weight='semibold'))
+        axis_map.add_artist(map_scale_bar)
+        # Add colorbar (right of map)
+        hist_bins = map_max_display
+        map_range = (map_min_display, map_max_display)
+        add_map_colorbar_stats(axis_map, img_map, map_data, map_range,
+                               unit=map_unit, bins=hist_bins, stat_color=color_snr)
+
+        # Signal traces and locations on frame
+        # plot trace with the chosen ROI pixel
+        signal_roi = self.video_data[:, self.trace_xy[0], self.trace_xy[1]]
+        axis_prep.plot(self.trace_xy[0], self.trace_xy[1], marker='+', color='#54FF00', markersize=marker3)
+        axis_xy.plot(self.video_time, signal_roi, color=gray_heavy, linestyle='None', marker='+')
+        axis_xy.text(0.7, 0.9, 'At {},{} ({})'
+                     .format(self.trace_xy[0], self.trace_xy[1], map_data[self.trace_xy[1]][self.trace_xy[0]]),
+                     color=gray_heavy, fontsize=fontsize3, transform=ax.transAxes)
+
+        # Plot trace with a min map value
+        min_y, min_x = np.where(map_data == map_min)
+        signal_min = self.video_data[:, min_y[0], min_x[0]]
+        axis_prep.plot(min_x[0], min_y[0], marker='x', color=color_snr, markersize=marker3)
+        axis_min.plot(self.video_time, signal_min, color=gray_heavy, linestyle='None', marker='+')
+        axis_min.text(0.7, 0.9, 'Min ({})'.format(map_data[min_y[0]][min_x[0]]),
+                      color=gray_heavy, fontsize=fontsize3, transform=ax.transAxes)
+        # Plot trace with a max map value
+        max_y, max_x = np.where(map_data == map_max)
+        signal_max = self.video_data[:, max_y[0], max_x[0]]
+        axis_prep.plot(max_x[0], max_y[0], marker='x', color=color_snr, markersize=marker1)
+        axis_max.plot(self.video_time, signal_max, color=gray_heavy, linestyle='None', marker='+')
+        axis_max.text(0.7, 0.9, 'Max ({})'.format(map_data[max_y[0]][max_x[0]]),
+                      color=gray_heavy, fontsize=fontsize3, transform=ax.transAxes)
+
+        # Save map figure as a .png
+        fig_snr.savefig(self.project_path_str + '\\' + map_file_name + '.png')
+        # Save map data as a .csv
+        # TODO use round(map_data, 2) to save csv data with 2 decimal places
+        np.savetxt(self.project_path_str + '\\' + map_file_name + '.csv', map_data, delimiter=",")
 
     def apply_prep_step(self, step_button):
         step_name = step_button.accessibleName()
@@ -347,6 +538,7 @@ class WindowMain(QWidget, Ui_WindowMain):
                 self.graphicsView.histogram.setLevels(self.video_data.min(), self.video_data.max())
                 self.graphicsView.histogram.setHistogramRange(self.video_data.min(), self.video_data.max())
                 self.trace_crosshair.setSize([self.video_data.shape[2] // 20, self.video_data.shape[1] // 20])
+                # TODO ensure trace_crosshair new location is correct
                 self.update_inputs(self.pushButtonTraceCenter)
                 self.update_inputs(self.kernelPixelsSpinBox)
             elif step_name == 'Mask':
@@ -382,9 +574,11 @@ class WindowMain(QWidget, Ui_WindowMain):
             self.reset_progress(step_button)
         except:
             self.reset_progress(step_button)
-            exc_type, exc_value = sys.exc_info()[:2]
+            exc_type, exc_value, tb = sys.exc_info()
+            exc_lineno = tb.tb_lineno
             real_error = str(exc_type) + ' : ' + str(exc_value)
-            self.feedback_action('Preparation step {} ERROR : {}'.format(step_name, real_error), success=False)
+            self.feedback_action('Preparation step {} ERROR at line {} : {}'
+                                 .format(exc_lineno, step_name, real_error), success=False)
         else:
             self.step_proceed(step_button)
             self.update_video(frame=self.frame_current)
@@ -394,7 +588,7 @@ class WindowMain(QWidget, Ui_WindowMain):
                 self.feedback_action('Preparation stage PASSED', success=True)
 
     def apply_proc_step(self, step_button):
-        step_success = True and (random() > 0.5)
+        # step_success = True and (random() > 0.5)
         step_name = step_button.accessibleName()
         self.feedback_action('Processing step {} RUNNING ...'.format(step_name), success=True)
         try:
@@ -422,72 +616,14 @@ class WindowMain(QWidget, Ui_WindowMain):
                 # Attempt SNR actions
                 self.update_parameters(step_name)
                 snr_map = map_snr(self.video_data)
-
-                map_min = np.nanmin(snr_map)
-                map_max = np.nanmax(snr_map)
-                map_n = np.count_nonzero(~np.isnan(snr_map))
-                map_min_display, map_max_display = 0, 100
-
-                fig_snr = plt.figure(figsize=(12, 8))  # _ x _ inch page
-                gs_frames = fig_snr.add_gridspec(1, 3, width_ratios=[0.475, 0.475, 0.05], wspace=0.4)
-                axis_prep = fig_snr.add_subplot(gs_frames[0])
-                axis_snr = fig_snr.add_subplot(gs_frames[1])
-                # Common between the two
-                for ax in [axis_prep, axis_snr]:
-                    ax.tick_params(axis='x', labelsize=fontsize4)
-                    ax.tick_params(axis='y', labelsize=fontsize4)
-
-                fig_snr.suptitle('{}\nSignal-to-Noise Ratio (SNR)'.format(self.project_props_prp['subject']))
-                prep = 'Reduced x{}, Mask'.format(self.project_props_prp['rescale'])
-                process = 'Gaussian: {} cm ({} px)'.format(self.kernel_cm, self.project_props_prc['filter'])
-                axis_prep.set_title('{}\n{}'.format(prep, process))
-                axis_snr.set_title('SNR Map\n{} - {} ({} pixels)'
-                                   .format(round(map_min, 2), round(map_max, 2), map_n))
-
-                # Frame from prepped
-                cmap_frame = SCMaps.grayC.reversed()
-                # cmap_norm_frame = colors.Normalize(vmin=self.video_data_raw[0].min(),
-                #                                    vmax=self.video_data_raw[0].max())
-                # axis_prep.imshow(self.video_data_raw[0], norm=cmap_norm_frame, cmap=cmap_frame)
-                frame_bright = np.zeros_like(self.video_data[0])  # use brightest frame to generate mask
-                # frame_bright_idx = 0
-                for idx, frame in enumerate(self.video_data):
-                    frame_brightness = np.nanmean(frame)
-                    if frame_brightness > np.nanmean(frame_bright):
-                        # frame_bright_idx = idx
-                        frame_bright = frame.copy()
-                mask_frame = np.ma.masked_where(frame_bright == 0, frame_bright)
-                cmap_norm_bright = colors.Normalize(vmin=frame_bright.min(),
-                                                    vmax=frame_bright.max())
-                img_prep = axis_prep.imshow(mask_frame, norm=cmap_norm_bright, cmap=cmap_frame)
-                # add colorbar (lower right of frame)
-                ax_ins_img = inset_axes(axis_prep, width="5%", height="100%", loc=5,
-                                        bbox_to_anchor=(0.1, 0, 1, 1), bbox_transform=axis_prep.transAxes,
-                                        borderpad=0)
-                cb_img = plt.colorbar(img_prep, cax=ax_ins_img, orientation="vertical")
-                cb_img.ax.set_xlabel('arb. u.', fontsize=fontsize3)
-                cb_img.ax.yaxis.set_major_locator(plticker.LinearLocator(2))
-                cb_img.ax.yaxis.set_minor_locator(plticker.LinearLocator(10))
-                cb_img.ax.tick_params(labelsize=fontsize3)
-
-                # SNR Map
-                cmap_norm_snr = colors.Normalize(vmin=map_min_display, vmax=map_max_display)
-                # axis_snr.imshow(frame_bright, norm=cmap_norm_frame, cmap=cmap_frame)
-                img_map = axis_snr.imshow(snr_map, norm=cmap_norm_snr, cmap=cmap_snr)
-                # Add colorbar (right of map)
-                hist_bins = map_max_display
-                map_range = (map_min_display, map_max_display)
-                add_map_colorbar_stats(axis_snr, img_map, snr_map, map_range,
-                                       unit='SNR', bins=hist_bins, stat_color=color_snr)
-                fig_snr.savefig(self.project_path_str + '\\' + 'proc_snr.png')
-
-        except ValueError:
-            self.reset_progress(step_button)
+                self.export_map(snr_map, 'SNR')
         except:
             self.reset_progress(step_button)
-            exc_type, exc_value = sys.exc_info()[:2]
+            exc_type, exc_value, tb = sys.exc_info()
+            exc_lineno = tb.tb_lineno
             real_error = str(exc_type) + ' : ' + str(exc_value)
-            self.feedback_action('Processing step {} ERROR : {}'.format(step_name, real_error), success=False)
+            self.feedback_action('Processing step {} ERROR at line {} : {}'
+                                 .format(exc_lineno, step_name, real_error), success=False)
         else:
             self.update_video()
             self.update_trace()
@@ -497,18 +633,54 @@ class WindowMain(QWidget, Ui_WindowMain):
                 self.feedback_action('Processing stage PASSED', success=True)
 
     def apply_analysis_step(self, step_button):
-        step_success = True and (random() > 0.5)
         step_name = step_button.accessibleName()
-        if step_success:
-            self.step_proceed(step_button)
-            self.feedback_action('Analysis step {} PASSED'.format(step_name), success=step_success)
-            if step_button is self.buttonNextAnalysis_Analyze:
-                self.feedback_action('Analysis stage PASSED', success=step_success)
-        else:
+        self.feedback_action('Analysis step {} RUNNING ...'.format(step_name), success=True)
+        try:
+            if step_name == 'Isolate':
+                # Attempt Isolate actions
+                # TODO add isolate funtion
+                # TODO show isolate values on trace preview
+                pass
+            if step_name == 'Analyze':
+                self.update_parameters(step_name)
+                analysis_type = self.analyzeTypeComboBox.currentText()
+                self.feedback_action('Analysis type "{}" RUNNING ...'.format(analysis_type), success=True)
+                # Generate array of timestamps in ms
+                fpms = self.project_props_prp['fps'] / 1000
+                t_final = math.floor(self.video_data.shape[0] / fpms)
+                self.video_time = np.linspace(start=0, stop=t_final, num=self.video_data.shape[0])
+                if analysis_type == 'Trace':
+                    pass
+                elif analysis_type == 'Trace Analysis':
+                    # Create or append to an existing tabular data file (.csv)
+                    pass
+                elif analysis_type == 'Map: Start':
+                    pass
+                elif analysis_type == 'Map: Activation':
+                    activation_map = map_tran_analysis(self.video_data, find_tran_act, self.video_time)
+                    self.export_map(activation_map, 'Activation')
+                elif analysis_type == 'Map: Duration (80%)':
+                    duration_map = map_tran_analysis(self.video_data, calc_tran_duration, self.video_time, percent=80)
+                    self.export_map(duration_map, 'Duration-80%')
+                elif analysis_type == 'Map: Duration (90%)':
+                    duration_map = map_tran_analysis(self.video_data, calc_tran_duration, self.video_time, percent=90)
+                    self.export_map(duration_map, 'Duration-90%')
+                elif analysis_type == 'Map: Diastolic Interval':
+                    pass
+        except:
             self.reset_progress(step_button)
-            test_error = ' random chance'
-            self.feedback_action('Analysis step {} ERROR : {}'
-                                 .format(step_name, test_error), success=step_success)
+            exc_type, exc_value, tb = sys.exc_info()
+            exc_lineno = tb.tb_lineno
+            real_error = str(exc_type) + ' : ' + str(exc_value)
+            self.feedback_action('Analysis step {} ERROR at line {} : {}'
+                                 .format(exc_lineno, step_name, real_error), success=False)
+        else:
+            # self.update_video()
+            # self.update_trace()
+            self.step_proceed(step_button)
+            self.feedback_action('Analysis step {} PASSED'.format(step_name), success=True)
+            if step_button is self.buttonNextAnalysis_Analyze:
+                self.feedback_action('Analysis stage PASSED', success=True)
 
     # TODO set parameters to None when skipped
     def skip_prep_step(self, step_checkbox, step_button):

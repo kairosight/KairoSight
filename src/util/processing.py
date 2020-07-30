@@ -906,10 +906,10 @@ def calculate_snr(signal_in, noise_count=10):
 
         Notes
         -----
-            Must be applied to signals with upward deflections (Peak > noise).
+            Must be applied to signals with upward deflections (Peak > noise)
             Assumes noise SD > 1, otherwise set to 0.5
             Assumes max noise value < (peak / 5)
-            Auto-detects noise section as the last noise_count values before the final noisy peak.
+            Auto-detects noise section as the last noise_count values before the final noisy peak
         """
     # Check parameters
     if type(signal_in) is not np.ndarray:
@@ -999,7 +999,7 @@ def map_snr(stack_in, noise_count=10):
     if type(noise_count) is not int:
         raise TypeError('Noise count must be an "int"')
 
-    print('Generating SNR map ...')
+    # print('Generating SNR map ...')
     map_shape = stack_in.shape[1:]
     map_out = np.empty(map_shape)
     # Assign an SNR to each pixel
@@ -1015,7 +1015,7 @@ def map_snr(stack_in, noise_count=10):
         # Set every pixel's values to the SNR of the signal at that pixel
         map_out[iy, ix] = snr
 
-    print('\nDONE Mapping SNR')
+    # print('\nDONE Mapping SNR')
     return map_out
 
 

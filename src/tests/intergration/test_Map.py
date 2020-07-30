@@ -105,8 +105,7 @@ def add_map_colorbar_stats(axis, img, map_data, map_range, bins=100, unit='unit'
     #                    histtype='stepfilled', orientation='horizontal', color='gray')
     # ax_map_hist_l.invert_xaxis()
 
-    # print('Generating histogram ... ')
-    print('Generating swarmplot ... ')
+    # print('Generating swarmplot ... ')
     sns.violinplot(ax=ax_map_hist_l, data=map_flat, cut=0,
                    color=stat_color, inner="stick")
     for ax in [ax_map_hist_l]:

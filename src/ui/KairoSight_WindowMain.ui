@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>886</width>
-    <height>615</height>
+    <height>600</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -98,6 +98,133 @@
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_14">
          <item>
+          <spacer name="verticalSpacer_5">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Preferred</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>10</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <layout class="QGridLayout" name="gridLayout">
+           <item row="2" column="2">
+            <widget class="QLabel" name="traceXLabel">
+             <property name="text">
+              <string> X:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QSpinBox" name="traceYSpinBox">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QSpinBox" name="traceXSpinBox">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <spacer name="verticalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Minimum</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>10</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="traceYLabel">
+             <property name="text">
+              <string> Y :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Minimum</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>10</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="3">
+            <widget class="QPushButton" name="pushButtonTraceCenter">
+             <property name="maximumSize">
+              <size>
+               <width>50</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Center</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <spacer name="verticalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Preferred</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>10</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
           <layout class="QHBoxLayout" name="horizontalLayout">
            <item>
             <widget class="QLabel" name="label">
@@ -110,7 +237,10 @@
               </font>
              </property>
              <property name="text">
-              <string>Frame#</string>
+              <string>Frame #</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -140,7 +270,7 @@
               </font>
              </property>
              <property name="frameShape">
-              <enum>QFrame::Panel</enum>
+              <enum>QFrame::WinPanel</enum>
              </property>
              <property name="frameShadow">
               <enum>QFrame::Plain</enum>
@@ -184,82 +314,34 @@
              <property name="frameShape">
               <enum>QFrame::Box</enum>
              </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QFormLayout" name="formLayout">
-           <property name="labelAlignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="formAlignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <item row="0" column="0">
-            <widget class="QLabel" name="traceXLabel">
-             <property name="text">
-              <string>Trace X:</string>
+             <property name="frameShadow">
+              <enum>QFrame::Plain</enum>
              </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QSpinBox" name="traceXSpinBox">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+             <property name="smallDecimalPoint">
+              <bool>false</bool>
              </property>
-             <property name="minimumSize">
-              <size>
-               <width>50</width>
-               <height>0</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="traceYLabel">
-             <property name="text">
-              <string>Trace Y :</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QSpinBox" name="traceYSpinBox">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>50</width>
-               <height>0</height>
-              </size>
+             <property name="segmentStyle">
+              <enum>QLCDNumber::Flat</enum>
              </property>
             </widget>
            </item>
           </layout>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_26">
-           <item>
-            <widget class="QPushButton" name="pushButtonTraceCenter">
-             <property name="maximumSize">
-              <size>
-               <width>50</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Center</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
+          <spacer name="verticalSpacer_6">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Preferred</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>10</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
          </item>
         </layout>
        </item>
@@ -286,7 +368,7 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>175</height>
+         <height>170</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -338,7 +420,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -412,8 +494,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>186</width>
-             <height>88</height>
+             <width>180</width>
+             <height>73</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -538,7 +620,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -652,8 +734,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>88</height>
+             <width>170</width>
+             <height>47</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -775,7 +857,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -886,8 +968,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>88</height>
+             <width>175</width>
+             <height>87</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -915,14 +997,14 @@
                <number>0</number>
               </property>
               <item row="0" column="0">
-               <widget class="QLabel" name="typeLabel">
+               <widget class="QLabel" name="maskTypeLabel">
                 <property name="text">
                  <string>Type</string>
                 </property>
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QComboBox" name="typeComboBox">
+               <widget class="QComboBox" name="maskTypeComboBox">
                 <item>
                  <property name="text">
                   <string>Random Walk</string>
@@ -1036,7 +1118,7 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>175</height>
+         <height>170</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -1088,7 +1170,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1159,8 +1241,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>88</height>
+             <width>132</width>
+             <height>80</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1316,7 +1398,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1427,8 +1509,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>186</width>
-             <height>88</height>
+             <width>180</width>
+             <height>67</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1576,7 +1658,7 @@
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1687,8 +1769,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>182</width>
-             <height>88</height>
+             <width>140</width>
+             <height>87</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1830,7 +1912,7 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>175</height>
+         <height>170</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -1885,7 +1967,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1993,8 +2075,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>88</height>
+             <width>120</width>
+             <height>73</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2006,6 +2088,71 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_17">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayoutIsolateEdit">
+              <item row="0" column="0">
+               <widget class="QLabel" name="startFrameLabel">
+                <property name="text">
+                 <string>Start Frame</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QSpinBox" name="startFrameSpinBox"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="endFrameLabel">
+                <property name="text">
+                 <string>End Frame</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="endFrameSpinBox"/>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_29">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_9">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_33">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>
@@ -2046,7 +2193,7 @@
            </size>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="pageAnalyze">
            <property name="geometry">
@@ -2054,7 +2201,7 @@
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>88</height>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2121,8 +2268,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>88</height>
+             <width>193</width>
+             <height>83</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2134,6 +2281,97 @@
            <attribute name="label">
             <string>&lt;Edit&gt;</string>
            </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_16">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QFormLayout" name="formLayout_6">
+              <item row="0" column="0">
+               <widget class="QLabel" name="analyzeTypeLabel">
+                <property name="text">
+                 <string>Type</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="analyzeTypeComboBox">
+                <item>
+                 <property name="text">
+                  <string>Trace</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Trace Analysis</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Map: Start</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Map: Activation</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Map: Duration (80%)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Map: Duration (90%)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Map: Diastolic Interval</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_28">
+              <item>
+               <widget class="QPushButton" name="pushButtonResetPrep_Props_8">
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Reset</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_32">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>

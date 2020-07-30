@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'src\ui\KairoSight_WindowMDI.ui'
+# Form implementation generated from reading ui file 'KairoSight_WindowMDI.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.14.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_WindowMDI(object):
     def setupUi(self, WindowMDI):
         WindowMDI.setObjectName("WindowMDI")
-        WindowMDI.resize(1000, 780)
+        WindowMDI.resize(1000, 700)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
