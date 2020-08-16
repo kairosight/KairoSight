@@ -635,7 +635,7 @@ def filter_drift(signal_in, drift_order=2):
         signal_in : ndarray
             The array of data to be evaluated, dtype : uint16 or float
         drift_order : int or str
-            The order of the polynomial drift to fit to, default is 'exp'
+            The order of the polynomial drift to fit to (1 to 5), default is 'exp'
             If 'exp', drift is calculated using scipy.optimize.curve_fit
 
         Returns
@@ -1051,6 +1051,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
         Notes
         -----
+            # Only performs ensemble if >=3 transient peaks are detected
             # Normalizes signal from 0-1 in the process
         """
     # Check parameters
@@ -1069,7 +1070,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
     unique, counts = np.unique(signal_in, return_counts=True)
 
     if len(unique) < 10:  # signal is too flat to have a valid peak
-        return np.zeros_like(signal_in)
+        raise ArithmeticError('Signal is too flat to detect peaks')
 
     # Find the peaks
     # i_peaks, _ = find_peaks(signal_in)
@@ -1086,13 +1087,19 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
     if len(i_peaks) == 0:
         raise ArithmeticError('No peaks detected'.format(len(i_peaks), i_peaks))
+    if len(i_peaks) == 1:
+        print('* 1 peak detected at {} in signal_in'.format(i_peaks))
+        i_acts = find_tran_act(signal_in)
+        return time_in, None, signal_in, i_peaks, i_acts, None
     if len(i_peaks) > 3:
         print('* {} peaks detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+        # do not use the first and last peaks
+        i_peaks = i_peaks[1:-1]
     else:
-        raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+        print('* {} peak(s) detected at {} in signal_in'.format(len(i_peaks), i_peaks))
+        print('* Splitting signals without ensembling')
+        # raise ValueError('Only {} peak detected at {} in signal_in'.format(len(i_peaks), i_peaks))
 
-    # do not use the first and last peaks
-    i_peaks = i_peaks[1:-1]
     # Split up the signal using peaks and estimated cycle length
     est_cycle_array = np.diff(i_peaks).astype(float)
     est_cycle_i = np.nanmean(est_cycle_array)
@@ -1165,14 +1172,14 @@ def calc_ensemble(time_in, signal_in, crop='center'):
     #     cycle_shift = max(cycle_shift, act)
     #     signals_trans_act.append(signal_in[i_acts[act_num] - cycle_shift:
     #                                        i_acts[act_num] + est_cycle_i - cycle_shift])
-
-    # use the mean of all signals (except the last)
-    # TODO try a rms calculation instead of a mean
-    signal_out = np.nanmean(signals_trans_act, axis=0)
+    if len(i_peaks) > 3:
+        # use the mean of all signals (except the last)
+        # TODO try a rms calculation instead of a mean
+        signal_out = np.nanmean(signals_trans_act, axis=0)
+    else:
+        signal_out = None
     signals = signals_trans_act
     i_acts = i_acts_full
-    # signal_out = np.nanmean(signals_trans_act, axis=0)
-    # signals = signals_trans_act
 
     return signal_time, signal_out, signals, i_peaks, i_acts, est_cycle
 

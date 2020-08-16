@@ -684,6 +684,7 @@ class TestFilterDrift(unittest.TestCase):
         self.exp_ideal = self.signal_famp * np.exp(-exp_b * self.time) + self.signal_f0
         self.drift_ideal_y = self.exp_ideal
         drift_ideal_d = self.drift_ideal_y - self.drift_ideal_y.min()
+        self.filter_order = 'exp'
 
         self.signal_drift = (self.signal_ideal + drift_ideal_d).astype(np.uint16)
 
@@ -705,7 +706,7 @@ class TestFilterDrift(unittest.TestCase):
 
     def test_results(self):
         # Make sure results are correct
-        signal_out, drift = filter_drift(self.signal_drift, drift_order=self.poly_ideal_order)
+        signal_out, drift = filter_drift(self.signal_drift, drift_order=self.filter_order)
 
         # signal_out : ndarray
         self.assertIsInstance(signal_out, np.ndarray)
@@ -720,12 +721,13 @@ class TestFilterDrift(unittest.TestCase):
 
     def test_plot_error(self):
         # Make sure drift calculations looks correct
-        signal_filtered, drift = filter_drift(self.signal_drift, drift_order=self.poly_ideal_order)
+        signal_filtered, drift = filter_drift(self.signal_drift, drift_order=self.filter_order)
 
         # Build a figure to plot new signal
         fig_drift, ax_drift = plot_test()
-        ax_drift.set_title('Filter - Drift Removal\n'
-                           '(noise SD: {}, polynomial order: {})'.format(self.signal_noise, self.poly_ideal_order))
+        ax_drift.set_title('Filter - Drift Removal (poly. order: {})\n'
+                           'noise SD: {}, noise poly. order: {}'.format(self.filter_order,
+                                                                        self.signal_noise, self.poly_ideal_order))
         ax_drift.set_ylabel('Arbitrary Fluorescent Units')
         ax_drift.set_xlabel('Time (ms)')
 

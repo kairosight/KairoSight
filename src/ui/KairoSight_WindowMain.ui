@@ -368,7 +368,7 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>160</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -414,13 +414,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
           <widget class="QWidget" name="pageProps">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -433,6 +436,18 @@
             <string>Properties</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_2">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_2">
               <item>
@@ -468,14 +483,32 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
                 </property>
                 <property name="accessibleName">
                  <string>Properties</string>
                 </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                 <property name="autoDefault">
                  <bool>false</bool>
@@ -494,8 +527,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>73</height>
+             <width>186</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -505,7 +538,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_5">
             <property name="spacing">
@@ -541,36 +574,6 @@
               </item>
              </layout>
             </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_9">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Reset</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_7">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
            </layout>
           </widget>
          </widget>
@@ -598,7 +601,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="QToolBox" name="toolBoxPrep_Crop">
+         <widget class="QToolBox" name="toolBoxPrep_Bin">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -614,13 +617,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
-          <widget class="QWidget" name="pageCrop">
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
+          <widget class="QWidget" name="pageBin">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -630,9 +636,21 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>Crop</string>
+            <string>Bin</string>
            </attribute>
            <layout class="QHBoxLayout" name="horizontalLayout_16">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <spacer name="horizontalSpacer_4">
               <property name="orientation">
@@ -652,7 +670,7 @@
             <item>
              <layout class="QVBoxLayout" name="verticalLayout">
               <item>
-               <widget class="QCommandLinkButton" name="buttonNextPrep_Crop">
+               <widget class="QCommandLinkButton" name="buttonNextPrep_Bin">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -674,11 +692,29 @@
                   <height>35</height>
                  </size>
                 </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
+                </property>
                 <property name="accessibleName">
-                 <string>Crop</string>
+                 <string>Bin</string>
+                </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
                 </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                </widget>
               </item>
@@ -698,7 +734,7 @@
                  </spacer>
                 </item>
                 <item>
-                 <widget class="QCheckBox" name="checkBoxSkipPrep_Crop">
+                 <widget class="QCheckBox" name="checkBoxSkipPrep_Bin">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -729,13 +765,13 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="pageCropEdit">
+          <widget class="QWidget" name="pageBinEdit">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>170</width>
-             <height>47</height>
+             <width>180</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -745,7 +781,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <property name="spacing">
@@ -762,7 +798,7 @@
               <item row="0" column="0">
                <widget class="QLabel" name="rescaleLabel">
                 <property name="text">
-                 <string>Rescale                    1/</string>
+                 <string>Rescale Factor    1/</string>
                 </property>
                </widget>
               </item>
@@ -775,36 +811,6 @@
                  <number>1</number>
                 </property>
                </widget>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_19">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_2">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Reset</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_26">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
               </item>
              </layout>
             </item>
@@ -851,13 +857,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
           <widget class="QWidget" name="pageMask">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -870,6 +879,18 @@
             <string>Mask</string>
            </attribute>
            <layout class="QHBoxLayout" name="horizontalLayout_17">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <spacer name="horizontalSpacer_6">
               <property name="orientation">
@@ -911,11 +932,29 @@
                   <height>35</height>
                  </size>
                 </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
+                </property>
                 <property name="accessibleName">
                  <string>Mask</string>
                 </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                </widget>
               </item>
@@ -968,8 +1007,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>175</width>
-             <height>87</height>
+             <width>180</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -979,7 +1018,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_6">
             <property name="spacing">
@@ -1054,36 +1093,6 @@
               </item>
              </layout>
             </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_20">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_3">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Reset</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_27">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
            </layout>
           </widget>
          </widget>
@@ -1118,7 +1127,7 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>160</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -1164,13 +1173,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
           <widget class="QWidget" name="pageNormalize">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1183,6 +1195,18 @@
             <string>Normalize</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_9">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_13">
               <item>
@@ -1221,14 +1245,32 @@
                 <property name="maximumSize">
                  <size>
                   <width>80</width>
-                  <height>16777215</height>
+                  <height>35</height>
                  </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
                 </property>
                 <property name="accessibleName">
                  <string>Normalize</string>
                 </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                </widget>
               </item>
@@ -1241,8 +1283,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>132</width>
-             <height>80</height>
+             <width>182</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1252,7 +1294,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_11">
             <property name="spacing">
@@ -1267,25 +1309,8 @@
             <item>
              <layout class="QFormLayout" name="formLayout_5">
               <property name="verticalSpacing">
-               <number>0</number>
+               <number>3</number>
               </property>
-              <item row="1" column="0">
-               <widget class="QLabel" name="driftOrderLabel">
-                <property name="text">
-                 <string>Drift Order</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="1">
-               <widget class="QSpinBox" name="driftOrderSpinBox">
-                <property name="minimum">
-                 <number>1</number>
-                </property>
-                <property name="maximum">
-                 <number>5</number>
-                </property>
-               </widget>
-              </item>
               <item row="0" column="0">
                <widget class="QLabel" name="normTypeLabel">
                 <property name="text">
@@ -1300,11 +1325,6 @@
                   <string>0 - 1</string>
                  </property>
                 </item>
-                <item>
-                 <property name="text">
-                  <string>F / F0</string>
-                 </property>
-                </item>
                </widget>
               </item>
               <item row="2" column="0">
@@ -1317,35 +1337,15 @@
               <item row="2" column="1">
                <widget class="QCheckBox" name="invertCheckBox"/>
               </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_21">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_4">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
+              <item row="1" column="0">
+               <widget class="QLabel" name="driftLabel">
                 <property name="text">
-                 <string>Reset</string>
+                 <string>Remove Drift</string>
                 </property>
                </widget>
               </item>
-              <item>
-               <spacer name="horizontalSpacer_28">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
+              <item row="1" column="1">
+               <widget class="QCheckBox" name="driftCheckBox"/>
               </item>
              </layout>
             </item>
@@ -1392,13 +1392,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
           <widget class="QWidget" name="pageFilter">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1411,6 +1414,18 @@
             <string>Filter</string>
            </attribute>
            <layout class="QHBoxLayout" name="horizontalLayout_15">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <spacer name="horizontalSpacer_14">
               <property name="orientation">
@@ -1452,11 +1467,29 @@
                   <height>35</height>
                  </size>
                 </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
+                </property>
                 <property name="accessibleName">
                  <string>Filter</string>
                 </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                </widget>
               </item>
@@ -1509,8 +1542,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>67</height>
+             <width>186</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1520,7 +1553,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_12">
             <property name="spacing">
@@ -1535,7 +1568,7 @@
             <item>
              <layout class="QFormLayout" name="formLayout_7">
               <property name="verticalSpacing">
-               <number>0</number>
+               <number>3</number>
               </property>
               <item row="0" column="0">
                <widget class="QLabel" name="kernelPixelsLabel">
@@ -1576,36 +1609,6 @@
                  <string/>
                 </property>
                </widget>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_23">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_6">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Reset</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_30">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
               </item>
              </layout>
             </item>
@@ -1652,13 +1655,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
           <widget class="QWidget" name="pageSNR">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>182</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1671,6 +1677,18 @@
             <string>Signal-to-Noise Ratio (SNR)</string>
            </attribute>
            <layout class="QHBoxLayout" name="horizontalLayout_18">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <spacer name="horizontalSpacer_13">
               <property name="orientation">
@@ -1712,11 +1730,29 @@
                   <height>35</height>
                  </size>
                 </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
+                </property>
                 <property name="accessibleName">
                  <string>SNR</string>
                 </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                </widget>
               </item>
@@ -1769,8 +1805,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>140</width>
-             <height>87</height>
+             <width>180</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1780,7 +1816,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_13">
             <property name="spacing">
@@ -1795,86 +1831,65 @@
             <item>
              <layout class="QFormLayout" name="formLayout_8">
               <property name="verticalSpacing">
-               <number>0</number>
+               <number>3</number>
               </property>
               <item row="0" column="0">
-               <widget class="QLabel" name="sNRRangeLabel">
-                <property name="text">
-                 <string>SNR Range</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QComboBox" name="sNRRangeComboBox">
-                <item>
-                 <property name="text">
-                  <string>Auto</string>
-                 </property>
-                </item>
-                <item>
-                 <property name="text">
-                  <string>Manual</string>
-                 </property>
-                </item>
-               </widget>
-              </item>
-              <item row="1" column="0">
-               <widget class="QLabel" name="sNRMaxLabel">
+               <widget class="QLabel" name="snrMaxLabel">
                 <property name="text">
                  <string>SNR Max</string>
                 </property>
                </widget>
               </item>
-              <item row="1" column="1">
-               <widget class="QDoubleSpinBox" name="sNRMaxDoubleSpinBox">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0">
-               <widget class="QLabel" name="sNRMinLabel">
+              <item row="1" column="0">
+               <widget class="QLabel" name="snrMinLabel">
                 <property name="text">
                  <string>SNR Min</string>
                 </property>
                </widget>
               </item>
-              <item row="2" column="1">
-               <widget class="QDoubleSpinBox" name="sNRMinDoubleSpinBox">
+              <item row="0" column="1">
+               <widget class="QSpinBox" name="snrMaxSpinBox">
                 <property name="enabled">
-                 <bool>false</bool>
+                 <bool>true</bool>
                 </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_24">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_7">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
                 <property name="maximumSize">
                  <size>
-                  <width>50</width>
+                  <width>80</width>
                   <height>16777215</height>
                  </size>
                 </property>
-                <property name="text">
-                 <string>Reset</string>
+                <property name="maximum">
+                 <number>999999999</number>
+                </property>
+                <property name="value">
+                 <number>100</number>
                 </property>
                </widget>
               </item>
-              <item>
-               <spacer name="horizontalSpacer_31">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="snrMinSpinBox">
+                <property name="enabled">
+                 <bool>true</bool>
                 </property>
-                <property name="sizeHint" stdset="0">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="maximumSize">
                  <size>
-                  <width>40</width>
-                  <height>20</height>
+                  <width>80</width>
+                  <height>16777215</height>
                  </size>
                 </property>
-               </spacer>
+               </widget>
               </item>
              </layout>
             </item>
@@ -1912,7 +1927,7 @@
        <property name="minimumSize">
         <size>
          <width>600</width>
-         <height>170</height>
+         <height>160</height>
         </size>
        </property>
        <property name="maximumSize">
@@ -1945,7 +1960,7 @@
          <enum>QLayout::SetDefaultConstraint</enum>
         </property>
         <item>
-         <widget class="QToolBox" name="toolBoxAnalysis_Isolate">
+         <widget class="QToolBox" name="toolBoxAnalysis_TimeCrop">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -1961,13 +1976,16 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
-          <widget class="QWidget" name="pageIsolate">
+          <property name="tabSpacing">
+           <number>0</number>
+          </property>
+          <widget class="QWidget" name="pageTimeCrop">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
              <width>180</width>
-             <height>83</height>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -1977,9 +1995,21 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>Isolate</string>
+            <string>Time Crop</string>
            </attribute>
            <layout class="QHBoxLayout" name="horizontalLayout_10">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <spacer name="horizontalSpacer_10">
               <property name="orientation">
@@ -1996,7 +2026,7 @@
             <item>
              <layout class="QVBoxLayout" name="verticalLayout_4">
               <item>
-               <widget class="QCommandLinkButton" name="buttonNextAnalysis_Isolate">
+               <widget class="QCommandLinkButton" name="buttonNextAnalysis_TimeCrop">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -2018,11 +2048,29 @@
                   <height>35</height>
                  </size>
                 </property>
+                <property name="font">
+                 <font>
+                  <family>Segoe UI</family>
+                  <pointsize>10</pointsize>
+                 </font>
+                </property>
                 <property name="accessibleName">
-                 <string>Isolate</string>
+                 <string>Time Crop</string>
+                </property>
+                <property name="layoutDirection">
+                 <enum>Qt::LeftToRight</enum>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
                 </property>
                 <property name="text">
                  <string>Next</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>20</width>
+                  <height>15</height>
+                 </size>
                 </property>
                </widget>
               </item>
@@ -2042,7 +2090,7 @@
                  </spacer>
                 </item>
                 <item>
-                 <widget class="QCheckBox" name="checkBoxSkipAnalysis_Isolate">
+                 <widget class="QCheckBox" name="checkBoxSkipAnalysis_TimeCrop">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2070,13 +2118,13 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="pageIsolateEdit">
+          <widget class="QWidget" name="pageTimeCropEdit">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>120</width>
-             <height>73</height>
+             <width>180</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2086,7 +2134,7 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_17">
             <property name="spacing">
@@ -2099,7 +2147,10 @@
              <number>0</number>
             </property>
             <item>
-             <layout class="QFormLayout" name="formLayoutIsolateEdit">
+             <layout class="QFormLayout" name="formLayoutTimeCropEdit">
+              <property name="verticalSpacing">
+               <number>3</number>
+              </property>
               <item row="0" column="0">
                <widget class="QLabel" name="startFrameLabel">
                 <property name="text">
@@ -2108,7 +2159,11 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QSpinBox" name="startFrameSpinBox"/>
+               <widget class="QSpinBox" name="startFrameSpinBox">
+                <property name="maximum">
+                 <number>9999999</number>
+                </property>
+               </widget>
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="endFrameLabel">
@@ -2118,37 +2173,11 @@
                </widget>
               </item>
               <item row="1" column="1">
-               <widget class="QSpinBox" name="endFrameSpinBox"/>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_29">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_9">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Reset</string>
+               <widget class="QSpinBox" name="endFrameSpinBox">
+                <property name="maximum">
+                 <number>9999999</number>
                 </property>
                </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_33">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
               </item>
              </layout>
             </item>
@@ -2188,20 +2217,23 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>180</width>
+            <width>250</width>
             <height>120</height>
            </size>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
+          </property>
+          <property name="tabSpacing">
+           <number>0</number>
           </property>
           <widget class="QWidget" name="pageAnalyze">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>180</width>
-             <height>83</height>
+             <width>250</width>
+             <height>85</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2214,6 +2246,18 @@
             <string>Analyze</string>
            </attribute>
            <layout class="QHBoxLayout" name="horizontalLayout_8">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <spacer name="horizontalSpacer_20">
               <property name="orientation">
@@ -2250,14 +2294,32 @@
               <property name="maximumSize">
                <size>
                 <width>80</width>
-                <height>16777215</height>
+                <height>35</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <family>Segoe UI</family>
+                <pointsize>10</pointsize>
+               </font>
               </property>
               <property name="accessibleName">
                <string>Analyze</string>
               </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="autoFillBackground">
+               <bool>false</bool>
+              </property>
               <property name="text">
                <string>Next</string>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>20</width>
+                <height>15</height>
+               </size>
               </property>
              </widget>
             </item>
@@ -2268,8 +2330,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>193</width>
-             <height>83</height>
+             <width>233</width>
+             <height>114</height>
             </rect>
            </property>
            <property name="sizePolicy">
@@ -2279,13 +2341,19 @@
             </sizepolicy>
            </property>
            <attribute name="label">
-            <string>&lt;Edit&gt;</string>
+            <string>...</string>
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_16">
             <property name="spacing">
              <number>0</number>
             </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
             <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
              <number>0</number>
             </property>
             <property name="bottomMargin">
@@ -2293,6 +2361,9 @@
             </property>
             <item>
              <layout class="QFormLayout" name="formLayout_6">
+              <property name="verticalSpacing">
+               <number>3</number>
+              </property>
               <item row="0" column="0">
                <widget class="QLabel" name="analyzeTypeLabel">
                 <property name="text">
@@ -2302,6 +2373,18 @@
               </item>
               <item row="0" column="1">
                <widget class="QComboBox" name="analyzeTypeComboBox">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
                 <item>
                  <property name="text">
                   <string>Trace</string>
@@ -2324,12 +2407,7 @@
                 </item>
                 <item>
                  <property name="text">
-                  <string>Map: Duration (80%)</string>
-                 </property>
-                </item>
-                <item>
-                 <property name="text">
-                  <string>Map: Duration (90%)</string>
+                  <string>Map: Duration</string>
                  </property>
                 </item>
                 <item>
@@ -2339,35 +2417,116 @@
                 </item>
                </widget>
               </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_28">
-              <item>
-               <widget class="QPushButton" name="pushButtonResetPrep_Props_8">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
+              <item row="1" column="0">
+               <widget class="QLabel" name="durationPerLabel">
                 <property name="text">
-                 <string>Reset</string>
+                 <string>Duration %</string>
                 </property>
                </widget>
               </item>
-              <item>
-               <spacer name="horizontalSpacer_32">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="durationPerSpinBox">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
                 </property>
-                <property name="sizeHint" stdset="0">
+                <property name="maximumSize">
                  <size>
-                  <width>40</width>
-                  <height>20</height>
+                  <width>80</width>
+                  <height>16777215</height>
                  </size>
                 </property>
-               </spacer>
+                <property name="minimum">
+                 <number>10</number>
+                </property>
+                <property name="maximum">
+                 <number>100</number>
+                </property>
+                <property name="value">
+                 <number>80</number>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="mapMaxLabel">
+                <property name="text">
+                 <string>Map Max</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QSpinBox" name="mapMaxSpinBox">
+                <property name="maximumSize">
+                 <size>
+                  <width>80</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="maximum">
+                 <number>999999999</number>
+                </property>
+                <property name="value">
+                 <number>100</number>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="mapMinLabel">
+                <property name="text">
+                 <string>Map Min</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QSpinBox" name="mapMinSpinBox">
+                <property name="maximumSize">
+                 <size>
+                  <width>80</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="maximum">
+                 <number>999999999</number>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="colormapLabel">
+                <property name="text">
+                 <string>Map Colormap</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QComboBox" name="colormapComboBox">
+                <item>
+                 <property name="text">
+                  <string>Auto for Map Type</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Orange</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Blue</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Purple</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Orange (low saturation)</string>
+                 </property>
+                </item>
+               </widget>
               </item>
              </layout>
             </item>

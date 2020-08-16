@@ -232,8 +232,10 @@ def reduce_stack(stack_in, reduction=1):
     test_frame_reduced = rescale(stack_in[0], reduction_factor, multichannel=False)
     stack_reduced_shape = (stack_in.shape[0], test_frame_reduced.shape[0], test_frame_reduced.shape[1])
     stack_out = np.empty(stack_reduced_shape, dtype=stack_in.dtype)  # empty stack
-    print('Reducing stack from W {} X H {} ... to size W {} X H {} ...'
-          .format(stack_in.shape[2], stack_in.shape[1], test_frame_reduced.shape[1], test_frame_reduced.shape[0]))
+    print('Reducing stack dimensions by {} from W {} X H {} ... to size W {} X H {} ...'
+          .format(reduction,
+                  stack_in.shape[2], stack_in.shape[1],
+                  test_frame_reduced.shape[1], test_frame_reduced.shape[0]))
     for idx, frame in enumerate(stack_in):
         # print('\r\tFrame:\t{}\t/ {}'.format(idx + 1, stack_in.shape[0]), end='', flush=True)
         #     f_filtered = filter_spatial(frame, kernel=self.kernel)
@@ -281,7 +283,7 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
     if len(strict) is not 2:
         raise TypeError('Strictness length must be 2')
     if strict[0] > strict[1]:
-        raise TypeError('Strictness for Dark cutoff must be greater than Light cutoff')
+        raise TypeError('Strictness for Dark cutoff must be less than Light cutoff')
     if strict[0] < 1:
         raise TypeError('Strictness for Dark cutoff must be greater than 0')
 

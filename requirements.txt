@@ -7,6 +7,7 @@ matplotlib==3.2.1
 networkx==2.4
 numpy==1.18.4
 opencv-python==4.2.0.34
+pandas==1.0.3
 Pillow==7.1.2
 pyparsing==2.4.7
 PyQt5==5.14.2
@@ -16,8 +17,10 @@ pyqt5-tools==5.13.0.1.5
 pyqtgraph==0.10.0
 python-dateutil==2.8.1
 python-dotenv==0.13.0
+pytz==2020.1
 PyWavelets==1.1.1
 scikit-image==0.17.2
 scipy==1.4.1
+seaborn==0.10.1
 six==1.15.0
 tifffile==2020.5.25

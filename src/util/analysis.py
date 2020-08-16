@@ -108,7 +108,7 @@ def find_tran_end(signal_in):
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
-    if signal_in.dtype not in [np.uint16, np.float32]:
+    if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
 
     i_downstroke = find_tran_downstroke(signal_in)
@@ -210,7 +210,7 @@ def calc_tran_duration(signal_in, percent=80):
     i_cutoff = i_peak + int(i_spline_search[0][0] / SPLINE_FIDELITY)
 
     i_activation = find_tran_act(signal_in)
-    if i_activation > i_peak or i_activation is np.nan:
+    if i_activation is np.nan or i_activation > i_peak:
         return np.nan  # exclusion criteria: peak seems to before activation
     duration = i_cutoff - i_activation
 
@@ -280,9 +280,8 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, raw_data=False, **k
         time_in : ndarray, optional
             The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
             If used, map values are timestamps
-        raw_data : ndarray, optional
-            The array of timestamps (ms) corresponding to signal_in, dtyoe : int or float
-            If used, map values are timestamps
+        raw_data : bool
+            Whether to return unconditioned activation times default : False
 
         Returns
         -------
