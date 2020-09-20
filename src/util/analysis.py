@@ -138,19 +138,25 @@ def find_tran_end(signal_in):
     return i_end
 
 
-def calc_tran_activation(signal_in):
+def calc_tran_activation(signal_in, start_time, end_time):
     """Calculate the time of the activation of a transient,
-    defined as the midpoint (not limited by sampling rate) between the start and peak times
+    defined as the midpoint (not limited by sampling rate) between the start
+    and peak times
 
         Parameters
         ----------
         signal_in : ndarray
             The array of data to be evaluated, dtype : uint16 or float
+        start_time: np.float
+            The user defined start time index for analysis of activation times
+        end_time: np.float
+            The user defined end time index for analysis of activation times
 
         Returns
         -------
         i_activation : np.int64
-            The index of the signal array corresponding to the activation of the transient
+            The index of the signal array corresponding to the activation of
+            the transient
         """
 
     # Check parameters
@@ -158,11 +164,14 @@ def calc_tran_activation(signal_in):
         raise TypeError('Signal data type must be an "ndarray"')
     if signal_in.dtype not in [np.uint16, float]:
         raise TypeError('Signal values must either be "int" or "float"')
-
     if any(v < 0 for v in signal_in):
         raise ValueError('All signal values must be >= 0')
-
+    # Grab the user specified segment of the signal (i.e., data of interest)
+    doi = signal_in[start_time:end_time]
+    # Calculate the first derivative of the signal
+    dVdt = doi[start_time:end_time]
     pass
+
 
 
 def calc_tran_duration(signal_in, percent=80):
