@@ -158,8 +158,13 @@ def calc_tran_activation(signal_in, start_time, end_time):
             The index of the signal array corresponding to the activation of
             the transient
         """
-
-    # Check parameters
+    # Calculate the derivative
+    dVdt = signal_in[1:-1, :, :]-signal_in[0:-2, :, :]
+    # Find the indices of the maximums within a given window
+    act_ind = np.argmax(dVdt[start_time:end_time, :, :], axis=0)
+    # Return the solution
+    return act_ind
+    '''# Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an "ndarray"')
     if signal_in.dtype not in [np.uint16, float]:
@@ -170,7 +175,7 @@ def calc_tran_activation(signal_in, start_time, end_time):
     doi = signal_in[start_time:end_time]
     # Calculate the first derivative of the signal
     dVdt = doi[start_time:end_time]
-    pass
+    pass'''
 
 
 
@@ -302,7 +307,7 @@ def map_tran_analysis(stack_in, analysis_type, time_in=None, raw_data=False, **k
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
-    if len(stack_in.shape) is not 3:
+    if len(stack_in.shape) != 3:
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
@@ -461,7 +466,7 @@ def map_coupling(map_vm, map_ca):
 
     if type(map_vm) is not np.ndarray or type(map_ca) is not np.ndarray:
         raise TypeError('Map data type must be an "ndarray"')
-    if len(map_vm.shape) is not 2 or len(map_ca.shape) is not 2:
+    if len(map_vm.shape) != 2 or len(map_ca.shape) != 2:
         raise TypeError('Maps must be a 2-D ndarray (Y, X)')
     if map_vm.shape != map_ca.shape:
         raise ValueError('Maps must be a 2-D ndarray (Y, X)')

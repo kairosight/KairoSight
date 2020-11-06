@@ -119,6 +119,7 @@ class WindowMain(QWidget, Ui_WindowMain):
         # Import file for this window
         self.file_purepath = file_purepath
         self.file_path_str = str(self.file_purepath)
+        # print(self.file_path_str)
         self.project_path_str = str(self.file_purepath.parent) + '\\' + str(self.file_purepath.stem) + '_ks_project'
         self.video_data_raw, self.stack_real_meta = open_stack(source=self.file_path_str)
         self.frame_n = self.video_data_raw.shape[0]

@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(800, 632)
+        MainWindow.resize(1129, 632)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -90,12 +90,18 @@ class Ui_MainWindow(object):
         self.start_prep_hl.addWidget(self.start_prep_button)
         self.image_properties_vl.addLayout(self.start_prep_hl)
         self.verticalLayoutWidget_3 = QtWidgets.QWidget(self.centralwidget)
-        self.verticalLayoutWidget_3.setGeometry(QtCore.QRect(130, 10, 401, 391))
+        self.verticalLayoutWidget_3.setGeometry(QtCore.QRect(130, 10, 551, 391))
         self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
         self.mpl_vl_window = QtWidgets.QVBoxLayout(self.verticalLayoutWidget_3)
         self.mpl_vl_window.setContentsMargins(0, 0, 0, 0)
         self.mpl_vl_window.setSpacing(0)
         self.mpl_vl_window.setObjectName("mpl_vl_window")
+        self.verticalLayoutWidget_4 = QtWidgets.QWidget(self.centralwidget)
+        self.verticalLayoutWidget_4.setGeometry(QtCore.QRect(690, 10, 421, 391))
+        self.verticalLayoutWidget_4.setObjectName("verticalLayoutWidget_4")
+        self.mpl_sigvl_window = QtWidgets.QVBoxLayout(self.verticalLayoutWidget_4)
+        self.mpl_sigvl_window.setContentsMargins(0, 0, 0, 0)
+        self.mpl_sigvl_window.setObjectName("mpl_sigvl_window")
         # MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -112,14 +118,4 @@ class Ui_MainWindow(object):
         self.image_scale_label.setText(_translate("MainWindow", "      Scale (px/cm): "))
         self.dual_image_checkbox.setText(_translate("MainWindow", "Dual Image:  "))
         self.start_prep_button.setText(_translate("MainWindow", "Start Preparation"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())
 

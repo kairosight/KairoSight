@@ -12,13 +12,16 @@ from random import random
 from util.preparation import open_stack, reduce_stack, mask_generate,\
     mask_apply, img_as_uint, rescale
 from util.processing import normalize_stack, filter_spatial, map_snr,\
-    find_tran_act
-from util.analysis import calc_tran_duration, map_tran_analysis, DUR_MAX
+    find_tran_act, filter_spatial_stack, filter_temporal, invert_signal,\
+    filter_drift
+from util.analysis import calc_tran_duration, map_tran_analysis, DUR_MAX,\
+    calc_tran_activation
 'from ui.KairoSight_WindowMDI import Ui_WindowMDI'
-from ui.KairoSight_WindowMain_Retro import Ui_MainWindow
+from ui.KairoSight_WindowMain_Retro_v01 import Ui_MainWindow
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QFileDialog, QListWidget
-from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow,\
+    QFileDialog, QListWidget, QMessageBox
+from PyQt5.QtGui import QColor, QPalette
 import pyqtgraph as pg
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt4agg import (
@@ -27,6 +30,7 @@ from matplotlib.backends.backend_qt4agg import (
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import matplotlib.colors as colors
+import matplotlib.cm as cm
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
@@ -106,70 +110,615 @@ class Stream(QObject):
 
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=391, height=391, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super(MplCanvas, self).__init__(fig)
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = self.fig.add_subplot(111)
+        super(MplCanvas, self).__init__(self.fig)
+
+
+'''class MplSigCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=391, height=391, dpi=100):
+        self.fig_sig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes_sig1 = self.fig_sig.add_subplot(411)
+        self.axes_sig2 = self.fig_sig.add_subplot(412)
+        self.axes_sig3 = self.fig_sig.add_subplot(413)
+        self.axes_sig4 = self.fig_sig.add_subplot(414)
+        super(MplSigCanvas, self).__init__(self.fig)'''
 
 
 class MainWindow(QWidget, Ui_MainWindow):
     """Customization for Ui_WindowMain"""
 
     def __init__(self, parent=None, file_purepath=None):
-        #Initialization of the superclass
+        # Initialization of the superclass
         super(MainWindow, self).__init__(parent)
         '''self.WindowMDI = parent'''
         # Setup the UI
         self.setupUi(self)
-        # Setup the plotting window
+        # Save the background color for future reference
+        self.bkgd_color = [240/255, 240/255, 240/255]
+        # Setup the image window
         self.mpl_canvas = MplCanvas(self)
-        # self.mpl_vl_window.addWidget(self.mpl_canvas)
-        self.mpl_canvas.move(140, 10)
-        self.mpl_canvas.resize(391, 391)
-        self.mpl_canvas.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
+        self.mpl_vl_window.addWidget(self.mpl_canvas)
+        # Match the matplotlib figure background color to the GUI
+        self.mpl_canvas.fig.patch.set_facecolor(self.bkgd_color)
+        # Setup the signal windows
+        self.mpl_canvas_sig1 = MplCanvas(self)
+        self.mpl_sigvl_window.addWidget(self.mpl_canvas_sig1)
+        self.mpl_canvas_sig1.fig.patch.set_facecolor(self.bkgd_color)
+        self.mpl_canvas_sig2 = MplCanvas(self)
+        self.mpl_sigvl_window.addWidget(self.mpl_canvas_sig2)
+        self.mpl_canvas_sig2.fig.patch.set_facecolor(self.bkgd_color)
+        self.mpl_canvas_sig3 = MplCanvas(self)
+        self.mpl_sigvl_window.addWidget(self.mpl_canvas_sig3)
+        self.mpl_canvas_sig3.fig.patch.set_facecolor(self.bkgd_color)
+        self.mpl_canvas_sig4 = MplCanvas(self)
+        self.mpl_sigvl_window.addWidget(self.mpl_canvas_sig4)
+        self.mpl_canvas_sig4.fig.patch.set_facecolor(self.bkgd_color)
         # Setup button functionality
-        self.SelectDirectoryButton.clicked.connect(self.sel_dir)
-        self.LoadButton.clicked.connect(self.load_data)
+        self.sel_dir_button.clicked.connect(self.sel_dir)
+        self.load_button.clicked.connect(self.load_data)
+        self.refresh_button.clicked.connect(self.refresh_data)
+        self.data_prop_button.clicked.connect(self.data_properties)
+        self.signal_select_button.clicked.connect(self.signal_select)
+        self.prep_button.clicked.connect(self.prep_data)
+        self.analysis_drop.currentIndexChanged.connect(self.analysis_select)
+        self.map_pushbutton.clicked.connect(self.map_analysis)
+        self.axes_start_time_edit.editingFinished.connect(self.update_win)
+        self.axes_end_time_edit.editingFinished.connect(self.update_win)
+        # Set up variable for tracking which signal is being selected
+        self.data = []
+        self.data_filt = []
+        self.signal_time = []
+        self.time_ind = 0
+        self.cnames = ['cornflowerblue', 'gold', 'springgreen', 'lightcoral']
+        self.mask = []
+        # Designate that dividing by zero will not generate an error
+        np.seterr(divide='ignore', invalid='ignore')
 
+    # Button Functions
     def sel_dir(self):
         # Open dialogue box for selecting the data directory
-        self.file_path = QFileDialog.getExistingDirectory(self,"Open Directory", os.getcwd(), QFileDialog.ShowDirsOnly)
+        self.file_path = QFileDialog.getExistingDirectory(
+            self, "Open Directory", os.getcwd(), QFileDialog.ShowDirsOnly)
+        # Update list widget with the contents of the selected directory
+        self.refresh_data()
+
+    def load_data(self):
+        # Grab the selected items name
+        self.file_name = self.file_list.currentItem().text()
+        # Load the data stack into the UI
+        self.video_data_raw = open_stack(
+            source=(self.file_path + "/" + self.file_name))
+        # Extract the optical data from the stack
+        self.data = self.video_data_raw[0]
+        # Flip the data
+        self.data_filt = self.data*-1
+        # Populate the axes start and end indices
+        self.axes_start_ind = 0
+        self.axes_end_ind = self.data_filt.shape[0]-1
+        # Populate the mask variable
+        self.mask = np.ones([self.data.shape[1], self.data.shape[2]],
+                            dtype=bool)
+        # Reset the signal selection variables
+        self.signal_ind = 0
+        self.signal_coord = np.zeros((4, 2))
+        self.signal_toggle = np.zeros((4, 1))
+        # Update axes accordingly
+        self.update_axes()
+        # Activate Properties Interface
+        self.frame_rate_label.setEnabled(True)
+        self.frame_rate_edit.setEnabled(True)
+        self.image_scale_label.setEnabled(True)
+        self.image_scale_edit.setEnabled(True)
+        # self.dual_image_checkbox.setEnabled(True)
+        self.data_prop_button.setEnabled(True)
+
+    def refresh_data(self):
         # Grab the applicable file names of the directory and display
         self.data_files = []
         for file in os.listdir(self.file_path):
             if file.endswith(".tif"):
                 self.data_files.append(file)
-        # Populate the list widget with the file names
-        self.file_list.addItems(self.data_files)
-        # Set the current row to the first (i.e., index = 0)
-        self.file_list.setCurrentRow(0)
+        # If tif files were identified update the list and button availability
+        if len(self.data_files) > 0:
+            # Clear any potential items from the list widget
+            self.file_list.clear()
+            # Populate the list widget with the file names
+            self.file_list.addItems(self.data_files)
+            # Set the current row to the first (i.e., index = 0)
+            self.file_list.setCurrentRow(0)
+            # Enable the load and refresh buttons
+            self.load_button.setEnabled(True)
+            self.refresh_button.setEnabled(True)
+        else:
+            # Clear any potential items from the list widget
+            self.file_list.clear()
+            # Disable the load button
+            self.load_button.setEnabled(False)
+            # Create a message box to communicate the absence of data
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText("No *.tif files in selected directory.")
+            msg.setWindowTitle("Warning")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
 
-    def load_data(self):
-        # Grab the selected items name
-        print('Hey!')
-        self.file_name = self.file_list.currentItem().text()
-        # Load the data stack into the UI
-        print("How!")
-        self.data_stack = open_stack(self.file_path + "/" + self.file_name)
-        print('Test: ' + self.file_path + '/' + self.file_name)
-        # Extract the optical data from the stack
-        print("Are!")
-        self.data = self.data_stack[0]
-        print("Ya?!?!")
+    def data_properties(self):
+        if self.data_prop_button.text() == 'Start Preparation':
+            # Populate global variables with frame rate and scale values
+            self.data_fps = float(self.frame_rate_edit.text())
+            self.data_scale = float(self.image_scale_edit.text())
+            # BUILD IN CHECKS TO ENSURE NUMERIC VALUES ENTERED
+            # Create time vector
+            self.signal_time = np.arange(self.data.shape[0])*1/self.data_fps
+            # Populate the axes start and end edit boxes
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind-1]))
+            # Adjust the x-axis labeling for the signal windows
+            self.mpl_canvas_sig1.axes.set_xlim(
+                        self.signal_time[0], self.signal_time[-1])
+            self.mpl_canvas_sig1.axes.tick_params(labelbottom=False)
+            self.mpl_canvas_sig1.fig.tight_layout()
+            self.mpl_canvas_sig1.draw()
+            self.mpl_canvas_sig2.axes.set_xlim(
+                        self.signal_time[0], self.signal_time[-1])
+            self.mpl_canvas_sig2.axes.tick_params(labelbottom=False)
+            self.mpl_canvas_sig2.fig.tight_layout()
+            self.mpl_canvas_sig2.draw()
+            self.mpl_canvas_sig3.axes.set_xlim(
+                        self.signal_time[0], self.signal_time[-1])
+            self.mpl_canvas_sig3.axes.tick_params(labelbottom=False)
+            self.mpl_canvas_sig3.fig.tight_layout()
+            self.mpl_canvas_sig3.draw()
+            self.mpl_canvas_sig4.axes.set_xlim(
+                        self.signal_time[0], self.signal_time[-1])
+            self.mpl_canvas_sig4.fig.tight_layout()
+            self.mpl_canvas_sig4.draw()
+            # Activate Movie and Signal Tools
+            # self.movie_scroll_obj.setEnabled(True)
+            # self.play_movie_button.setEnabled(True)
+            # self.export_movie_button.setEnabled(True)
+            self.signal_select_button.setEnabled(True)
+            # self.optical_toggle_button.setEnabled(True)
+            # self.bkgd_toggle_button.setEnabled(True)
+            # Activate Preparation Tools
+            self.rm_bkgd_checkbox.setEnabled(True)
+            self.rm_bkgd_method_label.setEnabled(True)
+            self.rm_bkgd_method_drop.setEnabled(True)
+            self.bkgd_dark_label.setEnabled(True)
+            self.bkgd_dark_edit.setEnabled(True)
+            self.bkgd_light_label.setEnabled(True)
+            self.bkgd_light_edit.setEnabled(True)
+            self.bin_checkbox.setEnabled(True)
+            self.bin_drop.setEnabled(True)
+            self.filter_checkbox.setEnabled(True)
+            self.filter_label_separator.setEnabled(True)
+            self.filter_upper_label.setEnabled(True)
+            self.filter_upper_edit.setEnabled(True)
+            self.drift_checkbox.setEnabled(True)
+            self.drift_drop.setEnabled(True)
+            self.normalize_checkbox.setEnabled(True)
+            self.prep_button.setEnabled(True)
+            # Activate Analysis Tools
+            self.analysis_drop.setEnabled(True)
+            self.start_time_label.setEnabled(True)
+            self.start_time_edit.setEnabled(True)
+            self.end_time_label.setEnabled(True)
+            self.end_time_edit.setEnabled(True)
+            self.map_pushbutton.setEnabled(True)
+            if self.analysis_drop.currentIndex() == 1:
+                self.min_val_label.setEnabled(True)
+                self.min_val_edit.setEnabled(True)
+                self.max_val_label.setEnabled(True)
+                self.max_val_edit.setEnabled(True)
+                self.perc_apd_label.setEnabled(True)
+                self.perc_apd_edit.setEnabled(True)
+                self.reg_map_pushbutton.setEnabled(True)
+            else:
+                self.min_val_label.setEnabled(False)
+                self.min_val_edit.setEnabled(False)
+                self.max_val_label.setEnabled(False)
+                self.max_val_edit.setEnabled(False)
+                self.perc_apd_label.setEnabled(False)
+                self.perc_apd_edit.setEnabled(False)
+                self.reg_map_pushbutton.setEnabled(False)
+            # Activate axes controls
+            self.axes_start_time_label.setEnabled(True)
+            self.axes_start_time_edit.setEnabled(True)
+            self.axes_end_time_label.setEnabled(True)
+            self.axes_end_time_edit.setEnabled(True)
+            # Disable Properties Tools
+            self.frame_rate_label.setEnabled(False)
+            self.frame_rate_edit.setEnabled(False)
+            self.image_scale_label.setEnabled(False)
+            self.image_scale_edit.setEnabled(False)
+            # self.dual_image_checkbox.setEnabled(False)
+            # Change the button string
+            self.data_prop_button.setText('Update Properties')
+            '''# TEST
+            if not self.start_time_edit.text():
+                print('Oops!')'''
+        else:
+            # Disable Preparation Tools
+            self.rm_bkgd_checkbox.setEnabled(False)
+            self.rm_bkgd_method_label.setEnabled(False)
+            self.rm_bkgd_method_drop.setEnabled(False)
+            self.bkgd_dark_label.setEnabled(False)
+            self.bkgd_dark_edit.setEnabled(False)
+            self.bkgd_light_label.setEnabled(False)
+            self.bkgd_light_edit.setEnabled(False)
+            self.bin_checkbox.setEnabled(False)
+            self.bin_drop.setEnabled(False)
+            self.filter_checkbox.setEnabled(False)
+            self.filter_label_separator.setEnabled(False)
+            self.filter_upper_label.setEnabled(False)
+            self.filter_upper_edit.setEnabled(False)
+            self.drift_checkbox.setEnabled(False)
+            self.drift_drop.setEnabled(False)
+            self.normalize_checkbox.setEnabled(False)
+            self.prep_button.setEnabled(False)
+            # Disable Analysis Tools
+            self.analysis_drop.setEnabled(False)
+            self.start_time_label.setEnabled(False)
+            self.start_time_edit.setEnabled(False)
+            self.end_time_label.setEnabled(False)
+            self.end_time_edit.setEnabled(False)
+            self.map_pushbutton.setEnabled(False)
+            self.min_val_label.setEnabled(False)
+            self.min_val_edit.setEnabled(False)
+            self.max_val_label.setEnabled(False)
+            self.max_val_edit.setEnabled(False)
+            self.perc_apd_label.setEnabled(False)
+            self.perc_apd_edit.setEnabled(False)
+            self.reg_map_pushbutton.setEnabled(False)
+            self.min_val_label.setEnabled(False)
+            self.min_val_edit.setEnabled(False)
+            self.max_val_label.setEnabled(False)
+            self.max_val_edit.setEnabled(False)
+            self.perc_apd_label.setEnabled(False)
+            self.perc_apd_edit.setEnabled(False)
+            self.reg_map_pushbutton.setEnabled(False)
+            # Disable axes controls
+            self.axes_start_time_label.setEnabled(False)
+            self.axes_start_time_edit.setEnabled(False)
+            self.axes_end_time_label.setEnabled(False)
+            self.axes_end_time_edit.setEnabled(False)
+            # Activate Properties Tools
+            self.frame_rate_label.setEnabled(True)
+            self.frame_rate_edit.setEnabled(True)
+            self.image_scale_label.setEnabled(True)
+            self.image_scale_edit.setEnabled(True)
+            # self.dual_image_checkbox.setEnabled(False)
+            # Change the button string
+            self.data_prop_button.setText('Start Preparation')
+
+    def prep_data(self):
+        # Grab unprepped data
+        self.data_filt = self.data
+        # Remove background
+        if self.rm_bkgd_checkbox.isChecked():
+            # Grab the background removal inputs
+            rm_method = self.rm_bkgd_method_drop.currentText()
+            if rm_method == 'Otsu Global':
+                rm_method = 'Otsu_global'
+            elif rm_method == 'Random Walk':
+                rm_method = 'Random_walk'
+            rm_dark = float(self.bkgd_dark_edit.text())
+            rm_light = float(self.bkgd_light_edit.text())
+            # Generate the mask for background removal using original data
+            frame_out, self.mask, markers = mask_generate(
+                self.data[0], rm_method, (rm_dark, rm_light))
+            # Apply the mask for background removal
+            self.data_filt = mask_apply(self.data_filt, self.mask)
+        if self.bin_checkbox.isChecked():
+            # Grab the kernel size
+            bin_kernel = self.bin_drop.currentText()
+            if bin_kernel == '3x3':
+                bin_kernel = 3
+            elif bin_kernel == '5x5':
+                bin_kernel = 5
+            else:
+                bin_kernel = 7
+            # Execute spatial filter with selected kernel size
+            self.data_filt = filter_spatial_stack(self.data_filt, bin_kernel)
+        if self.filter_checkbox.isChecked():
+            # Apply the low pass filter
+            self.data_filt = filter_temporal(
+                self.data_filt, self.data_fps, self.mask, filter_order=100)
+        if self.drift_checkbox.isChecked():
+            # Grab drift order from dropdown
+            drift_order = self.drift_drop.currentIndex()+1
+            # Apply drift removal
+            self.data_filt = filter_drift(
+                self.data_filt, self.mask, drift_order)
+        if self.normalize_checkbox.isChecked():
+            # Baseline the data via broadcasting
+            self.data_filt = self.data_filt-np.average(self.data_filt, axis=0)
+            # Invert the data
+            self.data_filt = self.data_filt*-1
+            # Noralize via broadcasting
+            self.data_filt = self.data_filt/np.amax(self.data_filt, axis=0)
+        # Update axes
+        self.update_axes()
+
+    def analysis_select(self):
+        if self.analysis_drop.currentIndex() == 0:
+            # Disable the APD tools
+            self.min_val_label.setEnabled(False)
+            self.min_val_edit.setEnabled(False)
+            self.max_val_label.setEnabled(False)
+            self.max_val_edit.setEnabled(False)
+            self.perc_apd_label.setEnabled(False)
+            self.perc_apd_edit.setEnabled(False)
+            self.reg_map_pushbutton.setEnabled(False)
+        elif self.analysis_drop.currentIndex() == 1:
+            # Disable the APD tools
+            self.min_val_label.setEnabled(True)
+            self.min_val_edit.setEnabled(True)
+            self.max_val_label.setEnabled(True)
+            self.max_val_edit.setEnabled(True)
+            self.perc_apd_label.setEnabled(True)
+            self.perc_apd_edit.setEnabled(True)
+            self.reg_map_pushbutton.setEnabled(True)
+
+    def map_analysis(self):
+        # Grab analysis type
+        analysis_type = self.analysis_drop.currentIndex()
+        if analysis_type == 0:
+            # Grab the start and end times
+            start_time = float(self.start_time_edit.text())
+            end_time = float(self.end_time_edit.text())
+            # Find the time index value to which the start entry is closest
+            start_ind = abs(self.signal_time-start_time)
+            start_ind = np.argmin(start_ind)
+            # Find the time index value to which the top entry is closest
+            end_ind = abs(self.signal_time-end_time)
+            end_ind = np.argmin(end_ind)
+            # Calculate activation
+            self.act_ind = calc_tran_activation(
+                self.data_filt, start_ind, end_ind)
+            # Generate a map of the activation times
+            self.act_map = plt.figure()
+            axes_act_map = self.act_map.add_axes([0.05, 0.1, 0.8, 0.8])
+            transp = ~self.mask
+            transp = transp.astype(float)
+            axes_act_map.imshow(self.act_ind, alpha=transp, vmin=0,
+                                vmax=end_ind-start_ind, cmap='jet')
+            cax = plt.axes([0.9, 0.1, 0.05, 0.8])
+            self.act_map.colorbar(
+                cm.ScalarMappable(
+                    colors.Normalize(0, end_ind-start_ind),
+                    cmap='jet'),
+                cax=cax)
+
+    def signal_select(self):
+        # Create placeholders for the x and y coordinates
+        self.x = []
+        self.y = []
+        # Create a button press event
+        self.cid = self.mpl_canvas.mpl_connect(
+            'button_press_event', self.on_click)
+
+    def update_win(self):
+        '''check_bot = 1
+        try:
+            # Grab the x-axis window values
+            bot_val = float(self.axes_start_time_edit.text())
+        except ValueError:
+            check_bot = 0
+        check_top = 1
+        try:
+            top_val = float(self.axes_end_time_edit.text())
+        except ValueError:
+            check_top = 0
+        # Check for empty entries
+        if check_bot == 0 and check_top == 1:
+            # Blank or string entry at start time, execute the warning
+            self.sig_win_warn(0)
+            # Restore previous value
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            # Restore previous value
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind]))
+        elif check_bot == 1 and check_top == 0:
+            # Blank or string entry at end time, execute the warning
+            self.sig_win_warn(0)
+            # Restore previous value
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            # Restore previous value
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind]))
+        elif check_bot == 0 and check_top == 0:
+            # Assume fields are empty '''
+        bot_val = float(self.axes_start_time_edit.text())
+        top_val = float(self.axes_end_time_edit.text())
+        # Find the time index value to which the bot entry is closest
+        bot_ind = abs(self.signal_time-bot_val)
+        self.axes_start_ind = np.argmin(bot_ind)
+        # Adjust the start time string accordingly
+        self.axes_start_time_edit.setText(
+            str(self.signal_time[self.axes_start_ind]))
+        # Find the time index value to which the top entry is closest
+        top_ind = abs(self.signal_time-top_val)
+        self.axes_end_ind = np.argmin(top_ind)
+        # Adjust the end time string accordingly
+        self.axes_end_time_edit.setText(
+            str(self.signal_time[self.axes_end_ind]))
+        # Update the signal axes
+        self.update_axes()
+        '''# Check the values against limits
+        if bot_val < 0 or top_val < 0:
+            # Execute the warning
+            self.sig_win_warn(0)
+            # Restore previous value
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            # Restore previous value
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind]))
+        elif bot_val > self.signal_time[-1] or top_val > self.signal_time[-1]:
+            # Execute the warning
+            self.sig_win_warn(0)
+            # Restore previous value
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            # Restore previous value
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind]))
+        elif bot_val < top_val:
+            # Execute the warning
+            self.sig_win_warn(1)
+            # Restore previous value
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            # Restore previous value
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind]))
+        else:
+            # Find the time index value to which the bot entry is closest
+            bot_ind = abs(self.signal_time-bot_val)
+            self.axes_start_ind = bot_ind.index(min(bot_ind))
+            # Adjust the start time string accordingly
+            self.axes_start_time_edit.setText(
+                str(self.signal_time[self.axes_start_ind]))
+            # Find the time index value to which the top entry is closest
+            top_ind = abs(self.signal_time-top_val)
+            self.axes_end_ind = top_ind.index(min(bot_ind))
+            # Adjust the end time string accordingly
+            self.axes_end_time_edit.setText(
+                str(self.signal_time[self.axes_end_ind]))
+            # Update the signal axes
+            self.update_axes()'''
+
+    # ASSIST (I.E., NON-BUTTON) FUNCTIONS
+    # Function for grabbing the x and y coordinates of a button click
+    def on_click(self, event):
+        # Grab the axis coordinates of the click event
+        self.signal_coord[self.signal_ind] =\
+            [round(event.xdata), round(event.ydata)]
+        self.signal_coord = self.signal_coord.astype(int)
+        # Update the toggle variable to indicate points should be plotted
+        self.signal_toggle[self.signal_ind] = 1
+        # Update the plots accordingly
+        self.update_axes()
+        # Update the index of the signal for next selection
+        if self.signal_ind == 3:
+            self.signal_ind = 0
+        else:
+            self.signal_ind += 1
+        # End the button press event
+        self.mpl_canvas.mpl_disconnect(self.cid)
+
+    # Function for entering out-of-range values for signal window view
+    def sig_win_warn(self, ind):
+        # Create a message box to communicate the absence of data
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        if ind == 0:
+            msg.setText(
+                "Entry must be a numeric value between 0 and {.2f}!".format(
+                    self.signal_time[-1]))
+        elif ind == 1:
+            msg.setText("The Start Time must be less than the End Time!")
+        msg.setWindowTitle("Warning")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+
+    # Function for updating the axes
+    def update_axes(self):
+        # Determine if data is prepped or unprepped
+        data = self.data_filt
+        # UPDATE THE OPTICAL IMAGE AXIS
+        # Clear axis for update
+        self.mpl_canvas.axes.cla()
         # Update the UI with an image off the top of the stack
         self.mpl_canvas.axes.imshow(self.data[0], cmap='gray')
-        print('Come on!')
+        # Match the matplotlib figure background color to the GUI
+        self.mpl_canvas.fig.patch.set_facecolor(self.bkgd_color)
+        # Plot the select signal points
+        for cnt, ind in enumerate(self.signal_coord):
+            if self.signal_toggle[cnt] == 0:
+                continue
+            else:
+                self.mpl_canvas.axes.scatter(
+                    ind[0], ind[1], color=self.cnames[cnt])
+        # Tighten the border on the figure
+        self.mpl_canvas.fig.tight_layout()
         self.mpl_canvas.draw()
-        # self.mpl_canvas.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
-        print('Hello World!')
-        print(self.data.shape)
-        # self.canvas = FigureCanvas(self.fig1)
-        # self.mpl_window_vl.addWidget(self.canvas)
-        # self.canvas.draw()
-
-    '''def addmpl(self, fig):
-        self.canvas = FigureCanvas(fig)
-        self.mpl_window_vl.addWidget(self.canvas)
-        self.canvas.draw()'''
+        # UPDATE THE SIGNAL AXES
+        # Grab the start and end indices
+        start_i = self.axes_start_ind
+        end_i = self.axes_end_ind+1
+        for cnt, ind in enumerate(self.signal_coord):
+            if self.signal_toggle[cnt] == 0:
+                if cnt == 0:
+                    # Clear the axes
+                    self.mpl_canvas_sig1.axes.cla()
+                elif cnt == 1:
+                    # Clear the axes
+                    self.mpl_canvas_sig2.axes.cla()
+                elif cnt == 2:
+                    # Clear the axes
+                    self.mpl_canvas_sig3.axes.cla()
+                else:
+                    # Clear the axes
+                    self.mpl_canvas_sig4.axes.cla()
+            else:
+                if cnt == 0:
+                    # Clear axis for update
+                    self.mpl_canvas_sig1.axes.cla()
+                    # Plot signal
+                    self.mpl_canvas_sig1.axes.plot(
+                        self.signal_time[start_i:end_i],
+                        data[start_i:end_i, ind[1], ind[0]],
+                        color=self.cnames[cnt])
+                    self.mpl_canvas_sig1.axes.set_xlim(
+                        self.signal_time[start_i], self.signal_time[end_i-1])
+                    self.mpl_canvas_sig1.axes.tick_params(labelbottom=False)
+                    self.mpl_canvas_sig1.fig.tight_layout()
+                    self.mpl_canvas_sig1.draw()
+                elif cnt == 1:
+                    # Clear axis for update
+                    self.mpl_canvas_sig2.axes.cla()
+                    # Plot signal
+                    self.mpl_canvas_sig2.axes.plot(
+                        self.signal_time[start_i:end_i],
+                        data[start_i:end_i, ind[1], ind[0]],
+                        color=self.cnames[cnt])
+                    self.mpl_canvas_sig2.axes.set_xlim(
+                        self.signal_time[start_i], self.signal_time[end_i-1])
+                    self.mpl_canvas_sig2.axes.tick_params(labelbottom=False)
+                    self.mpl_canvas_sig2.fig.tight_layout()
+                    self.mpl_canvas_sig2.draw()
+                elif cnt == 2:
+                    # Clear axis for update
+                    self.mpl_canvas_sig3.axes.cla()
+                    # Plot signal
+                    self.mpl_canvas_sig3.axes.plot(
+                        self.signal_time[start_i:end_i],
+                        data[start_i:end_i, ind[1], ind[0]],
+                        color=self.cnames[cnt])
+                    self.mpl_canvas_sig3.axes.set_xlim(
+                        self.signal_time[start_i], self.signal_time[end_i-1])
+                    self.mpl_canvas_sig3.axes.tick_params(labelbottom=False)
+                    self.mpl_canvas_sig3.fig.tight_layout()
+                    self.mpl_canvas_sig3.draw()
+                else:
+                    # Clear axis for update
+                    self.mpl_canvas_sig4.axes.cla()
+                    # Plot signal
+                    self.mpl_canvas_sig4.axes.plot(
+                        self.signal_time[start_i:end_i],
+                        data[start_i:end_i, ind[1], ind[0]],
+                        color=self.cnames[cnt])
+                    self.mpl_canvas_sig4.axes.set_xlim(
+                        self.signal_time[start_i], self.signal_time[end_i-1])
+                    self.mpl_canvas_sig4.fig.tight_layout()
+                    self.mpl_canvas_sig4.draw()
 
 
 if __name__ == '__main__':
