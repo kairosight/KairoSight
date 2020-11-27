@@ -240,6 +240,16 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="pause_button">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Pause Movie</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="export_movie_button">
        <property name="enabled">
         <bool>false</bool>
@@ -269,16 +279,6 @@
        </property>
       </widget>
      </item>
-     <item>
-      <widget class="QPushButton" name="bkgd_toggle_button">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>Background Off</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </widget>
    <widget class="QWidget" name="verticalLayoutWidget_5">
@@ -305,7 +305,7 @@
      <rect>
       <x>190</x>
       <y>450</y>
-      <width>171</width>
+      <width>161</width>
       <height>271</height>
      </rect>
     </property>
@@ -707,7 +707,7 @@
      <rect>
       <x>380</x>
       <y>450</y>
-      <width>121</width>
+      <width>111</width>
       <height>246</height>
      </rect>
     </property>

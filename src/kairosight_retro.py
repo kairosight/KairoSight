@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import traceback
 import time
 import math
 import numpy as np
@@ -18,9 +19,10 @@ from util.analysis import calc_tran_duration, map_tran_analysis, DUR_MAX,\
     calc_tran_activation
 'from ui.KairoSight_WindowMDI import Ui_WindowMDI'
 from ui.KairoSight_WindowMain_Retro_v01 import Ui_MainWindow
-from PyQt5.QtCore import QObject, pyqtSignal, Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow,\
-    QFileDialog, QListWidget, QMessageBox
+from PyQt5.QtCore import (QObject, pyqtSignal, Qt, QTimer, QRunnable,
+                          pyqtSlot, QThreadPool)
+from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, 
+                             QFileDialog, QListWidget, QMessageBox)
 from PyQt5.QtGui import QColor, QPalette
 import pyqtgraph as pg
 from matplotlib.figure import Figure
@@ -115,14 +117,60 @@ class MplCanvas(FigureCanvas):
         super(MplCanvas, self).__init__(self.fig)
 
 
-'''class MplSigCanvas(FigureCanvas):
-    def __init__(self, parent=None, width=391, height=391, dpi=100):
-        self.fig_sig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes_sig1 = self.fig_sig.add_subplot(411)
-        self.axes_sig2 = self.fig_sig.add_subplot(412)
-        self.axes_sig3 = self.fig_sig.add_subplot(413)
-        self.axes_sig4 = self.fig_sig.add_subplot(414)
-        super(MplSigCanvas, self).__init__(self.fig)'''
+class WorkerSignals(QObject):
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+
+class JobRunner(QRunnable):
+    '''
+    Worker thread
+
+    Inherits from QRunnable to handler worker thread setup, signals and
+    wrap-up.
+
+    :param callback: The function callback to run on this worker thread.
+                     Supplied args and kwargs will be passed through to the
+                     runner.
+    :type callback: function
+    :param args: Arguments to pass to the callback function
+    :param kwargs: Keywords to pass to the callback function
+
+    '''
+
+    def __init__(self, fn, *args, **kwargs):
+        super(JobRunner, self).__init__()
+
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+        # Add the callback to our kwargs
+        self.kwargs['progress_callback'] = self.signals.progress
+
+    @pyqtSlot()
+    def run(self):
+        '''
+        Initialise the runner function with passed args, kwargs.
+        '''
+
+        # Retrieve args/kwargs here; and fire processing using them
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        else:
+            # Return the result of the processing
+            self.signals.result.emit(result)
+        finally:
+            # Done
+            self.signals.finished.emit()
 
 
 class MainWindow(QWidget, Ui_MainWindow):
@@ -160,18 +208,27 @@ class MainWindow(QWidget, Ui_MainWindow):
         self.refresh_button.clicked.connect(self.refresh_data)
         self.data_prop_button.clicked.connect(self.data_properties)
         self.signal_select_button.clicked.connect(self.signal_select)
-        self.prep_button.clicked.connect(self.prep_data)
+        self.prep_button.clicked.connect(self.run_prep)
         self.analysis_drop.currentIndexChanged.connect(self.analysis_select)
         self.map_pushbutton.clicked.connect(self.map_analysis)
         self.axes_start_time_edit.editingFinished.connect(self.update_win)
         self.axes_end_time_edit.editingFinished.connect(self.update_win)
+        self.start_time_edit.editingFinished.connect(self.update_win)
+        self.end_time_edit.editingFinished.connect(self.update_win)
+        self.movie_scroll_obj.valueChanged.connect(self.update_axes)
+        self.play_movie_button.clicked.connect(self.play_movie)
+        self.pause_button.clicked.connect(self.pause_movie)
+        # Thread runner
+        self.threadpool = QThreadPool()
+        # Create a timer for regulating the movie while loop
+        # self.timer = QTimer()
+        # self.timer.timeout.connect()
         # Set up variable for tracking which signal is being selected
         self.data = []
         self.data_filt = []
         self.signal_time = []
         self.time_ind = 0
         self.cnames = ['cornflowerblue', 'gold', 'springgreen', 'lightcoral']
-        self.mask = []
         # Designate that dividing by zero will not generate an error
         np.seterr(divide='ignore', invalid='ignore')
 
@@ -203,6 +260,10 @@ class MainWindow(QWidget, Ui_MainWindow):
         self.signal_ind = 0
         self.signal_coord = np.zeros((4, 2))
         self.signal_toggle = np.zeros((4, 1))
+        self.norm_flag = 0
+        # Update the movie window tools with the appropriate values
+        self.movie_scroll_obj.setMaximum(self.data.shape[0])
+        self.play_bool = 0
         # Update axes accordingly
         self.update_axes()
         # Activate Properties Interface
@@ -277,12 +338,12 @@ class MainWindow(QWidget, Ui_MainWindow):
             self.mpl_canvas_sig4.fig.tight_layout()
             self.mpl_canvas_sig4.draw()
             # Activate Movie and Signal Tools
-            # self.movie_scroll_obj.setEnabled(True)
-            # self.play_movie_button.setEnabled(True)
-            # self.export_movie_button.setEnabled(True)
+            self.movie_scroll_obj.setEnabled(True)
+            self.play_movie_button.setEnabled(True)
+            self.pause_button.setEnabled(True)
+            self.export_movie_button.setEnabled(True)
             self.signal_select_button.setEnabled(True)
             # self.optical_toggle_button.setEnabled(True)
-            # self.bkgd_toggle_button.setEnabled(True)
             # Activate Preparation Tools
             self.rm_bkgd_checkbox.setEnabled(True)
             self.rm_bkgd_method_label.setEnabled(True)
@@ -394,7 +455,15 @@ class MainWindow(QWidget, Ui_MainWindow):
             # Change the button string
             self.data_prop_button.setText('Start Preparation')
 
-    def prep_data(self):
+    def run_prep(self):
+        # Pass the function to execute
+        self.runner = JobRunner(self.prep_data)
+        # Execute
+        self.threadpool.start(self.runner)
+
+    def prep_data(self, progress_callback):
+        # Designate that dividing by zero will not generate an error
+        np.seterr(divide='ignore', invalid='ignore')
         # Grab unprepped data
         self.data_filt = self.data
         # Remove background
@@ -434,12 +503,42 @@ class MainWindow(QWidget, Ui_MainWindow):
             self.data_filt = filter_drift(
                 self.data_filt, self.mask, drift_order)
         if self.normalize_checkbox.isChecked():
-            # Baseline the data via broadcasting
-            self.data_filt = self.data_filt-np.average(self.data_filt, axis=0)
             # Invert the data
             self.data_filt = self.data_filt*-1
+            # Find index of the minimum of each signal
+            data_min_ind = np.argmin(self.data_filt, axis=0)
+            # Preallocate a variable for collecting minimum values
+            data_min = np.zeros(data_min_ind.shape)
+            # Grab the number of indices in the time axis (axis=0)
+            last_ind = self.data_filt.shape[0]
+            # Step through the data
+            for n in np.arange(0, self.data_filt.shape[1]):
+                for m in np.arange(0, self.data_filt.shape[2]):
+                    # Ignore pixels that have been masked out
+                    if not self.mask[n, m]:
+                        # Check for the leading edge case
+                        if data_min_ind[n, m]-10 < 0:
+                            data_min[n, m] = np.mean(
+                                self.data_filt[0:22, n, m])
+                        # Check for the trailing edge case
+                        elif data_min_ind[n, m]+11 > last_ind:
+                            data_min[n, m] = np.mean(
+                                self.data_filt[last_ind-21:last_ind, n, m])
+                        # Run assuming all indices are within time indices
+                        else:
+                            data_min[n, m] = np.mean(
+                                self.data_filt[
+                                    data_min_ind[n, m]-10:
+                                        data_min_ind[n, m]+11,
+                                        n, m])
+            # Find max amplitude of each signal
+            data_diff = np.amax(self.data_filt, axis=0) - data_min
+            # Baseline the data
+            self.data_filt = self.data_filt-data_min
             # Noralize via broadcasting
-            self.data_filt = self.data_filt/np.amax(self.data_filt, axis=0)
+            self.data_filt = self.data_filt/data_diff
+            # Set normalization flag
+            self.norm_flag = 1
         # Update axes
         self.update_axes()
 
@@ -466,7 +565,7 @@ class MainWindow(QWidget, Ui_MainWindow):
     def map_analysis(self):
         # Grab analysis type
         analysis_type = self.analysis_drop.currentIndex()
-        if analysis_type == 0:
+        if analysis_type == 0 or analysis_type == 1:
             # Grab the start and end times
             start_time = float(self.start_time_edit.text())
             end_time = float(self.end_time_edit.text())
@@ -479,19 +578,69 @@ class MainWindow(QWidget, Ui_MainWindow):
             # Calculate activation
             self.act_ind = calc_tran_activation(
                 self.data_filt, start_ind, end_ind)
-            # Generate a map of the activation times
-            self.act_map = plt.figure()
-            axes_act_map = self.act_map.add_axes([0.05, 0.1, 0.8, 0.8])
-            transp = ~self.mask
-            transp = transp.astype(float)
-            axes_act_map.imshow(self.act_ind, alpha=transp, vmin=0,
-                                vmax=end_ind-start_ind, cmap='jet')
-            cax = plt.axes([0.9, 0.1, 0.05, 0.8])
-            self.act_map.colorbar(
-                cm.ScalarMappable(
-                    colors.Normalize(0, end_ind-start_ind),
-                    cmap='jet'),
-                cax=cax)
+            # Generate activation map
+            if analysis_type == 0:
+                # Generate a map of the activation times
+                self.act_map = plt.figure()
+                axes_act_map = self.act_map.add_axes([0.05, 0.1, 0.8, 0.8])
+                transp = ~self.mask
+                transp = transp.astype(float)
+                axes_act_map.imshow(self.data[0], cmap='gray')
+                axes_act_map.imshow(self.act_ind, alpha=transp, vmin=0,
+                                    vmax=end_ind-start_ind, cmap='jet')
+                cax = plt.axes([0.9, 0.1, 0.05, 0.8])
+                self.act_map.colorbar(
+                    cm.ScalarMappable(
+                        colors.Normalize(0, end_ind-start_ind),
+                        cmap='jet'),
+                    cax=cax)
+            # Generate action potential duration (APD) map
+            if analysis_type == 1:
+                # Grab the maximum APD value
+                final_apd = float(self.max_val_edit.text())
+                # Find the associated time index
+                final_apd_ind = abs(self.signal_time-final_apd)
+                final_apd_ind = np.argmin(final_apd_ind)
+                # Grab the percent APD
+                percent_apd = float(self.perc_apd_edit.text())
+                # Find the maximum amplitude of the action potential
+                max_amp_ind = np.argmax(
+                    self.data_filt[start_ind:final_apd_ind, :, :])+start_ind
+                # Preallocate variable for percent apd index and value
+                apd_ind = np.zeros(max_amp_ind.shape)
+                self.apd_val = apd_ind
+                # Step through the data
+                for n in np.arange(0, self.data_filt.shape[1]):
+                    for m in np.arange(0, self.data_filt.shape[2]):
+                        # Ignore pixels that have been masked out
+                        if not self.mask[n, m]:
+                            # Grab the data segment between max amp and end
+                            apd_ind[n, m] = self.data_filt[
+                                max_amp_ind[n, m]:final_apd_ind, m, n]
+                            # Find the minimum to find the index closest to
+                            # desired apd percent
+                            apd_ind[n, m] = np.argmin(apd_ind[n, m]
+                                                      - max_amp_ind[n, m]
+                                                      * percent_apd)
+                            +max_amp_ind[n, m]
+                            # Subtract activation time to get apd
+                            self.apd_val[n, m] = apd_ind[n, m]
+                            -self.act_ind[n, m]
+                # Visualize apd
+                # Generate a map of the action potential durations
+                self.apd_map = plt.figure()
+                axes_apd_map = self.apd_map.add_axes([0.05, 0.1, 0.8, 0.8])
+                transp = ~self.mask
+                transp = transp.astype(float)
+                axes_apd_map.imshow(self.data[0], cmap='gray')
+                axes_apd_map.imshow(self.apd_val, alpha=transp, vmin=0,
+                                    vmax=final_apd_ind, cmap='jet')
+                cax = plt.axes([0.9, 0.1, 0.05, 0.8])
+                self.act_map.colorbar(
+                    cm.ScalarMappable(
+                        colors.Normalize(0, final_apd_ind),
+                        cmap='jet'),
+                    cax=cax)
 
     def signal_select(self):
         # Create placeholders for the x and y coordinates
@@ -502,38 +651,6 @@ class MainWindow(QWidget, Ui_MainWindow):
             'button_press_event', self.on_click)
 
     def update_win(self):
-        '''check_bot = 1
-        try:
-            # Grab the x-axis window values
-            bot_val = float(self.axes_start_time_edit.text())
-        except ValueError:
-            check_bot = 0
-        check_top = 1
-        try:
-            top_val = float(self.axes_end_time_edit.text())
-        except ValueError:
-            check_top = 0
-        # Check for empty entries
-        if check_bot == 0 and check_top == 1:
-            # Blank or string entry at start time, execute the warning
-            self.sig_win_warn(0)
-            # Restore previous value
-            self.axes_start_time_edit.setText(
-                str(self.signal_time[self.axes_start_ind]))
-            # Restore previous value
-            self.axes_end_time_edit.setText(
-                str(self.signal_time[self.axes_end_ind]))
-        elif check_bot == 1 and check_top == 0:
-            # Blank or string entry at end time, execute the warning
-            self.sig_win_warn(0)
-            # Restore previous value
-            self.axes_start_time_edit.setText(
-                str(self.signal_time[self.axes_start_ind]))
-            # Restore previous value
-            self.axes_end_time_edit.setText(
-                str(self.signal_time[self.axes_end_ind]))
-        elif check_bot == 0 and check_top == 0:
-            # Assume fields are empty '''
         bot_val = float(self.axes_start_time_edit.text())
         top_val = float(self.axes_end_time_edit.text())
         # Find the time index value to which the bot entry is closest
@@ -550,49 +667,35 @@ class MainWindow(QWidget, Ui_MainWindow):
             str(self.signal_time[self.axes_end_ind]))
         # Update the signal axes
         self.update_axes()
-        '''# Check the values against limits
-        if bot_val < 0 or top_val < 0:
-            # Execute the warning
-            self.sig_win_warn(0)
-            # Restore previous value
-            self.axes_start_time_edit.setText(
-                str(self.signal_time[self.axes_start_ind]))
-            # Restore previous value
-            self.axes_end_time_edit.setText(
-                str(self.signal_time[self.axes_end_ind]))
-        elif bot_val > self.signal_time[-1] or top_val > self.signal_time[-1]:
-            # Execute the warning
-            self.sig_win_warn(0)
-            # Restore previous value
-            self.axes_start_time_edit.setText(
-                str(self.signal_time[self.axes_start_ind]))
-            # Restore previous value
-            self.axes_end_time_edit.setText(
-                str(self.signal_time[self.axes_end_ind]))
-        elif bot_val < top_val:
-            # Execute the warning
-            self.sig_win_warn(1)
-            # Restore previous value
-            self.axes_start_time_edit.setText(
-                str(self.signal_time[self.axes_start_ind]))
-            # Restore previous value
-            self.axes_end_time_edit.setText(
-                str(self.signal_time[self.axes_end_ind]))
-        else:
-            # Find the time index value to which the bot entry is closest
-            bot_ind = abs(self.signal_time-bot_val)
-            self.axes_start_ind = bot_ind.index(min(bot_ind))
-            # Adjust the start time string accordingly
-            self.axes_start_time_edit.setText(
-                str(self.signal_time[self.axes_start_ind]))
-            # Find the time index value to which the top entry is closest
-            top_ind = abs(self.signal_time-top_val)
-            self.axes_end_ind = top_ind.index(min(bot_ind))
-            # Adjust the end time string accordingly
-            self.axes_end_time_edit.setText(
-                str(self.signal_time[self.axes_end_ind]))
-            # Update the signal axes
-            self.update_axes()'''
+
+    def play_movie(self):
+        # Grab the current value of the movie scroll bar
+        cur_val = self.movie_scroll_obj.value()
+        # Grab the maximum value of the movie scroll bar
+        max_val = self.movie_scroll_obj.maximum()
+        # Pass the function to execute
+        self.runner = JobRunner(self.update_frame, (cur_val, max_val))
+        self.runner.signals.progress.connect(self.movie_progress)
+        # Set or reset the pause variable and activate the pause button
+        self.is_paused = False
+        self.pause_button.setEnabled(True)
+        # Execute
+        self.threadpool.start(self.runner)
+
+    def update_frame(self, vals, progress_callback):
+        for n in np.arange(vals[0]+5, vals[1], 5):
+            time.sleep(0.5)
+            progress_callback.emit(n)
+            # If the pause button is hit, break the loop
+            if self.is_paused:
+                break
+
+    def movie_progress(self, n):
+        self.movie_scroll_obj.setValue(n)
+
+    # Function for pausing the movie once the play button has been hit
+    def pause_movie(self):
+        self.is_paused = True
 
     # ASSIST (I.E., NON-BUTTON) FUNCTIONS
     # Function for grabbing the x and y coordinates of a button click
@@ -639,6 +742,19 @@ class MainWindow(QWidget, Ui_MainWindow):
         self.mpl_canvas.axes.imshow(self.data[0], cmap='gray')
         # Match the matplotlib figure background color to the GUI
         self.mpl_canvas.fig.patch.set_facecolor(self.bkgd_color)
+        # If normalized, overlay the potential values
+        if self.norm_flag == 1:
+            # Get the current value of the movie slider
+            sig_id = self.movie_scroll_obj.value()
+            # Create the transparency mask
+            mask = ~self.mask
+            thresh = self.data_filt[sig_id, :, :] > 0.3
+            transp = mask == thresh
+            transp = transp.astype(float)
+            # Overlay the voltage on the background image
+            self.mpl_canvas.axes.imshow(self.data_filt[sig_id, :, :],
+                                        alpha=transp, vmin=0, vmax=1,
+                                        cmap='jet')
         # Plot the select signal points
         for cnt, ind in enumerate(self.signal_coord):
             if self.signal_toggle[cnt] == 0:
