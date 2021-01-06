@@ -10,13 +10,16 @@ import numpy as np
 from pathlib import Path, PurePath
 from random import random
 
-from util.preparation import open_stack, reduce_stack, mask_generate,\
-    mask_apply, img_as_uint, rescale
-from util.processing import normalize_stack, filter_spatial, map_snr,\
-    find_tran_act, filter_spatial_stack, filter_temporal, invert_signal,\
-    filter_drift
-from util.analysis import calc_tran_duration, map_tran_analysis, DUR_MAX,\
-    calc_tran_activation
+from util.preparation import (open_stack, reduce_stack, mask_generate,
+                              mask_apply, img_as_uint, rescale)
+from util.processing import (normalize_stack, filter_spatial, map_snr,
+                             find_tran_act, filter_spatial_stack,
+                             filter_temporal, invert_signal, filter_drift)
+from util.analysis import (calc_tran_duration, map_tran_analysis, DUR_MAX,
+                           calc_tran_activation, oap_peak_calc, diast_ind_calc,
+                           act_ind_calc, apd_ind_calc, tau_calc,
+                           ensemble_xlsx_print)
+        
 'from ui.KairoSight_WindowMDI import Ui_WindowMDI'
 from ui.KairoSight_WindowMain_Retro_v01 import Ui_MainWindow
 from PyQt5.QtCore import (QObject, pyqtSignal, Qt, QTimer, QRunnable,
@@ -37,10 +40,11 @@ import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import util.ScientificColourMaps5 as SCMaps
-from tests.intergration.test_Map import fontsize3, fontsize4, marker1,\
-    marker3, gray_heavy, color_snr, cmap_snr, cmap_activation,\
-    ACT_MAX_PIG_LV, ACT_MAX_PIG_WHOLE, cmap_duration,\
-    add_map_colorbar_stats
+from tests.intergration.test_Map import (fontsize3, fontsize4, marker1,
+                                         marker3, gray_heavy, color_snr,
+                                         cmap_snr, cmap_activation,
+                                         ACT_MAX_PIG_LV, ACT_MAX_PIG_WHOLE,
+                                         cmap_duration, add_map_colorbar_stats)
 
 
 '''class WindowMDI(QMainWindow, Ui_WindowMDI):
@@ -210,11 +214,13 @@ class MainWindow(QWidget, Ui_MainWindow):
         self.signal_select_button.clicked.connect(self.signal_select)
         self.prep_button.clicked.connect(self.run_prep)
         self.analysis_drop.currentIndexChanged.connect(self.analysis_select)
-        self.map_pushbutton.clicked.connect(self.map_analysis)
+        self.map_pushbutton.clicked.connect(self.run_map)
+        # self.reg_map_pushbutton.clicked.connect(self.reg_map_calc)
         self.axes_start_time_edit.editingFinished.connect(self.update_win)
         self.axes_end_time_edit.editingFinished.connect(self.update_win)
-        self.start_time_edit.editingFinished.connect(self.update_win)
-        self.end_time_edit.editingFinished.connect(self.update_win)
+        self.start_time_edit.editingFinished.connect(self.update_analysis_win)
+        self.end_time_edit.editingFinished.connect(self.update_analysis_win)
+        self.max_val_edit.editingFinished.connect(self.update_analysis_win)
         self.movie_scroll_obj.valueChanged.connect(self.update_axes)
         self.play_movie_button.clicked.connect(self.play_movie)
         self.pause_button.clicked.connect(self.pause_movie)
@@ -227,7 +233,9 @@ class MainWindow(QWidget, Ui_MainWindow):
         self.data = []
         self.data_filt = []
         self.signal_time = []
-        self.time_ind = 0
+        self.analysis_bot_lim = False
+        self.analysis_top_lim = False
+        self.analysis_y_lim = False
         self.cnames = ['cornflowerblue', 'gold', 'springgreen', 'lightcoral']
         # Designate that dividing by zero will not generate an error
         np.seterr(divide='ignore', invalid='ignore')
@@ -338,12 +346,7 @@ class MainWindow(QWidget, Ui_MainWindow):
             self.mpl_canvas_sig4.fig.tight_layout()
             self.mpl_canvas_sig4.draw()
             # Activate Movie and Signal Tools
-            self.movie_scroll_obj.setEnabled(True)
-            self.play_movie_button.setEnabled(True)
-            self.pause_button.setEnabled(True)
-            self.export_movie_button.setEnabled(True)
             self.signal_select_button.setEnabled(True)
-            # self.optical_toggle_button.setEnabled(True)
             # Activate Preparation Tools
             self.rm_bkgd_checkbox.setEnabled(True)
             self.rm_bkgd_method_label.setEnabled(True)
@@ -370,16 +373,16 @@ class MainWindow(QWidget, Ui_MainWindow):
             self.end_time_edit.setEnabled(True)
             self.map_pushbutton.setEnabled(True)
             if self.analysis_drop.currentIndex() == 1:
-                self.min_val_label.setEnabled(True)
-                self.min_val_edit.setEnabled(True)
+                self.max_apd_label.setEnabled(True)
+                self.max_apd_edit.setEnabled(True)
                 self.max_val_label.setEnabled(True)
                 self.max_val_edit.setEnabled(True)
                 self.perc_apd_label.setEnabled(True)
                 self.perc_apd_edit.setEnabled(True)
                 self.reg_map_pushbutton.setEnabled(True)
             else:
-                self.min_val_label.setEnabled(False)
-                self.min_val_edit.setEnabled(False)
+                self.max_apd_label.setEnabled(False)
+                self.max_apd_edit.setEnabled(False)
                 self.max_val_label.setEnabled(False)
                 self.max_val_edit.setEnabled(False)
                 self.perc_apd_label.setEnabled(False)
@@ -427,15 +430,8 @@ class MainWindow(QWidget, Ui_MainWindow):
             self.end_time_label.setEnabled(False)
             self.end_time_edit.setEnabled(False)
             self.map_pushbutton.setEnabled(False)
-            self.min_val_label.setEnabled(False)
-            self.min_val_edit.setEnabled(False)
-            self.max_val_label.setEnabled(False)
-            self.max_val_edit.setEnabled(False)
-            self.perc_apd_label.setEnabled(False)
-            self.perc_apd_edit.setEnabled(False)
-            self.reg_map_pushbutton.setEnabled(False)
-            self.min_val_label.setEnabled(False)
-            self.min_val_edit.setEnabled(False)
+            self.max_apd_label.setEnabled(False)
+            self.max_apd_edit.setEnabled(False)
             self.max_val_label.setEnabled(False)
             self.max_val_edit.setEnabled(False)
             self.perc_apd_label.setEnabled(False)
@@ -457,9 +453,9 @@ class MainWindow(QWidget, Ui_MainWindow):
 
     def run_prep(self):
         # Pass the function to execute
-        self.runner = JobRunner(self.prep_data)
+        runner = JobRunner(self.prep_data)
         # Execute
-        self.threadpool.start(self.runner)
+        self.threadpool.start(runner)
 
     def prep_data(self, progress_callback):
         # Designate that dividing by zero will not generate an error
@@ -535,112 +531,219 @@ class MainWindow(QWidget, Ui_MainWindow):
             data_diff = np.amax(self.data_filt, axis=0) - data_min
             # Baseline the data
             self.data_filt = self.data_filt-data_min
-            # Noralize via broadcasting
+            # Normalize via broadcasting
             self.data_filt = self.data_filt/data_diff
             # Set normalization flag
             self.norm_flag = 1
         # Update axes
         self.update_axes()
+        # Make the movie screen controls available if normalization occurred
+        if self.normalize_checkbox.isChecked():
+            self.movie_scroll_obj.setEnabled(True)
+            self.play_movie_button.setEnabled(True)
+            # self.export_movie_button.setEnabled(True)
+            # self.optical_toggle_button.setEnabled(True)
 
     def analysis_select(self):
         if self.analysis_drop.currentIndex() == 0:
             # Disable the APD tools
-            self.min_val_label.setEnabled(False)
-            self.min_val_edit.setEnabled(False)
+            self.max_apd_label.setEnabled(False)
+            self.max_apd_edit.setEnabled(False)
             self.max_val_label.setEnabled(False)
             self.max_val_edit.setEnabled(False)
             self.perc_apd_label.setEnabled(False)
             self.perc_apd_edit.setEnabled(False)
             self.reg_map_pushbutton.setEnabled(False)
+            self.ensemble_cb_01.setEnabled(False)
+            self.ensemble_cb_02.setEnabled(False)
+            self.ensemble_cb_03.setEnabled(False)
+            self.ensemble_cb_04.setEnabled(False)
         elif self.analysis_drop.currentIndex() == 1:
             # Disable the APD tools
-            self.min_val_label.setEnabled(True)
-            self.min_val_edit.setEnabled(True)
+            self.max_apd_label.setEnabled(True)
+            self.max_apd_edit.setEnabled(True)
             self.max_val_label.setEnabled(True)
             self.max_val_edit.setEnabled(True)
             self.perc_apd_label.setEnabled(True)
             self.perc_apd_edit.setEnabled(True)
             self.reg_map_pushbutton.setEnabled(True)
+            self.ensemble_cb_01.setEnabled(False)
+            self.ensemble_cb_02.setEnabled(False)
+            self.ensemble_cb_03.setEnabled(False)
+            self.ensemble_cb_04.setEnabled(False)
+        elif self.analysis_drop.currentIndex() == 2:
+            self.max_apd_label.setEnabled(False)
+            self.max_apd_edit.setEnabled(False)
+            self.max_val_label.setEnabled(True)
+            self.max_val_edit.setEnabled(True)
+            self.perc_apd_label.setEnabled(False)
+            self.perc_apd_edit.setEnabled(False)
+            self.reg_map_pushbutton.setEnabled(False)
+            self.ensemble_cb_01.setEnabled(True)
+            self.ensemble_cb_02.setEnabled(True)
+            self.ensemble_cb_03.setEnabled(True)
+            self.ensemble_cb_04.setEnabled(True)
 
-    def map_analysis(self):
+    def run_map(self):
+        # Pass the function to execute
+        runner = JobRunner(self.map_analysis)
+        # Execute
+        self.threadpool.start(runner)
+
+    def map_analysis(self, progress_callback):
         # Grab analysis type
         analysis_type = self.analysis_drop.currentIndex()
-        if analysis_type == 0 or analysis_type == 1:
-            # Grab the start and end times
-            start_time = float(self.start_time_edit.text())
-            end_time = float(self.end_time_edit.text())
-            # Find the time index value to which the start entry is closest
-            start_ind = abs(self.signal_time-start_time)
-            start_ind = np.argmin(start_ind)
-            # Find the time index value to which the top entry is closest
-            end_ind = abs(self.signal_time-end_time)
-            end_ind = np.argmin(end_ind)
-            # Calculate activation
-            self.act_ind = calc_tran_activation(
-                self.data_filt, start_ind, end_ind)
-            # Generate activation map
-            if analysis_type == 0:
-                # Generate a map of the activation times
-                self.act_map = plt.figure()
-                axes_act_map = self.act_map.add_axes([0.05, 0.1, 0.8, 0.8])
-                transp = ~self.mask
-                transp = transp.astype(float)
-                axes_act_map.imshow(self.data[0], cmap='gray')
-                axes_act_map.imshow(self.act_ind, alpha=transp, vmin=0,
-                                    vmax=end_ind-start_ind, cmap='jet')
-                cax = plt.axes([0.9, 0.1, 0.05, 0.8])
-                self.act_map.colorbar(
-                    cm.ScalarMappable(
-                        colors.Normalize(0, end_ind-start_ind),
-                        cmap='jet'),
-                    cax=cax)
-            # Generate action potential duration (APD) map
-            if analysis_type == 1:
-                # Grab the maximum APD value
-                final_apd = float(self.max_val_edit.text())
-                # Find the associated time index
-                final_apd_ind = abs(self.signal_time-final_apd)
-                final_apd_ind = np.argmin(final_apd_ind)
-                # Grab the percent APD
-                percent_apd = float(self.perc_apd_edit.text())
-                # Find the maximum amplitude of the action potential
-                max_amp_ind = np.argmax(
-                    self.data_filt[start_ind:final_apd_ind, :, :])+start_ind
-                # Preallocate variable for percent apd index and value
-                apd_ind = np.zeros(max_amp_ind.shape)
-                self.apd_val = apd_ind
-                # Step through the data
-                for n in np.arange(0, self.data_filt.shape[1]):
-                    for m in np.arange(0, self.data_filt.shape[2]):
-                        # Ignore pixels that have been masked out
-                        if not self.mask[n, m]:
-                            # Grab the data segment between max amp and end
-                            apd_ind[n, m] = self.data_filt[
-                                max_amp_ind[n, m]:final_apd_ind, m, n]
-                            # Find the minimum to find the index closest to
-                            # desired apd percent
-                            apd_ind[n, m] = np.argmin(apd_ind[n, m]
-                                                      - max_amp_ind[n, m]
-                                                      * percent_apd)
-                            +max_amp_ind[n, m]
-                            # Subtract activation time to get apd
-                            self.apd_val[n, m] = apd_ind[n, m]
-                            -self.act_ind[n, m]
-                # Visualize apd
-                # Generate a map of the action potential durations
-                self.apd_map = plt.figure()
-                axes_apd_map = self.apd_map.add_axes([0.05, 0.1, 0.8, 0.8])
-                transp = ~self.mask
-                transp = transp.astype(float)
-                axes_apd_map.imshow(self.data[0], cmap='gray')
-                axes_apd_map.imshow(self.apd_val, alpha=transp, vmin=0,
-                                    vmax=final_apd_ind, cmap='jet')
-                cax = plt.axes([0.9, 0.1, 0.05, 0.8])
-                self.act_map.colorbar(
-                    cm.ScalarMappable(
-                        colors.Normalize(0, final_apd_ind),
-                        cmap='jet'),
-                    cax=cax)
+        # Grab the start and end times
+        start_time = float(self.start_time_edit.text())
+        end_time = float(self.end_time_edit.text())
+        # Find the time index value to which the start entry is closest
+        start_ind = abs(self.signal_time-start_time)
+        start_ind = np.argmin(start_ind)
+        # Find the time index value to which the top entry is closest
+        end_ind = abs(self.signal_time-end_time)
+        end_ind = np.argmin(end_ind)
+        # Calculate activation
+        self.act_ind = calc_tran_activation(
+            self.data_filt, start_ind, end_ind)
+        # Generate activation map
+        if analysis_type == 0:
+            # Generate a map of the activation times
+            self.act_map = plt.figure()
+            axes_act_map = self.act_map.add_axes([0.05, 0.1, 0.8, 0.8])
+            transp = ~self.mask
+            transp = transp.astype(float)
+            axes_act_map.imshow(self.data[0], cmap='gray')
+            axes_act_map.imshow(self.act_ind, alpha=transp, vmin=0,
+                                vmax=end_ind-start_ind, cmap='jet')
+            cax = plt.axes([0.9, 0.1, 0.05, 0.8])
+            self.act_map.colorbar(
+                cm.ScalarMappable(
+                    colors.Normalize(0, end_ind-start_ind),
+                    cmap='jet'),
+                cax=cax)
+        # Generate action potential duration (APD) map
+        if analysis_type == 1:
+            # Grab the maximum APD value
+            final_apd = float(self.max_apd_edit.text())
+            # Find the associated time index
+            max_apd_ind = abs(self.signal_time-final_apd)
+            max_apd_ind = np.argmin(max_apd_ind)
+            # Grab the percent APD
+            percent_apd = float(self.perc_apd_edit.text())
+            # Find the maximum amplitude of the action potential
+            max_amp_ind = np.argmax(
+                self.data_filt[
+                    start_ind:start_ind+max_apd_ind, :, :], axis=0
+                )+start_ind
+            # Preallocate variable for percent apd index and value
+            apd_ind = np.zeros(max_amp_ind.shape)
+            self.apd_val = apd_ind
+            # Step through the data
+            for n in np.arange(0, self.data_filt.shape[1]):
+                for m in np.arange(0, self.data_filt.shape[2]):
+                    # Ignore pixels that have been masked out
+                    if not self.mask[n, m]:
+                        # Grab the data segment between max amp and end
+                        tmp = self.data_filt[
+                            max_amp_ind[n, m]:start_ind +
+                            max_apd_ind, n, m]
+                        # Find the minimum to find the index closest to
+                        # desired apd percent
+                        apd_ind[n, m] = np.argmin(tmp
+                                                  - max_amp_ind[n, m]
+                                                  * percent_apd)
+                        +max_amp_ind[n, m]
+                        # Subtract activation time to get apd
+                        self.apd_val[n, m] = apd_ind[n, m]
+                        -self.act_ind[n, m]
+            # Visualize apd
+            # Generate a map of the action potential durations
+            self.apd_map = plt.figure()
+            axes_apd_map = self.apd_map.add_axes([0.05, 0.1, 0.8, 0.8])
+            transp = ~self.mask
+            transp = transp.astype(float)
+            axes_apd_map.imshow(self.data[0], cmap='gray')
+            axes_apd_map.imshow(self.apd_val, alpha=transp, vmin=0,
+                                vmax=max_apd_ind, cmap='jet')
+            cax = plt.axes([0.9, 0.1, 0.05, 0.8])
+            self.apd_map.colorbar(
+                cm.ScalarMappable(
+                    colors.Normalize(0, max_apd_ind),
+                    cmap='jet'),
+                cax=cax)
+            print(apd_ind)
+        # Generate data for succession of APDs
+        if analysis_type == 2:
+            # Grab the start and end time, amplitude threshold, and signals
+            amp_thresh = float(self.max_val_edit.text())
+            # Identify which signals have been selected for calculation
+            ensemble_list = [self.ensemble_cb_01.isChecked(),
+                             self.ensemble_cb_02.isChecked(),
+                             self.ensemble_cb_03.isChecked(),
+                             self.ensemble_cb_04.isChecked()]
+            ind_analyze = self.signal_coord[ensemble_list, :]
+            data_oap = []
+            peak_ind = []
+            peak_amp = []
+            diast_ind = []
+            act_ind = []
+            apd_val_30 = []
+            apd_val_80 = []
+            apd_val_tri = []
+            tau_fall = []
+            f1_f0 = []
+            d_f0 = []
+            # Iterate through the code
+            for idx in np.arange(len(ind_analyze)):
+                data_oap.append(
+                    self.data_filt[:, self.signal_coord[idx][1],
+                                   self.signal_coord[idx][0]])
+                # Calculate peak indices
+                peak_ind.append(oap_peak_calc(data_oap[idx], start_ind,
+                                              end_ind, amp_thresh,
+                                              self.data_fps))
+                # Calculate peak amplitudes
+                peak_amp.append(data_oap[idx][peak_ind[idx]])
+                # Calculate end-diastole indices
+                diast_ind.append(diast_ind_calc(data_oap[idx],
+                                                peak_ind[idx]))
+                # Calculate the activation
+                act_ind.append(act_ind_calc(data_oap[idx], diast_ind[idx],
+                                            peak_ind[idx]))
+                # Calculate the APD30
+                apd_ind_30 = apd_ind_calc(data_oap[idx], end_ind,
+                                          diast_ind[idx], peak_ind[idx],
+                                          0.3)
+                apd_val_30.append(self.signal_time[apd_ind_30] -
+                                  self.signal_time[act_ind[idx]])
+                # Calculate APD80
+                apd_ind_80 = apd_ind_calc(data_oap[idx], end_ind,
+                                          diast_ind[idx], peak_ind[idx],
+                                          0.8)
+                apd_val_80.append(self.signal_time[apd_ind_80] -
+                                  self.signal_time[act_ind[idx]])
+                # Calculate APD triangulation
+                apd_val_tri.append(apd_val_80[idx]-apd_val_30[idx])
+                # Calculate Tau Fall
+                tau_fall.append(tau_calc(data_oap[idx], self.data_fps,
+                                         peak_ind[idx], diast_ind[idx],
+                                         end_ind))
+                # Calculate the baseline fluorescence as the average of the
+                # first 10 points
+                f0 = np.average(data_oap[idx][:11])
+                print(f0)
+                # Calculate F1/F0 fluorescent ratio
+                f1_f0.append(data_oap[idx][peak_ind[idx]]/f0)
+                # Calculate D/F0 fluorescent ratio
+                d_f0.append(data_oap[idx][diast_ind[idx]]/f0)
+            # Open dialogue box for selecting the data directory
+            save_fname = QFileDialog.getSaveFileName(
+                self, "Save File", os.getcwd(), "Excel Files (*.xlsx)")
+            # Write results to a spreadsheet
+            ensemble_xlsx_print(save_fname[0], self.signal_time, ind_analyze,
+                                data_oap, act_ind, peak_ind, tau_fall,
+                                apd_val_30, apd_val_80, apd_val_tri, d_f0,
+                                f1_f0)
 
     def signal_select(self):
         # Create placeholders for the x and y coordinates
@@ -668,6 +771,35 @@ class MainWindow(QWidget, Ui_MainWindow):
         # Update the signal axes
         self.update_axes()
 
+    def update_analysis_win(self):
+        # Grab new start time value index and update entry to actual value
+        if self.start_time_edit.text():
+            bot_val = float(self.start_time_edit.text())
+            # Find the time index value to which the bot entry is closest
+            bot_ind = abs(self.signal_time-bot_val)
+            self.anal_start_ind = np.argmin(bot_ind)
+            # Adjust the start time string accordingly
+            self.start_time_edit.setText(
+                str(self.signal_time[self.anal_start_ind]))
+            # Set boolean to true to signal axes updates accordingly
+            self.analysis_bot_lim = True
+        # Grab new end time value index and update entry to actual value
+        if self.end_time_edit.text():
+            top_val = float(self.end_time_edit.text())
+            # Find the time index value to which the top entry is closest
+            top_ind = abs(self.signal_time-top_val)
+            self.anal_end_ind = np.argmin(top_ind)
+            # Adjust the end time string accordingly
+            self.end_time_edit.setText(
+                str(self.signal_time[self.anal_end_ind]))
+            # Set boolean to true to signal axes updates accordingly
+            self.analysis_top_lim = True
+        if self.max_val_edit.text():
+            # Set boolean to true to signal axes updates accordingly
+            self.analysis_y_lim = True
+        # Update the axes accordingly
+        self.update_axes()
+
     def play_movie(self):
         # Grab the current value of the movie scroll bar
         cur_val = self.movie_scroll_obj.value()
@@ -683,14 +815,21 @@ class MainWindow(QWidget, Ui_MainWindow):
         self.threadpool.start(self.runner)
 
     def update_frame(self, vals, progress_callback):
+        # Start at the current frame and proceed to the end of the file
         for n in np.arange(vals[0]+5, vals[1], 5):
+            # Create a minor delay so change is noticeable
             time.sleep(0.5)
+            # Emit a signal that will trigger the movie_progress function
             progress_callback.emit(n)
             # If the pause button is hit, break the loop
             if self.is_paused:
+                self.pause_button.setEnabled(False)
                 break
+        # At the end deactivate the pause button
+        self.pause_button.setEnabled(False)
 
     def movie_progress(self, n):
+        # Update the scroll bar value, thereby updating the movie screen
         self.movie_scroll_obj.setValue(n)
 
     # Function for pausing the movie once the play button has been hit
@@ -792,10 +931,58 @@ class MainWindow(QWidget, Ui_MainWindow):
                         self.signal_time[start_i:end_i],
                         data[start_i:end_i, ind[1], ind[0]],
                         color=self.cnames[cnt])
+                    # Check to see if normalization has occurred
+                    if self.normalize_checkbox.isChecked():
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the movie frame
+                        x = self.signal_time[self.movie_scroll_obj.value()]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig1.axes.plot(
+                            [x, x], [y0, y1], 'lime')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig1.axes.set_ylim(y0, y1)
+                    # Check to see if limits have been established for analysis
+                    if self.analysis_bot_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_start_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig1.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig1.axes.set_ylim(y0, y1)
+                    if self.analysis_top_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_end_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig1.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig1.axes.set_ylim(y0, y1)
+                    if self.analysis_y_lim:
+                        # X-axis bounds
+                        x0 = self.signal_time[start_i]
+                        x1 = self.signal_time[end_i-1]
+                        # Y-axis value
+                        y = float(self.max_val_edit.text())
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig1.axes.plot(
+                            [x0, x1], [y, y], 'red')
+                    # Set the x-axis limits
                     self.mpl_canvas_sig1.axes.set_xlim(
                         self.signal_time[start_i], self.signal_time[end_i-1])
+                    # Remove the x-axis tick marks
                     self.mpl_canvas_sig1.axes.tick_params(labelbottom=False)
+                    # Tighten the layout
                     self.mpl_canvas_sig1.fig.tight_layout()
+                    # Draw the figure
                     self.mpl_canvas_sig1.draw()
                 elif cnt == 1:
                     # Clear axis for update
@@ -805,10 +992,58 @@ class MainWindow(QWidget, Ui_MainWindow):
                         self.signal_time[start_i:end_i],
                         data[start_i:end_i, ind[1], ind[0]],
                         color=self.cnames[cnt])
+                    # Check to see if normalization has occurred
+                    if self.normalize_checkbox.isChecked():
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the movie frame
+                        x = self.signal_time[self.movie_scroll_obj.value()]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig2.axes.plot(
+                            [x, x], [y0, y1], 'lime')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig2.axes.set_ylim(y0, y1)
+                    # Check to see if limits have been established for analysis
+                    if self.analysis_bot_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_start_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig2.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig2.axes.set_ylim(y0, y1)
+                    if self.analysis_top_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_end_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig2.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig2.axes.set_ylim(y0, y1)
+                    if self.analysis_y_lim:
+                        # X-axis bounds
+                        x0 = self.signal_time[start_i]
+                        x1 = self.signal_time[end_i-1]
+                        # Y-axis value
+                        y = float(self.max_val_edit.text())
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig2.axes.plot(
+                            [x0, x1], [y, y], 'red')
+                    # Set the x-axis limits
                     self.mpl_canvas_sig2.axes.set_xlim(
                         self.signal_time[start_i], self.signal_time[end_i-1])
+                    # Remove the x-axis tick marks
                     self.mpl_canvas_sig2.axes.tick_params(labelbottom=False)
+                    # Tighten the layout
                     self.mpl_canvas_sig2.fig.tight_layout()
+                    # Draw the figure
                     self.mpl_canvas_sig2.draw()
                 elif cnt == 2:
                     # Clear axis for update
@@ -818,10 +1053,58 @@ class MainWindow(QWidget, Ui_MainWindow):
                         self.signal_time[start_i:end_i],
                         data[start_i:end_i, ind[1], ind[0]],
                         color=self.cnames[cnt])
+                    # Check to see if normalization has occurred
+                    if self.normalize_checkbox.isChecked():
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the movie frame
+                        x = self.signal_time[self.movie_scroll_obj.value()]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig3.axes.plot(
+                            [x, x], [y0, y1], 'lime')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig3.axes.set_ylim(y0, y1)
+                    # Check to see if limits have been established for analysis
+                    if self.analysis_bot_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_start_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig3.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig3.axes.set_ylim(y0, y1)
+                    if self.analysis_top_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_end_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig3.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig3.axes.set_ylim(y0, y1)
+                    if self.analysis_y_lim:
+                        # X-axis bounds
+                        x0 = self.signal_time[start_i]
+                        x1 = self.signal_time[end_i-1]
+                        # Y-axis value
+                        y = float(self.max_val_edit.text())
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig3.axes.plot(
+                            [x0, x1], [y, y], 'red')
+                    # Set the x-axis limits
                     self.mpl_canvas_sig3.axes.set_xlim(
                         self.signal_time[start_i], self.signal_time[end_i-1])
+                    # Remove the x-axis tick marks
                     self.mpl_canvas_sig3.axes.tick_params(labelbottom=False)
+                    # Tighten the layout
                     self.mpl_canvas_sig3.fig.tight_layout()
+                    # Draw the figure
                     self.mpl_canvas_sig3.draw()
                 else:
                     # Clear axis for update
@@ -831,9 +1114,56 @@ class MainWindow(QWidget, Ui_MainWindow):
                         self.signal_time[start_i:end_i],
                         data[start_i:end_i, ind[1], ind[0]],
                         color=self.cnames[cnt])
+                    # Check to see if normalization has occurred
+                    if self.normalize_checkbox.isChecked():
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the movie frame
+                        x = self.signal_time[self.movie_scroll_obj.value()]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig4.axes.plot(
+                            [x, x], [y0, y1], 'lime')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig4.axes.set_ylim(y0, y1)
+                    # Check to see if limits have been established for analysis
+                    if self.analysis_bot_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_start_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig4.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig4.axes.set_ylim(y0, y1)
+                    if self.analysis_top_lim:
+                        # Grab the min and max in the y-axis
+                        y0 = np.min(data[start_i:end_i, ind[1], ind[0]])-0.05
+                        y1 = np.max(data[start_i:end_i, ind[1], ind[0]])+0.05
+                        # Get the position of the lower limit marker
+                        x = self.signal_time[self.anal_end_ind]
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig4.axes.plot(
+                            [x, x], [y0, y1], 'red')
+                        # Set the y-axis limits
+                        self.mpl_canvas_sig4.axes.set_ylim(y0, y1)
+                    if self.analysis_y_lim:
+                        # X-axis bounds
+                        x0 = self.signal_time[start_i]
+                        x1 = self.signal_time[end_i-1]
+                        # Y-axis value
+                        y = float(self.max_val_edit.text())
+                        # Overlay the frame location of the play feature
+                        self.mpl_canvas_sig4.axes.plot(
+                            [x0, x1], [y, y], 'red')
+                    # Set the x-axis limits
                     self.mpl_canvas_sig4.axes.set_xlim(
                         self.signal_time[start_i], self.signal_time[end_i-1])
+                    # Tighten the layout
                     self.mpl_canvas_sig4.fig.tight_layout()
+                    # Draw the figure
                     self.mpl_canvas_sig4.draw()
 
 
