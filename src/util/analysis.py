@@ -277,10 +277,7 @@ def oap_peak_calc(signal_in, start_ind, end_ind, amp_thresh, fps):
     # length < 120 ms)
     peak_sep = peak_ind[1:]-peak_ind[:-1]
     rm = [n for n in np.arange(0, len(peak_sep)) if peak_sep[n]*1/fps < 0.120]
-    if rm:
-        rm = [x+1 for x in rm]
-        for n in rm:
-            peak_ind = np.delete(peak_ind, n)
+    peak_ind = np.delete(peak_ind, rm)
     # Output the indices of the peaks
     return peak_ind.astype(int)
 
