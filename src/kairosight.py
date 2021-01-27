@@ -9,8 +9,10 @@ import numpy as np
 from pathlib import Path, PurePath
 from random import random
 
-from util.preparation import open_stack, reduce_stack, mask_generate, mask_apply, img_as_uint, rescale
-from util.processing import normalize_stack, filter_spatial, map_snr, find_tran_act
+from util.preparation import open_stack, reduce_stack, mask_generate,\
+    mask_apply, img_as_uint, rescale
+from util.processing import normalize_stack, filter_spatial, map_snr,\
+    find_tran_act
 from util.analysis import calc_tran_duration, map_tran_analysis, DUR_MAX
 from ui.KairoSight_WindowMDI import Ui_WindowMDI
 from ui.KairoSight_WindowMain import Ui_WindowMain
@@ -25,8 +27,9 @@ import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import util.ScientificColourMaps5 as SCMaps
-from tests.intergration.test_Map import fontsize3, fontsize4, marker1, marker3, gray_heavy, \
-    color_snr, cmap_snr, cmap_activation, ACT_MAX_PIG_LV, ACT_MAX_PIG_WHOLE, cmap_duration, \
+from tests.intergration.test_Map import fontsize3, fontsize4, marker1,\
+    marker3, gray_heavy, color_snr, cmap_snr, cmap_activation,\
+    ACT_MAX_PIG_LV, ACT_MAX_PIG_WHOLE, cmap_duration,\
     add_map_colorbar_stats
 
 
@@ -116,6 +119,7 @@ class WindowMain(QWidget, Ui_WindowMain):
         # Import file for this window
         self.file_purepath = file_purepath
         self.file_path_str = str(self.file_purepath)
+        # print(self.file_path_str)
         self.project_path_str = str(self.file_purepath.parent) + '\\' + str(self.file_purepath.stem) + '_ks_project'
         self.video_data_raw, self.stack_real_meta = open_stack(source=self.file_path_str)
         self.frame_n = self.video_data_raw.shape[0]

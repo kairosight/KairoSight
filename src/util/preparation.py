@@ -20,12 +20,14 @@ FL_16BIT_MAX = 2 ** 16 - 1  # Maximum intensity value of a 16-bit pixel: 65535
 MASK_TYPES = ['Otsu_global', 'Mean', 'Random_walk', 'best_ever']
 MASK_STRICT_MAX = 9
 
-# TODO move "reduce_stack" from test_Map setUps to a preparation as a new function
+# TODO move "reduce_stack" from test_Map setUps to a preparation as a new
+# function
 
 
 def open_signal(source, fps=500):
     """Open an array of optical data from a text file (.csv)
-    as a calculated time array and an array of 16-bit arbitrary fluorescent data
+    as a calculated time array and an array of 16-bit arbitrary fluorescent
+    data
 
         Parameters
         ----------
@@ -43,11 +45,13 @@ def open_signal(source, fps=500):
     """
     # Check parameter types
     if type(source) not in [str]:
-        raise TypeError('Required "source" ' + source + ' parameter must be a string')
+        raise TypeError('Required "source" ' + source +
+                        ' parameter must be a string')
     # Check parameter validity
     # Make sure the source is an existing file
     if not os.path.isfile(source):
-        raise FileNotFoundError('Required "source" ' + source + ' is not a file or does not exist.')
+        raise FileNotFoundError('Required "source" ' + source +
+                                ' is not a file or does not exist.')
 
     # Load the text file
     signal_text = np.genfromtxt(source, delimiter=',')
@@ -58,8 +62,10 @@ def open_signal(source, fps=500):
 
     if len(signal_text.shape) > 1:
         # Multiple columns
-        data_x = signal_text[1:, 0]  # rows of the first column (skip X,Y header row)
-        data_y_counts = signal_text[1:, 1].astype(np.uint16)  # rows of the first column (skip X,Y header row)
+        # rows of the first column (skip X,Y header row)
+        data_x = signal_text[1:, 0]
+        # rows of the first column (skip X,Y header row)
+        data_y_counts = signal_text[1:, 1].astype(np.uint16)
         n_frames = len(data_x)
         t_final = floor(n_frames / fpms)
     else:
@@ -105,7 +111,6 @@ def open_stack(source, meta=None):
 
     # Check validity
     # Make sure the directory, source file, and optional meta file exists
-
     if not os.path.isdir(os.path.split(source)[0]):
         raise FileNotFoundError('Required directory ' + os.path.split(source)[0]
                                 + ' is not a directory or does not exist.')
@@ -113,7 +118,6 @@ def open_stack(source, meta=None):
         raise FileNotFoundError('Required "source" ' + source + ' is not a file or does not exist.')
     if meta and not os.path.isfile(meta):
         raise FileNotFoundError('Optional "meta" ' + meta + ' is not a file or does not exist.')
-
     # If a .pcoraw file, convert to .tiff
     f_purepath = PurePath(source)
     f_extension = f_purepath.suffix
@@ -122,16 +126,13 @@ def open_stack(source, meta=None):
         p.rename(p.with_suffix('.tif'))
         source = os.path.splitext(source)[0] + '.tif'
         print('* .pcoraw covnerted to a .tif')
-
     # Open the metadata, if provided
     stack_meta = get_reader(source, mode='v').get_meta_data()
-
     # Open the file
     # file_source = open(source, 'rb')
     # tags = exifread.process_file(file)  # Read EXIF data
     stack = volread(source)  # Read image data, closes the file after reading
     stack = img_as_uint(stack)  # Read image data, closes the file after reading
-
     if meta:
         file_meta = open(meta)
         meta = file_meta.read()
@@ -178,7 +179,7 @@ def crop_stack(stack_in, d_x=False, d_y=False):
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
-    if len(stack_in.shape) is not 3:
+    if len(stack_in.shape) != 3:
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
@@ -270,7 +271,7 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
     # Check parameters
     if type(frame_in) is not np.ndarray:
         raise TypeError('Frame type must be an "ndarray"')
-    if len(frame_in.shape) is not 2:
+    if len(frame_in.shape) != 2:
         raise TypeError('Frame must be a 2-D ndarray (Y, X)')
     if frame_in.dtype not in [np.uint16, float]:
         raise TypeError('Frame values must either be "np.uint16" or "float"')
@@ -278,7 +279,7 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
         raise TypeError('Filter type must be a "str"')
     if type(strict) is not tuple:
         raise TypeError('Strictness type must be an "tuple"')
-    if len(strict) is not 2:
+    if len(strict) != 2:
         raise TypeError('Strictness length must be 2')
     if strict[0] > strict[1]:
         raise TypeError('Strictness for Dark cutoff must be greater than Light cutoff')
@@ -294,21 +295,21 @@ def mask_generate(frame_in, mask_type='Otsu_global', strict=(3, 5)):
 
     frame_in_gradient = sobel(frame_in)
 
-    if mask_type is 'Otsu_global':
+    if mask_type == 'Otsu_global':
         # Good for ___, but ___
         global_otsu = threshold_otsu(frame_in)
         binary_global = frame_in <= global_otsu
         mask = binary_global
         frame_out[mask] = 0
 
-    elif mask_type is 'Mean':
+    elif mask_type == 'Mean':
         # Good for ___, but __
         thresh = threshold_mean(frame_in)
         binary_global = frame_in <= thresh
         mask = binary_global
         frame_out[mask] = 0
 
-    elif mask_type is 'Random_walk':
+    elif mask_type == 'Random_walk':
         # https://scikit-image.org/docs/0.13.x/auto_examples/segmentation/plot_random_walker_segmentation.html
         # The range of the binary image spans over (-1, 1)
         # We choose extreme tails of the histogram as markers, and use diffusion to fill in the rest.
@@ -383,7 +384,7 @@ def mask_apply(stack_in, mask):
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
-    if len(stack_in.shape) is not 3:
+    if len(stack_in.shape) != 3:
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
@@ -392,7 +393,7 @@ def mask_apply(stack_in, mask):
         raise TypeError('Mask type must be an "ndarray"')
     if mask.dtype not in [np.int64, bool]:
         raise TypeError('Stack values must either be "np.bool_"')
-    if len(mask.shape) is not 2:
+    if len(mask.shape) != 2:
         raise TypeError('Mask must be a 2-D ndarray (Y, X)')
 
     frame_0 = stack_in[0]

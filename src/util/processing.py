@@ -1,11 +1,12 @@
-from util.preparation import *
+# from util.preparation import * FIGURE OUT HOW TO MAKE THIS WORK!!!
 
 import statistics
 import sys
 
 import numpy as np
 from scipy.interpolate import LSQUnivariateSpline
-from scipy.signal import find_peaks, correlate, filtfilt, kaiserord, firwin, butter
+from scipy.signal import find_peaks, correlate, filtfilt, kaiserord, firwin,\
+    butter, convolve2d, remez
 from scipy.optimize import curve_fit
 from skimage.morphology import square
 from skimage.filters import gaussian
@@ -121,7 +122,7 @@ def find_tran_peak(signal_in, props=False):
     i_peaks, properties = find_peaks(signal_in,
                                      height=signal_mean, prominence=prominence,
                                      distance=distance)
-    if len(i_peaks) is 0:  # no peak detected
+    if len(i_peaks) == 0:  # no peak detected
         if props:
             return np.nan, np.nan
         else:
@@ -487,7 +488,7 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
     # Check parameters
     if type(frame_in) is not np.ndarray:
         raise TypeError('Frame type must be an "ndarray"')
-    if len(frame_in.shape) is not 2:
+    if len(frame_in.shape) != 2:
         raise TypeError('Frame must be a 2-D ndarray (Y, X)')
     if frame_in.dtype not in [np.uint16, float]:
         raise TypeError('Frame values must either be "np.uint16" or "float"')
@@ -501,20 +502,20 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
     if kernel < 3 or (kernel % 2) == 0:
         raise ValueError('Kernel size {} px must be >= 3 and odd'.format(kernel))
 
-    if filter_type is 'median':
+    if filter_type == 'median':
         # Good for ___, but ___
         # k = np.full([kernel, kernel], 1)
         frame_out = median(frame_in, square(kernel))
-    elif filter_type is 'mean':
+    elif filter_type == 'mean':
         # Good for ___, but over-smooths?
         # k = np.full([kernel, kernel], 1)
         frame_out = mean(frame_in, square(kernel))
-    elif filter_type is 'bilateral':
+    elif filter_type == 'bilateral':
         # Good for edge preservation, but slow
         # sigma_color = 50  # standard deviation of the intensity gaussian kernel
         # sigma_space = 10  # standard deviation of the spatial gaussian kernel
         frame_out = mean_bilateral(frame_in, square(kernel))
-    elif filter_type is 'gaussian':
+    elif filter_type == 'gaussian':
         # Good for ___, but ___
         sigma = kernel  # standard deviation of the gaussian kernel
         frame_out = gaussian(frame_in, sigma=sigma, mode='mirror', preserve_range=True)
@@ -524,7 +525,42 @@ def filter_spatial(frame_in, filter_type='gaussian', kernel=3):
     return frame_out.astype(frame_in.dtype)
 
 
-def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='auto'):
+def filter_spatial_stack(stack_in, kernel_size=3):
+    """Spatially filter a stack (3-D array, YXZ) of grayscale optical data.
+
+        Parameters
+        ----------
+        stack_in : ndarray
+             A 3-D array (Y, X, Z) of optical data, dtype : uint16 or float
+        kernel_size : int
+            The width and height of the kernel used, must be positive and odd,
+            default is 3, max is 7
+
+        Returns
+        -------
+        stack_out : ndarray
+             A spatially filtered 3-D array (Y, X) of optical data,
+             dtype : frame_in.dtype
+        """
+    # Create the kernel
+    pattern = np.ones([kernel_size, kernel_size])
+    # Create a mask to remove background data from consideration
+    mask = stack_in[0, :, :] == 0
+    # Preallocate output variable
+    stack_out = np.zeros(stack_in.shape)
+    # Iterate through the data
+    for c, data in enumerate(stack_in):
+        # Use 2D convolution to calculate the average
+        ave = convolve2d(np.where(mask, 0, data), pattern, 'same')\
+            / convolve2d(~mask, pattern, 'same')
+        ave[mask] = 0
+        stack_out[c, :, :] = ave
+    # Return the average stack
+    return stack_out
+
+
+def filter_temporal(signal_in, sample_rate, mask, freq_cutoff=100.0,
+                    filter_order='auto'):
     """Apply a lowpass filter to an array of optical data.
 
         Parameters
@@ -558,14 +594,24 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
 
     nyq_rate = sample_rate / 2.0
     n_order = 0
-
     if type(filter_order) is int:
+        # Preallocate space for the output
+        signal_out = np.zeros(signal_in.shape)
+        # Calculate filter coefficients using Remez exchange algorithm
+        b = remez(filter_order, [0.5, freq_cutoff, freq_cutoff*1.25,
+                                 sample_rate/2.0], [1, 0], Hz=sample_rate)
+        a = 1.0
+        # Apply the filter to the signal
+        for n in np.arange(0, signal_in.shape[1]):
+            for m in np.arange(0, signal_in.shape[2]):
+                if not mask[n, m]:
+                    signal_out[:, n, m] = filtfilt(b, a, signal_in[:, n, m])
         # Good for ___, but ___
         # Butterworth (from old code)
-        Wn = freq_cutoff / nyq_rate
-        n_order = filter_order
-        [b, a] = butter(n_order, Wn)
-        signal_out = filtfilt(b, a, signal_in)
+        # Wn = freq_cutoff / nyq_rate
+        # n_order = filter_order
+        # [b, a] = butter(n_order, Wn)
+        # signal_out = filtfilt(b, a, signal_in)
 
         # # FIR design arguements
         # Fs = sample_rate           # sample-rate, down-sampled
@@ -595,7 +641,7 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
 
         # ############
 
-    elif filter_order is 'auto':
+    elif filter_order == 'auto':
         # # FIR 4 design  -
         # https://www.programcreek.com/python/example/100540/scipy.signal.firwin
         # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html
@@ -605,9 +651,12 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
         window = 'kaiser'
         n_order, beta = kaiserord(ripple_db, width / nyq_rate)
         # Use firwin with a Kaiser window to create a lowpass FIR filter.
-        taps = firwin(numtaps=n_order + 1, cutoff=freq_cutoff, window=(window, beta), fs=sample_rate)
+        taps = firwin(numtaps=n_order + 1, cutoff=freq_cutoff,
+                      window=(window, beta), fs=sample_rate)
+        print(taps)
         # signal_out = lfilter(taps, 1.0, signal_in)   # for FIR, a=1
-        signal_out = filtfilt(taps, 1, signal_in, method="gust")  # for FIR, a=1
+        # for FIR, a=1
+        signal_out = filtfilt(taps, 1, signal_in, method="gust")
         # # Savitzky Golay
         # window_coef = int(nyq_rate / 50)
         #
@@ -618,7 +667,8 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
         #
         # signal_out = savgol_filter(signal_in, window, 3)
     else:
-        raise ValueError('Filter order "{}" not implemented'.format(filter_order))
+        raise ValueError(
+            'Filter order "{}" not implemented'.format(filter_order))
 
     # # Calculate the phase delay of the filtered signal
     # phase_delay = 0.5 * (filter_order - 1) / sample_rate
@@ -627,8 +677,9 @@ def filter_temporal(signal_in, sample_rate, freq_cutoff=100.0, filter_order='aut
     return signal_out.astype(signal_in.dtype)
 
 
-def filter_drift(signal_in, drift_order=2):
-    """Remove drift from an array of optical data using the subtraction of a polynomial fit.
+def filter_drift(signal_in, mask, drift_order=1):
+    """Remove drift from an array of optical data using the subtraction of a
+    polynomial fit.
 
         Parameters
         ----------
@@ -644,7 +695,26 @@ def filter_drift(signal_in, drift_order=2):
             A signal array with drift removed, dtype : signal_in.dtype
         drift : ndarray
             The values of the calculated polynomial drift used
-        """
+    """
+    # Clone the signal
+    signal_out = signal_in
+    # Iterate through the data removing drift from all non-masked out pixels
+    for n in np.arange(0, signal_in.shape[1]):
+        for m in np.arange(0, signal_in.shape[2]):
+            if not mask[n, m]:
+                # Create vector of x-values along which to fit the curve
+                sig_x = np.arange(0, len(signal_in[:, n, m]))
+                # Least squares polynomial fit of specified order
+                z = np.polyfit(sig_x, signal_in[:, n, m], drift_order)
+                # Conversion of fit to a polynomial class
+                p = np.poly1d(z)
+                # Evaluation of fit polynomial
+                drift_rm = np.polyval(p, sig_x)
+                # Remove drift
+                signal_out[:, n, m] = signal_in[:, n, m]-drift_rm
+    # Return the results
+    return signal_out
+    '''
     # Check parameters
     if type(signal_in) is not np.ndarray:
         raise TypeError('Signal data type must be an ndarray')
@@ -657,9 +727,9 @@ def filter_drift(signal_in, drift_order=2):
         if (drift_order < 1) or (drift_order > 5):
             raise ValueError('Drift order must be "exp" or an "int" >= 1 and <= 5')
     if type(drift_order) is str:
-        if drift_order is not 'exp':
+        if drift_order != 'exp':
             raise ValueError('Drift order "{}" not implemented'.format(drift_order))
-
+            
     def func_exp(x, a, b, c):
         return a * np.exp(-b * x) + c  # a decaying exponential curve to fit to
 
@@ -706,6 +776,7 @@ def filter_drift(signal_in, drift_order=2):
     drift_out = poly_y
 
     return signal_out.astype(signal_in.dtype), drift_out
+    '''
 
 
 def invert_signal(signal_in):
@@ -728,7 +799,7 @@ def invert_signal(signal_in):
         raise TypeError('Signal values must either be "uint16" or "float"')
 
     unique, counts = np.unique(signal_in, return_counts=True)
-    if len(unique) is 1:
+    if len(unique) == 1:
         return signal_in
 
     # calculate axis to rotate data around (middle value int or float)
@@ -758,7 +829,7 @@ def invert_stack(stack_in):
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
-    if len(stack_in.shape) is not 3:
+    if len(stack_in.shape) != 3:
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
@@ -811,7 +882,7 @@ def normalize_signal(signal_in):
 
 
 def normalize_stack(stack_in):
-    """Normalize the values of an image stack (3-D array) to range from 0 to 1..
+    """Normalize the values of an image stack (3-D array) to range from 0 to 1.
 
         Parameters
         ----------
@@ -826,7 +897,7 @@ def normalize_stack(stack_in):
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
-    if len(stack_in.shape) is not 3:
+    if len(stack_in.shape) != 3:
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
@@ -991,7 +1062,7 @@ def map_snr(stack_in, noise_count=10):
     # Check parameters
     if type(stack_in) is not np.ndarray:
         raise TypeError('Stack type must be an "ndarray"')
-    if len(stack_in.shape) is not 3:
+    if len(stack_in.shape) != 3:
         raise TypeError('Stack must be a 3-D ndarray (T, Y, X)')
     if stack_in.dtype not in [np.uint16, float]:
         raise TypeError('Stack values must either be "np.uint16" or "float"')
@@ -1126,7 +1197,7 @@ def calc_ensemble(time_in, signal_in, crop='center'):
 
     # With that peak detection, find activation times and align transient
     for act_num, i_act_full in enumerate(i_acts_full):
-        if crop is 'center':
+        if crop == 'center':
             # center : crop transients using the cycle length
             # cropped to center at the alignment points
 
